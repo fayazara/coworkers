@@ -1,0 +1,67 @@
+AGENTS.md
+  s_1fd8628afae02e::t_d722bdeaa38662 13-22
+README.md
+  s_1fd8628afae02e::t_757f38058a459b 28-29,68-71
+src/agents/bot-agent.ts
+  s_1fd8628afae02e::t_f36fc9135da1fa 24-25,31,93,103-125,145-148,223-227,285,288-291,293,295-296,298-299,318-319,323-345,347,362-363,371,466
+src/agents/prompt.ts
+  s_1fd8628afae02e::t_3eebf2694f963d 1,57,73,78,80,82,84
+src/agents/user-hub.ts
+  s_1fd8628afae02e::t_0273f795e7a597 4-10,13-15,22-25,32-46,49,52,134-142,144-145,148-149,152,155-156,161-163,165,170-174,176-210,212-216,219-235,237-265,293-298,300-313,315-337
+src/components/composer.tsx
+  s_1fd8628afae02e::t_660348c5b5951e 38,148-164
+src/components/computer-card.tsx
+  s_1fd8628afae02e::t_12c953d7ffbc58 158-160
+src/components/settings-panel.tsx
+  s_1fd8628afae02e::t_d7945cc1473cd3 11,86,138,148-162,164-167,170-172
+src/components/side-panel.tsx
+  s_1fd8628afae02e::t_761bc805897f75 18
+src/components/sidebar.tsx
+  s_1fd8628afae02e::t_ebbfc2825984bf 16,52,60,74-86,120
+src/components/slide-shell.tsx
+  s_1fd8628afae02e::t_8cd750f0a4a0fd 1-54
+src/components/thread.tsx
+  s_1fd8628afae02e::t_6a9e353ba90e0f 59-76,276-280,320-337,340-341,346-349
+src/lib/connection-status.ts
+  s_1fd8628afae02e::t_1d442bfc9e117c 1-16
+src/lib/hub-context.tsx
+  s_1fd8628afae02e::t_bef56bc5f3bfc7 24-25,62-63,88-89
+src/lib/layout-context.tsx
+  s_1fd8628afae02e::t_fe7f1feef4908f 1-44
+src/lib/server-fns.ts
+  s_1fd8628afae02e::t_bdbcfdea7dbaef 6,37-45,50
+src/lib/types.ts
+  s_1fd8628afae02e::t_ae2d2af74d0f91 49-52,59-79
+src/routes/__root.tsx
+  s_1fd8628afae02e::t_ab913df1b85fde 3,27-37
+src/routes/_app.tsx
+  s_1fd8628afae02e::t_5ad804dc926c08 3,5,16,19-21,30,32-43,45-47
+src/routes/_app/bots.$botId.computer.tsx
+  s_1fd8628afae02e::t_8b8b09b5e239b7 3-4,6
+src/routes/_app/bots.$botId.settings.tsx
+  s_1fd8628afae02e::t_3c64b49203dd00 3-4,6
+src/routes/_app/bots.$botId.tsx
+  s_1fd8628afae02e::t_6713c7a8e3c2fe 13-17,20-23,27,98,125-128,139-152,179-190
+src/routes/_app/connections.tsx
+  s_1fd8628afae02e::t_90374065e66b3a 1,8,13-15,167,189-206,227-234,240-259,275-281,306-314,321
+src/routes/_app/index.tsx
+  s_1fd8628afae02e::t_c7656fe5c27c4e 37-41,46-49,60,63
+src/styles.css
+  s_1fd8628afae02e::t_a01a522b9b1421 34-270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e069c29aa6167835153f4158634aed7ca025609c",
+  "prompts": {},
+  "sessions": {
+    "s_1fd8628afae02e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e46086af-42cd-46ec-8616-1bc5c22f9fd0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
