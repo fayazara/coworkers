@@ -1,0 +1,19 @@
+src/components/settings-panel.tsx
+  s_3e1ef87b179734::t_6a9d0888e15a76 841-845,847-853
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "75cde3305df698bc1a7d2932db662aac1ff8eb35",
+  "prompts": {},
+  "sessions": {
+    "s_3e1ef87b179734": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06f4e8b1-4736-4ef3-8181-a39e3b3715c3",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
