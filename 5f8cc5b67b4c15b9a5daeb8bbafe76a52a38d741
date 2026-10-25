@@ -1,0 +1,39 @@
+cloudflare.config.ts
+  s_17d37dd868859b::t_c5d317187db4cb 64-67,69-72
+src/agents/bot-agent.ts
+  s_17d37dd868859b::t_fc8141cbeed56b 402-404,648-663,745,850,2557,2563-2568
+src/agents/prompt.ts
+  s_17d37dd868859b::t_a11b8e26a11895 232,248-249,255,258-262,272,283
+src/components/computer-card.tsx
+  s_17d37dd868859b::t_1afdcc65387f0a 10,18-20,22-27,32-50,97-124,167-173,206-213,230,270-291,295-297,301-305,312
+src/components/computer-panel.tsx
+  s_17d37dd868859b::t_b6efcedcdb72ab 75,107
+src/components/icons.tsx
+  s_17d37dd868859b::t_30337522086dd3 14,18-21,85-86,95,106,115
+src/components/sidebar.tsx
+  s_17d37dd868859b::t_8da9aca5712791 20,71-74,77-80
+src/components/thread.tsx
+  s_17d37dd868859b::t_9514ff7ee9298d 17-18,34,242-246
+src/components/work-group.tsx
+  s_17d37dd868859b::t_e20470ecc9084f 1-388
+src/lib/message-parts.ts
+  s_17d37dd868859b::t_b889de69289e8c 215-217,287,336-431
+src/components/shimmer-text.tsx
+  s_17d37dd868859b::t_6af306c5d07ffa 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "179b1790a3d385545578a656b5726758d896a833",
+  "prompts": {},
+  "sessions": {
+    "s_17d37dd868859b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d87bd83e-e5bc-418c-9a7f-c71836729094",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
