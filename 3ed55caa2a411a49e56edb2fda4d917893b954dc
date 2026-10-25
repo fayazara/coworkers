@@ -1,0 +1,89 @@
+.gitignore
+  s_3e1ef87b179734::t_0e0b897fa5e7f3 25
+AGENTS.md
+  s_3e1ef87b179734::t_32f23070b79530 3,8,10,39
+README.md
+  s_3e1ef87b179734::t_cfaabc0804e5be 1,11,180-181,187,203,220,225-226,231-232,256,263,276,290
+cloudflare.config.ts
+  s_3e1ef87b179734::t_5f474c92dc144b 4-8,21-22,25
+docs/use-cases.md
+  s_3e1ef87b179734::t_83a788f092fad8 1,63-64
+installer/README.md
+  s_3e1ef87b179734::t_21c0508f9bccff 1,3-4,23,28,32,35,90,92,94-96,99,102
+installer/cloudflare.config.ts
+  s_3e1ef87b179734::t_8cc0dc3b2ad140 3,7,9
+installer/index.html
+  s_3e1ef87b179734::t_7bcee412800bc0 7
+installer/package.json
+  s_3e1ef87b179734::t_690c7505f38642 2
+installer/scripts/pack-release.ts
+  s_3e1ef87b179734::t_9efb595d72ce15 2,9,33-34,38,43,86,90,176
+installer/src/app/App.tsx
+  s_3e1ef87b179734::t_375e7cf611adfa 39,41
+installer/src/app/Done.tsx
+  s_3e1ef87b179734::t_317c80885198df 3-4
+installer/src/app/Landing.tsx
+  s_3e1ef87b179734::t_2069847e0de02f 47
+installer/src/app/Progress.tsx
+  s_3e1ef87b179734::t_91b1ffb1848426 4
+installer/src/app/Setup.tsx
+  s_3e1ef87b179734::t_84204f6946dd23 4-5,84,95,179,378
+installer/src/deploy/upload.ts
+  s_3e1ef87b179734::t_673b52b3b9904e 6,110,143
+installer/src/installer.ts
+  s_3e1ef87b179734::t_d696f6e3e3a009 2,243,250,304,341,349,382,392,403-404,413,434
+installer/src/oauth.ts
+  s_3e1ef87b179734::t_3d32ab20c5a769 32
+installer/src/release.ts
+  s_3e1ef87b179734::t_e243c5fcbb2514 24,43
+installer/src/session.ts
+  s_3e1ef87b179734::t_23bb1d39d14930 90
+installer/src/shared.ts
+  s_3e1ef87b179734::t_5645ff839d5292 25,58,97
+installer/tsconfig.json
+  s_3e1ef87b179734::t_5ba49b41f8caa2 21
+installer/vite.config.ts
+  s_3e1ef87b179734::t_1e71bab321c092 13-14
+installer/vitest.config.ts
+  s_3e1ef87b179734::t_4965496965ec21 9
+package.json
+  s_3e1ef87b179734::t_0be855d39064ec 2
+public/manifest.json
+  s_3e1ef87b179734::t_181928bce88c78 2-3
+public/sw.js
+  s_3e1ef87b179734::t_3a664da4dbd4a3 2,15,28
+scripts/setup.ts
+  s_3e1ef87b179734::t_d1d0ff3572275f 2,13,22-23,48,130-132,141-142,171,226,230,248,276,329,388,393,404,412
+src/agents/apps-runtime.ts
+  s_3e1ef87b179734::t_68f62de7fde130 16,19,44,145-146,167,189,308,328,358,361,390,419
+src/agents/bot-agent.ts
+  s_3e1ef87b179734::t_39d6811e9f2ad7 220,542,1890,2171,2174,2301,3283
+src/agents/prompt.ts
+  s_3e1ef87b179734::t_913f0bda627aec 318,321-325
+src/agents/teach.ts
+  s_3e1ef87b179734::t_7925f1285f7c88 15,18-19
+src/agents/user-hub.ts
+  s_3e1ef87b179734::t_026763663d14cf 278,662
+src/components/sidebar.tsx
+  s_3e1ef87b179734::t_e7ffca0a5e78a2 27
+src/lib/layout-context.tsx
+  s_3e1ef87b179734::t_b4333b885faac1 3-4,13
+src/routes/__root.tsx
+  s_3e1ef87b179734::t_d2eb38265df874 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e79dd878e43fea811b80d1b2d28c8f2ae63cf19d",
+  "prompts": {},
+  "sessions": {
+    "s_3e1ef87b179734": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06f4e8b1-4736-4ef3-8181-a39e3b3715c3",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
