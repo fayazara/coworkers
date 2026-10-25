@@ -1,0 +1,27 @@
+docs/use-cases.md
+  s_41cefa09a8a06d::t_6fd68d175e393a 1-144
+src/agents/bot-agent.ts
+  s_41cefa09a8a06d::t_27762cd2d48a6e 50,168-170,1430-1436,1438,1448-1451,1458,3021-3026,3029,3032-3103
+src/agents/user-hub.ts
+  s_41cefa09a8a06d::t_85310452155f93 8,590-596,616,621-625
+src/lib/types.ts
+  s_41cefa09a8a06d::t_cf9bce04d68b51 350-355
+src/agents/prompt.ts
+  s_41cefa09a8a06d::t_3124b22c8e30d0 336-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7f97de4bda013d2b7596f1e584bef497d70cdd16",
+  "prompts": {},
+  "sessions": {
+    "s_41cefa09a8a06d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16999462-411f-4e59-801c-fd4d039bbc24",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
