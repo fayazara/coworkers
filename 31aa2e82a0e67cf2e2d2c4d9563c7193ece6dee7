@@ -1,0 +1,19 @@
+src/components/thread.tsx
+  s_2f9de2802b96fc::t_a9c4e059755726 6,722-724
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ce94160cd9cf1544f1ab5ddcdfec4006eb151a7b",
+  "prompts": {},
+  "sessions": {
+    "s_2f9de2802b96fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d03dd2e-34b5-4e9c-8061-5c273d900023",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
