@@ -1,0 +1,21 @@
+src/agents/user-hub.ts
+  s_3e1ef87b179734::t_ce26595376146f 149-151,156-161
+src/components/settings-panel.tsx
+  s_3e1ef87b179734::t_367f9c158f0de7 842-843,845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "444c59f64e41f69a2127c57f050d48584d5e1167",
+  "prompts": {},
+  "sessions": {
+    "s_3e1ef87b179734": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06f4e8b1-4736-4ef3-8181-a39e3b3715c3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
