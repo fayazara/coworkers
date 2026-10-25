@@ -1,0 +1,29 @@
+.gitignore
+  s_f0c4bf48aa8dab::t_be5466b9af24a9 20-25
+AGENTS.md
+  s_f0c4bf48aa8dab::t_f9b3ec54a2bb8c 18,37-39
+cloudflare.config.ts
+  s_f0c4bf48aa8dab::t_e9fd8d3f3c755f 1,4-20,33-35,42-43,81-90,92,94-103
+src/lib/server-fns.ts
+  s_f0c4bf48aa8dab::t_586ca41002d56e 5,26-27,44,70
+src/server.ts
+  s_f0c4bf48aa8dab::t_5ad743711eb1f2 3,38-46
+src/lib/auth.ts
+  s_f0c4bf48aa8dab::t_a9ad72dcf086a1 1-2,6-10,14-44,47-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e5d6114f41003685e01e8fefa03700d08077214a",
+  "prompts": {},
+  "sessions": {
+    "s_f0c4bf48aa8dab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e385c489-4e0f-4169-8869-1c9ec7df4ede",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
