@@ -1,0 +1,19 @@
+README.md
+  s_3e1ef87b179734::t_db3e4886db0e13 10-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cb15269aa87d551a6d6446a118b25df68dea362c",
+  "prompts": {},
+  "sessions": {
+    "s_3e1ef87b179734": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06f4e8b1-4736-4ef3-8181-a39e3b3715c3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
