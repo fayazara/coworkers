@@ -1,0 +1,83 @@
+README.md
+  s_f0c4bf48aa8dab::t_90eda7d5da07df 170-181,183-184,186,189-214,216-218,221-232,234,236-283,285-303,321,323,327-328,340
+installer/.dev.vars.example
+  s_f0c4bf48aa8dab::t_9a94cb86a82298 1-3
+installer/README.md
+  s_f0c4bf48aa8dab::t_0ed1cc37b15088 1-113
+installer/cloudflare.config.ts
+  s_f0c4bf48aa8dab::t_7f44cb414124b5 1-44
+installer/index.html
+  s_f0c4bf48aa8dab::t_e11c40f25775f8 1-14
+installer/package.json
+  s_f0c4bf48aa8dab::t_5d6301722c92f5 1-38
+installer/scripts/pack-release.ts
+  s_f0c4bf48aa8dab::t_6fc66c34322f95 1-177
+installer/src/app/App.tsx
+  s_f0c4bf48aa8dab::t_9fc460807d3535 1-68
+installer/src/app/Done.tsx
+  s_f0c4bf48aa8dab::t_867ca43d259d4b 1-118
+installer/src/app/Landing.tsx
+  s_f0c4bf48aa8dab::t_9aeee3f243c4f3 1-107
+installer/src/app/Progress.tsx
+  s_f0c4bf48aa8dab::t_7ecd7427e75566 1-142
+installer/src/app/Setup.tsx
+  s_f0c4bf48aa8dab::t_b7b87cd562b1a2 1-393
+installer/src/app/icons.tsx
+  s_f0c4bf48aa8dab::t_07dcf16d0f4370 1-36
+installer/src/app/main.tsx
+  s_f0c4bf48aa8dab::t_8687d38d513e8d 1-10
+installer/src/app/styles.css
+  s_f0c4bf48aa8dab::t_a1779b6edb0d54 1-169
+installer/src/cf-api.ts
+  s_f0c4bf48aa8dab::t_6fc9798bd9decb 1-340
+installer/src/deploy/upload.test.ts
+  s_f0c4bf48aa8dab::t_31910d2a8bf160 1-11
+installer/src/deploy/upload.ts
+  s_f0c4bf48aa8dab::t_e4d772ce723bb4 1-186
+installer/src/installer.ts
+  s_f0c4bf48aa8dab::t_fcba31554d1d4c 1-535
+installer/src/oauth.ts
+  s_f0c4bf48aa8dab::t_cec352090d383b 1-154
+installer/src/session.test.ts
+  s_f0c4bf48aa8dab::t_4d85b356b397f8 1-32
+installer/src/shared.ts
+  s_f0c4bf48aa8dab::t_ec694fd54f2d00 1-127
+installer/src/worker.ts
+  s_f0c4bf48aa8dab::t_22b69e19b126e7 1-157
+installer/tsconfig.json
+  s_f0c4bf48aa8dab::t_e4270525e4e798 1-24
+installer/vite.config.ts
+  s_f0c4bf48aa8dab::t_d8d734e4859322 1-18
+installer/vitest.config.ts
+  s_f0c4bf48aa8dab::t_1488f7c4d91b12 1-13
+package.json
+  s_f0c4bf48aa8dab::t_768567b2998f51 11
+pnpm-lock.yaml
+  s_f0c4bf48aa8dab::t_9a2561ea5be949 169-232,7807-7838
+pnpm-workspace.yaml
+  s_f0c4bf48aa8dab::t_83f158ec3b08ba 1-4
+scripts/setup.ts
+  s_f0c4bf48aa8dab::t_ffb09edd0ce9a1 1-448
+tsconfig.json
+  s_f0c4bf48aa8dab::t_28a74239408fdf 10
+installer/src/release.ts
+  s_f0c4bf48aa8dab::t_44a5c9f8c60098 1-49
+installer/src/session.ts
+  s_f0c4bf48aa8dab::t_df7b50b6fd7374 1-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "dd0fffd8ee77c17a9c406bd4189aabb0a09d1814",
+  "prompts": {},
+  "sessions": {
+    "s_f0c4bf48aa8dab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e385c489-4e0f-4169-8869-1c9ec7df4ede",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
