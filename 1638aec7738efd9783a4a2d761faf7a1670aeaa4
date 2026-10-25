@@ -1,0 +1,45 @@
+src/agents/bot-agent.ts
+  s_f0c4bf48aa8dab::t_de32708ab78dcc 34-35,97,821-823,825,829-830,834,837-846,894-906,3774-3775,3778-3781,3784
+src/agents/models.ts
+  s_f0c4bf48aa8dab::t_6c4fd82386a456 1-72
+src/agents/user-hub.ts
+  s_f0c4bf48aa8dab::t_4c9b7829a0cf8f 3,5-6,19,60-65,79,82,418-481
+src/components/connections-settings.tsx
+  s_f0c4bf48aa8dab::t_117260e2d6487d 323,333-347,349-356,358-369,371-372
+src/components/model-picker.tsx
+  s_f0c4bf48aa8dab::t_4e620efd7635ac 1-153
+src/components/models-settings.tsx
+  s_f0c4bf48aa8dab::t_d7e345c297a8f3 1-205
+src/components/settings-panel.tsx
+  s_f0c4bf48aa8dab::t_a1031936b33370 10,141-173,444-445,929
+src/components/sidebar.tsx
+  s_f0c4bf48aa8dab::t_0e0c993b21c37b 259,261
+src/lib/hub-context.tsx
+  s_f0c4bf48aa8dab::t_c50eab0b5ff647 10,35-41,103,149-155
+src/lib/models.ts
+  s_f0c4bf48aa8dab::t_7bf0c449d1aab9 1-299
+src/lib/types.ts
+  s_f0c4bf48aa8dab::t_6eeeab22e909b7 7,90-93,258-259
+src/routeTree.gen.ts
+  s_f0c4bf48aa8dab::t_34856728584cd3 14,30-32,64,72,83,95,103,113,144-148,204,210
+src/routes/_app/settings.tsx
+  s_f0c4bf48aa8dab::t_63e1905a9410c4 1-76
+src/styles.css
+  s_f0c4bf48aa8dab::t_b6f9b191597e04 796-821
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5a92be39a393011b634d67f8bfa53a48fec17d6d",
+  "prompts": {},
+  "sessions": {
+    "s_f0c4bf48aa8dab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e385c489-4e0f-4169-8869-1c9ec7df4ede",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
