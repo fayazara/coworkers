@@ -1,0 +1,19 @@
+src/agents/user-hub.ts
+  s_65ee5af888028c::t_ac10c8186fee56 148-149,154-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a1f0d108c7795ab99a52684cc3c6821094f669d2",
+  "prompts": {},
+  "sessions": {
+    "s_65ee5af888028c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f1c611d-6e46-478f-b4cd-b4c5e38cfc13",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
