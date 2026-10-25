@@ -1,0 +1,35 @@
+src/styles.css
+  s_41cefa09a8a06d::t_235b2c5a1b060e 28-40,99-100,783-795
+src/components/sidebar.tsx
+  s_41cefa09a8a06d::t_f6fa3a4c486005 235-238
+.agents/skills/hugeicons-migrate/SKILL.md
+  s_41cefa09a8a06d::t_119eab3d762b5f 1-146
+.agents/skills/hugeicons-migrate/references/from-heroicons.md
+  s_41cefa09a8a06d::t_99f5b3c739e347 1-215
+.agents/skills/hugeicons-migrate/references/from-lucide.md
+  s_41cefa09a8a06d::t_0dcbfb218b08ac 1-128
+.agents/skills/hugeicons-migrate/references/from-react-icons.md
+  s_41cefa09a8a06d::t_0a3e5c705fcd06 1-300
+.agents/skills/hugeicons-migrate/references/legacy-hugeicons.md
+  s_41cefa09a8a06d::t_dee0097ad9bc91 1-225
+.agents/skills/hugeicons/SKILL.md
+  s_41cefa09a8a06d::t_fd53e863f22e20 1-411
+skills-lock.json
+  s_41cefa09a8a06d::t_d34edd5378c9a2 10-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5f29b266d190119aac7dd4bba742145ab32d4cb6",
+  "prompts": {},
+  "sessions": {
+    "s_41cefa09a8a06d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16999462-411f-4e59-801c-fd4d039bbc24",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
