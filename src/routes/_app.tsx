@@ -13,7 +13,8 @@ export const Route = createFileRoute("/_app")({
 })
 
 function Shell() {
-  const { sidebarOpen, setSidebarOpen, widths, setWidth } = useLayout()
+  const { sidebarOpen, setSidebarOpen, setSidebarOverlay, widths, setWidth } =
+    useLayout()
   return (
     <div className="h-full">
       <SplitView
@@ -26,6 +27,7 @@ function Shell() {
         mainMinWidth={480}
         onWidthChange={(px) => setWidth("sidebar", px)}
         onClose={() => setSidebarOpen(false)}
+        onOverlayChange={setSidebarOverlay}
         panel={<Sidebar />}
       >
         <main className="flex h-full min-w-0 flex-1 bg-kumo-base">

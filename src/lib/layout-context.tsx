@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react"
+import { useLocation } from "@tanstack/react-router"
 
 export const SIDEBAR_COOKIE = "coworkers-sidebar"
 export const WIDTHS_COOKIE = "coworkers-widths"
@@ -32,6 +39,8 @@ interface LayoutContextValue {
   sidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
+  /** The sidebar is a drawer over the page because the window is narrow. */
+  setSidebarOverlay: (overlay: boolean) => void
   widths: PanelWidths
   setWidth: (key: keyof PanelWidths, px: number) => void
 }
@@ -46,7 +55,9 @@ export function useLayout() {
 
 /**
  * App chrome state. The sidebar preference and panel widths live in cookies
- * so the server renders them in place and nothing moves on page load.
+ * so the server renders them in place and nothing moves on page load. On a
+ * narrow window the sidebar is a drawer instead: it starts closed, closes
+ * after each navigation, and does not touch the saved preference.
  */
 export function LayoutProvider({
   initialSidebarOpen,
@@ -57,20 +68,28 @@ export function LayoutProvider({
   initialWidths: PanelWidths
   children: React.ReactNode
 }) {
-  const [sidebarOpen, setOpen] = useState(initialSidebarOpen)
+  const [dockedOpen, setDockedOpen] = useState(initialSidebarOpen)
+  const [overlay, setSidebarOverlay] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [widths, setWidths] = useState(initialWidths)
+  const sidebarOpen = overlay ? drawerOpen : dockedOpen
 
-  const setSidebarOpen = useCallback((open: boolean) => {
-    setOpen(open)
-    writeCookie(SIDEBAR_COOKIE, open ? "open" : "closed")
-  }, [])
+  const pathname = useLocation({ select: (location) => location.pathname })
+  useEffect(() => setDrawerOpen(false), [pathname])
 
-  const toggleSidebar = useCallback(() => {
-    setOpen((open) => {
-      writeCookie(SIDEBAR_COOKIE, open ? "closed" : "open")
-      return !open
-    })
-  }, [])
+  const setSidebarOpen = useCallback(
+    (open: boolean) => {
+      if (overlay) return setDrawerOpen(open)
+      setDockedOpen(open)
+      writeCookie(SIDEBAR_COOKIE, open ? "open" : "closed")
+    },
+    [overlay]
+  )
+
+  const toggleSidebar = useCallback(
+    () => setSidebarOpen(!sidebarOpen),
+    [setSidebarOpen, sidebarOpen]
+  )
 
   const setWidth = useCallback((key: keyof PanelWidths, px: number) => {
     setWidths((current) => {
@@ -85,7 +104,14 @@ export function LayoutProvider({
 
   return (
     <LayoutContext.Provider
-      value={{ sidebarOpen, toggleSidebar, setSidebarOpen, widths, setWidth }}
+      value={{
+        sidebarOpen,
+        toggleSidebar,
+        setSidebarOpen,
+        setSidebarOverlay,
+        widths,
+        setWidth,
+      }}
     >
       {children}
     </LayoutContext.Provider>
