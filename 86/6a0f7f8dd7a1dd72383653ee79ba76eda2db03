@@ -1,0 +1,23 @@
+src/agents/bot-agent.ts
+  s_b26aa09ef32f7b::t_ec25f25af529c9 91,964-970,1189-1192
+src/agents/prompt.test.ts
+  s_b26aa09ef32f7b::t_0886fe199d0cf7 1-33
+src/agents/prompt.ts
+  s_b26aa09ef32f7b::t_c9fab3d75f139e 1,341-370,390-392,394
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "866a0f7f8dd7a1dd72383653ee79ba76eda2db03",
+  "prompts": {},
+  "sessions": {
+    "s_b26aa09ef32f7b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0622a7bc-1019-41eb-b355-c0748fc951b6",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
