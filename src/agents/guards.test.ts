@@ -5,6 +5,7 @@ import {
   KEEP_PAGE_RESULTS,
   LoopGuard,
   MAX_IDENTICAL_CALLS,
+  MAX_REPEATS_PER_TURN,
   MAX_TOOL_RESULT_CHARS,
   shapeToolResults,
   stableJson,
@@ -36,10 +37,38 @@ describe("LoopGuard", () => {
     }
   })
 
+  it("blocks a call that keeps coming back between other calls", () => {
+    const guard = new LoopGuard()
+    const click = { selector: "#submit" }
+    for (let i = 0; i < MAX_REPEATS_PER_TURN; i++) {
+      expect(guard.check("browser_click", click)).toBeNull()
+      expect(guard.check("browser_markdown", { url: "https://x.test" })).toBeNull()
+    }
+    expect(guard.check("browser_click", click)).toMatch(/this turn/)
+  })
+
+  it("lets calls with no arguments recur between other calls", () => {
+    const guard = new LoopGuard()
+    for (let i = 0; i < 40; i++) {
+      expect(guard.check("browser_screenshot", {})).toBeNull()
+      expect(guard.check("browser_click", { x: i, y: 10 })).toBeNull()
+    }
+  })
+
   it("starts over after reset", () => {
     const guard = new LoopGuard()
     for (let i = 0; i <= MAX_IDENTICAL_CALLS; i++)
       guard.check("exec", { command: "ls" })
+    guard.reset()
+    expect(guard.check("exec", { command: "ls" })).toBeNull()
+  })
+
+  it("clears the per-turn count on reset", () => {
+    const guard = new LoopGuard()
+    for (let i = 0; i < MAX_REPEATS_PER_TURN; i++) {
+      guard.check("exec", { command: "ls" })
+      guard.check("exec", { command: "pwd" })
+    }
     guard.reset()
     expect(guard.check("exec", { command: "ls" })).toBeNull()
   })

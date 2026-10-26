@@ -7,6 +7,8 @@ import type { ModelMessage, ToolResultPart } from "ai"
 
 /** Identical consecutive calls allowed before the guard blocks the next one. */
 export const MAX_IDENTICAL_CALLS = 5
+/** Identical calls allowed in one turn, even with other calls in between. */
+export const MAX_REPEATS_PER_TURN = 8
 
 /** JSON with sorted keys, so `{a, b}` and `{b, a}` are the same call. */
 export function stableJson(value: unknown): string {
@@ -21,26 +23,38 @@ export function stableJson(value: unknown): string {
 }
 
 /**
- * Stops a model that keeps making the exact same tool call. A call that
- * differs in any argument resets the count, so polling with a changing
- * cursor or retrying with a fix is never blocked.
+ * Stops a model that keeps making the exact same tool call, either back to
+ * back or alternating with other calls (A, B, A, B). A call that differs in
+ * any argument is a different call, so polling with a changing cursor or
+ * retrying with a fix is never blocked. Calls with no arguments, like a
+ * fresh screenshot between clicks, only count when back to back.
  */
 export class LoopGuard {
   #last = ""
   #count = 0
+  #seen = new Map<string, number>()
 
+  /** Call at the start of every turn. */
   reset() {
     this.#last = ""
     this.#count = 0
+    this.#seen.clear()
   }
 
   /** Returns a block reason once the same call repeats too often. */
   check(toolName: string, input: unknown): string | null {
-    const key = `${toolName}:${stableJson(input)}`
+    const args = stableJson(input)
+    const key = `${toolName}:${args}`
     this.#count = key === this.#last ? this.#count + 1 : 1
     this.#last = key
-    if (this.#count <= MAX_IDENTICAL_CALLS) return null
-    return `You have made this exact ${toolName} call ${MAX_IDENTICAL_CALLS} times in a row and it will not change the result. Stop retrying. Tell the user what you were trying to do, what came back, and what you need from them.`
+    if (this.#count > MAX_IDENTICAL_CALLS) {
+      return `You have made this exact ${toolName} call ${MAX_IDENTICAL_CALLS} times in a row and it will not change the result. Stop retrying. Tell the user what you were trying to do, what came back, and what you need from them.`
+    }
+    if (args === "null" || args === "{}") return null
+    const seen = (this.#seen.get(key) ?? 0) + 1
+    this.#seen.set(key, seen)
+    if (seen <= MAX_REPEATS_PER_TURN) return null
+    return `You have made this exact ${toolName} call ${MAX_REPEATS_PER_TURN} times this turn, with other calls in between, and it is not getting anywhere. Stop repeating it. Tell the user what you were trying to do, what came back, and what you need from them.`
   }
 }
 
