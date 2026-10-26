@@ -1,0 +1,29 @@
+src/agents/bot-agent.ts
+  s_035fb76c938626::t_04a4aa1d1d8141 3025-3058
+src/components/approval-popover.tsx
+  s_035fb76c938626::t_d9fc3f96d24f97 1-155
+src/components/sidebar.tsx
+  s_035fb76c938626::t_794d4829de3b07 19,117-118,163-168
+src/lib/hub-context.tsx
+  s_035fb76c938626::t_31848c47f4f4c4 4,29-35,105-106,136-138
+src/agents/user-hub.ts
+  s_035fb76c938626::t_25441d65c18da7 171-185
+src/routes/_app/bots.$botId.tsx
+  s_035fb76c938626::t_310d89dc671e80 51-61,292-297,301-303,308,312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "52df8532036dc8fbf5038bc76cdaee0b80db198c",
+  "prompts": {},
+  "sessions": {
+    "s_035fb76c938626": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba5b814c-8b6c-49f3-9090-1d3e354fd227",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
