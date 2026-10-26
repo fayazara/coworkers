@@ -1,0 +1,19 @@
+src/components/approval-popover.tsx
+  s_035fb76c938626::t_eccd4b7cdbbc5c 95-97,110,120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "fd4cbe5c79777bf26ff8c27062a79dcb3df69e10",
+  "prompts": {},
+  "sessions": {
+    "s_035fb76c938626": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba5b814c-8b6c-49f3-9090-1d3e354fd227",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
