@@ -1,0 +1,19 @@
+src/components/computer-card.tsx
+  s_035fb76c938626::t_2aaf65c47a0bfc 87-90,503,505,542-544
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1bb3fe455424e39000cbea880532121c05511c85",
+  "prompts": {},
+  "sessions": {
+    "s_035fb76c938626": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba5b814c-8b6c-49f3-9090-1d3e354fd227",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
