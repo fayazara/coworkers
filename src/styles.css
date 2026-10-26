@@ -306,6 +306,51 @@
 }
 
 /*
+ * When the panel and the main content do not fit side by side, the panel
+ * slides in over the main content instead, above a backdrop that closes it.
+ */
+.split-drawer {
+  position: absolute;
+  inset-block: 0;
+  z-index: 30;
+  transform: translateX(calc(100% * var(--split-from)));
+  transition: transform var(--panel-close-dur) var(--panel-ease);
+}
+
+.split-drawer[data-side="left"] {
+  --split-from: -1;
+  left: 0;
+  width: min(85%, 320px);
+}
+
+.split-drawer[data-side="right"] {
+  --split-from: 1;
+  right: 0;
+  width: 100%;
+}
+
+.split-drawer[data-open="true"] {
+  transform: translateX(0);
+  transition-duration: var(--panel-open-dur);
+}
+
+.split-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: oklch(0 0 0 / 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--panel-close-dur) var(--panel-ease);
+}
+
+.split-backdrop[data-open="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  transition-duration: var(--panel-open-dur);
+}
+
+/*
  * The line between panels. Hovering shows a grip on the line at the
  * pointer's height (--grip-y, set from script); it follows while dragging.
  */
@@ -754,6 +799,8 @@
 @media (prefers-reduced-motion: reduce) {
   .split-view > [data-panel],
   .split-content,
+  .split-drawer,
+  .split-backdrop,
   .resize-grip,
   .composer,
   .composer-card,

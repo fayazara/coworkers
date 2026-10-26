@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels"
 
 // Match --panel-open-dur and --panel-close-dur in styles.css.
@@ -53,15 +53,18 @@ interface SplitViewProps {
   mainMinWidth: number
   /** The user finished resizing the open panel. */
   onWidthChange: (px: number) => void
-  /** The user dragged the panel shut. */
+  /** The user dragged the panel shut, or tapped outside the drawer. */
   onClose: () => void
+  /** The panel moved between docked beside the main content and a drawer. */
+  onOverlayChange?: (overlay: boolean) => void
   panel: React.ReactNode
   children: React.ReactNode
 }
 
 /**
  * Main content beside a panel that slides open and shut and can be resized
- * by dragging the line between them.
+ * by dragging the line between them. When the two do not fit side by side
+ * (a phone), the panel slides over the main content as a drawer instead.
  */
 export function SplitView({
   id,
@@ -73,27 +76,46 @@ export function SplitView({
   mainMinWidth,
   onWidthChange,
   onClose,
+  onOverlayChange,
   panel,
   children,
 }: SplitViewProps) {
+  const boxRef = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const panelRef = usePanelRef()
   const widthRef = useRef(width)
   widthRef.current = width
-  const openRef = useRef(open)
-  const callbacks = useRef({ onWidthChange, onClose })
-  callbacks.current = { onWidthChange, onClose }
+  const [overlay, setOverlay] = useState(false)
+  const docked = open && !overlay
+  const openRef = useRef(docked)
+  const callbacks = useRef({ onWidthChange, onClose, onOverlayChange })
+  callbacks.current = { onWidthChange, onClose, onOverlayChange }
+
+  // Measured before paint so a phone never shows a squeezed panel.
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const update = () => {
+      const next = box.clientWidth < minWidth + mainMinWidth
+      setOverlay(next)
+      callbacks.current.onOverlayChange?.(next)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [minWidth, mainMinWidth])
 
   // Open and close by resizing the panel; CSS animates the change.
   useEffect(() => {
-    if (openRef.current === open) return
-    openRef.current = open
+    if (openRef.current === docked) return
+    openRef.current = docked
     const group = groupRef.current
     const handle = panelRef.current
     if (!group || !handle) return
-    group.dataset.animating = open ? "open" : "close"
-    if (open) {
+    group.dataset.animating = docked ? "open" : "close"
+    if (docked) {
       const target = widthRef.current
       if (typeof target === "number") handle.resize(target)
       else handle.expand()
@@ -102,16 +124,16 @@ export function SplitView({
     }
     const timer = setTimeout(
       () => delete group.dataset.animating,
-      open ? OPEN_MS : CLOSE_MS
+      docked ? OPEN_MS : CLOSE_MS
     )
     return () => clearTimeout(timer)
-  }, [open, panelRef])
+  }, [docked, panelRef])
 
   const sidePanel = (
     <Panel
       id={`${id}-panel`}
       panelRef={panelRef}
-      defaultSize={open ? width : 0}
+      defaultSize={docked ? width : 0}
       minSize={minWidth}
       maxSize={maxWidth}
       collapsible
@@ -131,7 +153,7 @@ export function SplitView({
       <div
         ref={contentRef}
         className="split-content"
-        data-open={open}
+        data-open={docked}
         data-side={side}
         style={
           {
@@ -139,9 +161,9 @@ export function SplitView({
           } as React.CSSProperties
         }
         // Keep a closed panel out of the tab order and the accessibility tree.
-        inert={!open}
+        inert={!docked}
       >
-        {panel}
+        {overlay ? null : panel}
       </div>
     </Panel>
   )
@@ -158,24 +180,47 @@ export function SplitView({
   )
 
   return (
-    <Group
-      id={id}
-      elementRef={groupRef}
-      className="split-view"
-      resizeTargetMinimumSize={{ fine: 10, coarse: 28 }}
-      onLayoutChanged={(_layout, meta) => {
-        const handle = panelRef.current
-        if (!meta.isUserInteraction || !handle) return
-        if (handle.isCollapsed()) {
-          if (openRef.current) callbacks.current.onClose()
-        } else {
-          callbacks.current.onWidthChange(handle.getSize().inPixels)
-        }
-      }}
+    <div
+      ref={boxRef}
+      className="relative h-full w-full min-w-0 overflow-hidden"
     >
-      {side === "left" ? sidePanel : main}
-      <ResizeHandle disabled={!open} />
-      {side === "left" ? main : sidePanel}
-    </Group>
+      <Group
+        id={id}
+        elementRef={groupRef}
+        className="split-view"
+        resizeTargetMinimumSize={{ fine: 10, coarse: 28 }}
+        onLayoutChanged={(_layout, meta) => {
+          const handle = panelRef.current
+          if (!meta.isUserInteraction || !handle) return
+          if (handle.isCollapsed()) {
+            if (openRef.current) callbacks.current.onClose()
+          } else {
+            callbacks.current.onWidthChange(handle.getSize().inPixels)
+          }
+        }}
+      >
+        {side === "left" ? sidePanel : main}
+        <ResizeHandle disabled={!docked} />
+        {side === "left" ? main : sidePanel}
+      </Group>
+      {overlay ? (
+        <>
+          <div
+            className="split-backdrop"
+            data-open={open}
+            aria-hidden="true"
+            onClick={() => callbacks.current.onClose()}
+          />
+          <div
+            className="split-drawer bg-kumo-canvas"
+            data-open={open}
+            data-side={side}
+            inert={!open}
+          >
+            {panel}
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
