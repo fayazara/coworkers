@@ -1,0 +1,19 @@
+src/routes/_app/bots.$botId.tsx
+  s_035fb76c938626::t_32cb87c135e041 51-52,56,290-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8ab558140dd5ed857341bf80821f4395185f84e7",
+  "prompts": {},
+  "sessions": {
+    "s_035fb76c938626": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba5b814c-8b6c-49f3-9090-1d3e354fd227",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
