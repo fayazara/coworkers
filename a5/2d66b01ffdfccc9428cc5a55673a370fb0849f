@@ -1,0 +1,25 @@
+src/components/pipeline-runs.tsx
+  s_64b9dce45fb676::t_84c07d872691e4 23,86-87,116,118-126,129-130,134-135,137-163,165-184,186-193,279-282,307,310,320-325,350,354-367,373,388,396-411,425-427,490,511,526,533-540,544,551-556,560,565,576
+src/lib/pipeline-summary.test.ts
+  s_64b9dce45fb676::t_a8ec2d0e599b0c 2,39-53
+src/lib/pipeline-summary.ts
+  s_64b9dce45fb676::t_4d290f54641d5e 50-57
+src/styles.css
+  s_64b9dce45fb676::t_094ff122fda3b3 266-269,272-274,282-320,323,325,327
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a52d66b01ffdfccc9428cc5a55673a370fb0849f",
+  "prompts": {},
+  "sessions": {
+    "s_64b9dce45fb676": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_64b9dce45fb676",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
