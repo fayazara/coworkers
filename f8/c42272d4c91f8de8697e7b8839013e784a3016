@@ -1,0 +1,19 @@
+installer/cloudflare.config.ts
+  s_fda047b70d86c8::t_fa6ca098803523 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f8c42272d4c91f8de8697e7b8839013e784a3016",
+  "prompts": {},
+  "sessions": {
+    "s_fda047b70d86c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_fda047b70d86c8",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
