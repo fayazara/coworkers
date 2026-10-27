@@ -1,0 +1,43 @@
+AGENTS.md
+  s_94969318af4ff3::t_af70ba7e6fd60e 40-46
+README.md
+  s_94969318af4ff3::t_c05d1ed19cc818 57,140
+package.json
+  s_94969318af4ff3::t_78d5c9b6443002 22
+pnpm-lock.yaml
+  s_94969318af4ff3::t_6881badf5b5619 21-22,31,548-549,554,564-565,594,5819-5820,5873,5878,5928,5933,6503-6504,6509,6514,6519,6524,6563-6564,6649-6650,7459,7461-7462,7895-7896,8101-8102,8576,8586,8606,8824-8825,8870-8871,8969,9531-9532,9685-9686,9712-9713,9809,9818,9837-9838,10037,10188-10189,10210-10211,10213-10214,10254,10259,10331,10373,10432-10433,10699-10700
+src/agents/bot-agent.ts
+  s_94969318af4ff3::t_ee41d411b40510 1-5,8-12,15,70,102,107,149,185-190,217,557-573,576,591,606-609,773-784,809-813,1061,1270-1275,1279,2723-3226,3355-3357,3467,3500,3548-3553,3746-3750
+src/agents/prompt.test.ts
+  s_94969318af4ff3::t_bdb08cccba9862 3,15-17,28-30,38-83
+src/agents/prompt.ts
+  s_94969318af4ff3::t_979bed78fefa4e 146-198,344
+src/agents/user-hub.ts
+  s_94969318af4ff3::t_6f75d6a709c947 240-259
+src/components/approval-popover.tsx
+  s_94969318af4ff3::t_75d8633f03cf71 11,16-17,43-44,50,67-85,151-186,188-191
+src/components/thread.tsx
+  s_94969318af4ff3::t_2f9ade9936a365 20,50,85-87,92-96,254-324,634-635,646-648,726-727,877-888
+src/lib/hub-context.tsx
+  s_94969318af4ff3::t_8570363c15f880 13,40-46,130-131,165-172
+src/lib/types.ts
+  s_94969318af4ff3::t_6f4db4bff45322 266-288,306-307
+src/routes/_app/bots.$botId.tsx
+  s_94969318af4ff3::t_1e3ee5ef9a9fb6 42,324-333,359-360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f2580db4bf7e09e4336a52aafe40f1a4e54b7091",
+  "prompts": {},
+  "sessions": {
+    "s_94969318af4ff3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_94969318af4ff3",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
