@@ -1,0 +1,21 @@
+src/components/pipeline-runs.tsx
+  s_115ce4503811f4::t_20ec666842ec59 14,124,140-144,159,164,231-232,239,248-250,253,255-256,291-293,314,421-426,676-682,685
+src/styles.css
+  s_115ce4503811f4::t_85221eae3de867 272-273,276,289-290,314-317,325
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ca35693222f1269b7676434e451130b3684e8a21",
+  "prompts": {},
+  "sessions": {
+    "s_115ce4503811f4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_115ce4503811f4",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
