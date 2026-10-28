@@ -338,12 +338,18 @@ error; a rate limit produces an HTTP 429 message without an automatic retry.
 
 No code change or deployment secret is needed for this route:
 
-1. Open **Settings → Connections** and add an MCP server named **Parallel**.
-2. Set its URL to
-   `https://mcp.parallel.ai/mcp?tools=web_search,web_fetch`.
-3. Connect without headers for free access at lower rate limits. For paid
-   access with your own key, add the header `Authorization` with value
-   `Bearer YOUR_PARALLEL_API_KEY`.
+Open **Settings → Connections** and click **Connect** on the **Parallel** row
+under **Quick connect**. One click adds web search and page reads without an
+API key, with free access at lower rate limits. The connection then appears
+under **Your connections**, where you can check its status, retry or remove it.
+If you already connected an official Parallel MCP server, the shortcut is
+hidden to avoid adding it twice.
+
+For paid access with your own key, use **Add a connection** instead. Set the
+name to **Parallel**, the URL to
+`https://mcp.parallel.ai/mcp?tools=web_search,web_fetch`, and add the header
+`Authorization` with value `Bearer YOUR_PARALLEL_API_KEY`. Remove an existing
+free connection first if you want to replace it with your own key.
 
 The connection is shared by your bots and uses the **Use connected apps**
 rule. Read-only app tools can run in background turns unless that rule is

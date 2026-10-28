@@ -20,6 +20,105 @@ interface HeaderRow {
 // Executor on Cloudflare sits behind Access; bots sign in with a service token.
 const EXECUTOR_HEADERS = ["CF-Access-Client-Id", "CF-Access-Client-Secret"]
 
+const PARALLEL_MCP_URL =
+  "https://mcp.parallel.ai/mcp?tools=web_search,web_fetch"
+
+function isParallelConnection(value: string) {
+  try {
+    const url = new URL(value)
+    return (
+      [
+        "https://mcp.parallel.ai",
+        "https://search.parallel.ai",
+        "https://search-mcp.parallel.ai",
+      ].includes(url.origin) &&
+      ["/mcp", "/mcp-oauth"].includes(url.pathname.replace(/\/+$/, ""))
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Official marks from https://assets.parallel.ai/llms.txt, served locally. */
+function ParallelMark() {
+  return (
+    <>
+      <img
+        src="/parallel-symbol.svg"
+        alt=""
+        width={20}
+        height={20}
+        className="size-5 dark:hidden"
+      />
+      <img
+        src="/parallel-symbol-white.svg"
+        alt=""
+        width={20}
+        height={20}
+        className="hidden size-5 dark:block"
+      />
+    </>
+  )
+}
+
+/** The hub owns the connection; all of this user's bots get its tools. */
+function ParallelQuickConnect() {
+  const hub = useHub()
+  const [saving, setSaving] = useState(false)
+  const [added, setAdded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function connect() {
+    if (!hub.live || saving || added) return
+    setError(null)
+    setSaving(true)
+    try {
+      await hub.addConnection({ name: "Parallel", url: PARALLEL_MCP_URL })
+      // Keep it disabled until live state moves it to Your connections.
+      setAdded(true)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not connect to Parallel."
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Group
+        title="Quick connect"
+        hint="No API key needed. Free access has lower rate limits."
+      >
+        <Row
+          icon={<ParallelMark />}
+          label="Parallel"
+          detail="Search the web and read pages."
+        >
+          <Button
+            type="button"
+            aria-label={added ? "Parallel added" : "Connect Parallel"}
+            size="sm"
+            variant="primary"
+            className="btn-ink min-h-10 shrink-0 rounded-full"
+            loading={saving}
+            disabled={!hub.live || saving || added}
+            onClick={() => void connect()}
+          >
+            {added ? "Added" : "Connect"}
+          </Button>
+        </Row>
+      </Group>
+      {error ? (
+        <p role="alert" className="px-1.5 text-xs text-pretty text-kumo-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 let nextKey = 0
 function emptyRow(name = ""): HeaderRow {
   return { key: nextKey++, name, value: "" }
@@ -255,7 +354,13 @@ function ConnectionRow({ connection }: { connection: Connection }) {
 
   return (
     <Row
-      icon={<PlugsConnectedIcon size={14} />}
+      icon={
+        isParallelConnection(connection.url) ? (
+          <ParallelMark />
+        ) : (
+          <PlugsConnectedIcon size={14} />
+        )
+      }
       label={connection.name}
       detail={
         <>
@@ -367,6 +472,12 @@ export function ConnectionsSettings({ error }: { error?: string }) {
           ))
         )}
       </Group>
+
+      {!hub.state.connections.some((connection) =>
+        isParallelConnection(connection.url)
+      ) ? (
+        <ParallelQuickConnect />
+      ) : null}
 
       <AddConnection />
     </div>
