@@ -56,6 +56,7 @@ flowchart LR
 | Chat           | Streaming, resumable turns. Names itself from your first task                |
 | Computer       | Files in `/workspace`, a shell (`curl`, `jq`) and JavaScript scripts in Dynamic Workers. No container. Scripts survive deploys and can pause for your OK before touching your apps |
 | Read the web   | Quick reads (markdown, extract, links, screenshot, PDF, crawl). Kitesurf first, Chromium fallback |
+| Search the web | Optional Parallel Search through AI Gateway, or a connected search MCP |
 | Drive a browser| A real Chromium session you can watch live                                  |
 | Take over      | Bot hands you its browser to sign in. You click **I'm done**, it continues   |
 | Your apps      | Calls tools on connected MCP servers or Executor                             |
@@ -285,6 +286,72 @@ models need nothing more. For Anthropic, OpenAI, Google or xAI, add
 [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/)
 credits or your own provider key to the gateway, then press **Test**.
 
+### Optional: web search
+
+Bots can search for sources with [Parallel Search](https://docs.parallel.ai/search/search-quickstart).
+Choose the built-in tool for deployment-wide access, or connect the Parallel
+MCP for your own account.
+
+**Built-in tool through AI Gateway**
+
+1. Create a Parallel API key at [Parallel Platform](https://platform.parallel.ai).
+2. Create a Cloudflare API token with **Account → AI Gateway → Run** for
+   the account that hosts Coworkers. The token authorizes the proxy request,
+   including when the gateway requires authentication.
+3. Fill in both values in `.dev.vars` for local development, or in your
+   production secrets file:
+
+   ```dotenv
+   PARALLEL_API_KEY="your-parallel-key"
+   AI_GATEWAY_API_TOKEN="your-cloudflare-token"
+   ```
+
+4. Restart local dev, or upload the production secrets with
+   `pnpm run deploy --secrets-file <PATH>`. Leave both values empty to keep
+   the tool off. Existing deployments need no changes.
+
+The tool uses the existing `AI_GATEWAY_ID` (or `default`) and the
+[Parallel provider proxy](https://developers.cloudflare.com/ai-gateway/usage/providers/parallel/):
+`/parallel/v1/search`. It uses the current v1 request format with `mode: "fast"`,
+five results by default (up to ten), and a 20,000-character excerpt budget.
+It skips the gateway cache, sets a 30-second request timeout, and returns
+source URLs, titles, publication dates, excerpts and warnings. Long results
+are saved in the bot's files with a preview and a path to read the rest.
+This keeps source details available within the bot's context limit.
+The gateway can still log
+search queries and responses according to its settings. Search calls use your
+Parallel account; model billing credits do not replace the Parallel key.
+
+`web_search` follows the bot's **Read the web** rule. It works in routines
+and check-ins when that rule allows it. Browser tools remain available to
+read pages or interact with sites. Deployment secrets serve all users and
+bots on that deployment. They stay on the server and out of model context.
+
+To check the setup, ask a bot to search for a recent Cloudflare announcement
+and cite its sources. Confirm that `web_search` appears in the steps and
+that a Parallel request appears in your gateway logs. Set **Read the web**
+to **Block** and confirm that the bot cannot call the tool. Without either
+secret, the tool is absent. An invalid key or token produces a credential
+error; a rate limit produces an HTTP 429 message without an automatic retry.
+
+**Parallel MCP through Connections**
+
+No code change or deployment secret is needed for this route:
+
+1. Open **Settings → Connections** and add an MCP server named **Parallel**.
+2. Set its URL to
+   `https://mcp.parallel.ai/mcp?tools=web_search,web_fetch`.
+3. Connect without headers for free access at lower rate limits. For paid
+   access with your own key, add the header `Authorization` with value
+   `Bearer YOUR_PARALLEL_API_KEY`.
+
+The connection is shared by your bots and uses the **Use connected apps**
+rule. Read-only app tools can run in background turns unless that rule is
+**Block**. MCP calls go directly to Parallel. See the
+[Parallel MCP guide](https://docs.parallel.ai/integrations/mcp/quickstart)
+for authentication and rate limits. Use either this connection or the
+built-in tool unless you need both.
+
 ## Configuration
 
 Set in `cloudflare.config.ts`. Everything has a working default.
@@ -302,7 +369,8 @@ Set in `cloudflare.config.ts`. Everything has a working default.
 | `QUICK_ACTION_ENGINE`    | `kitesurf` (cheaper) or `chromium` for quick page reads                |
 | `EMAIL_DOMAIN`           | Turns on inbound email. Each bot gets `<user>.<bot>@<domain>`         |
 | `BROWSER_RUN_ACCOUNT_ID` | With `BROWSER_RUN_API_TOKEN` (secret), turns on the crawl tool        |
-| `AI_GATEWAY_API_TOKEN`   | Secret with "AI Gateway Read": per-bot spend in Settings. Uses `accountId` from the deploy file |
+| `PARALLEL_API_KEY`       | With `AI_GATEWAY_API_TOKEN`, enables the built-in web search tool (both are secrets) |
+| `AI_GATEWAY_API_TOKEN`   | Cloudflare token: "AI Gateway Read" enables spend; "AI Gateway Run" enables web search |
 | `VAPID_*`                | Push notification keys (`npx web-push generate-vapid-keys`)           |
 
 The Models page overrides `MODEL` and `BACKGROUND_MODEL` for your account,
@@ -318,6 +386,7 @@ src/
     bot-agent.ts      one per bot: tools, rules, routines, computer, browser
     prompt.ts         the bot's system prompt
     web-tools.ts      quick web read tools
+    search-tools.ts   optional Parallel web search through AI Gateway
     apps-runtime.ts   serves bot-built apps + AppLive
     app-store.ts      app data and share links
     teach.ts          records a demo in the browser

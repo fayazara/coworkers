@@ -11,6 +11,11 @@ VAPID_PRIVATE_KEY=""
 # the bot's crawl tool. Also set BROWSER_RUN_ACCOUNT_ID in cloudflare.config.ts.
 BROWSER_RUN_API_TOKEN=""
 
-# Optional: API token with "AI Gateway Read" for per-bot spend in Settings.
+# Optional: enables web_search through the configured AI Gateway.
+# Get a Parallel key at https://platform.parallel.ai.
+PARALLEL_API_KEY=""
+
+# Optional: API token for AI Gateway features. "AI Gateway Read" enables
+# per-bot spend in Settings; "AI Gateway Run" enables Parallel web search.
 # Uses accountId from coworkers.deploy.json.
 AI_GATEWAY_API_TOKEN=""

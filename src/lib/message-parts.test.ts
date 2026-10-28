@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { UIMessage } from "ai"
-import { toBlocks } from "./message-parts"
+import { describeCall, stepKind, toBlocks } from "./message-parts"
 
 function reply(...parts: unknown[]): UIMessage {
   return { id: "m", role: "assistant", parts: parts as UIMessage["parts"] }
@@ -17,7 +17,9 @@ describe("toBlocks for cards", () => {
         approval: { id: "a1" },
       })
     )
-    expect(blocks).toMatchObject([{ kind: "choice", call: { approvalId: "a1" } }])
+    expect(blocks).toMatchObject([
+      { kind: "choice", call: { approvalId: "a1" } },
+    ])
   })
 
   it("folds an answered ask_user into one line", () => {
@@ -30,7 +32,9 @@ describe("toBlocks for cards", () => {
         output: { answer: ".dev" },
       })
     )
-    expect(blocks).toMatchObject([{ kind: "event", label: "Which TLDs? · .dev" }])
+    expect(blocks).toMatchObject([
+      { kind: "event", label: "Which TLDs? · .dev" },
+    ])
   })
 
   it("shows request_secret as a secret card, and never its value afterwards", () => {
@@ -39,7 +43,11 @@ describe("toBlocks for cards", () => {
         type: "tool-request_secret",
         toolCallId: "1",
         state: "approval-requested",
-        input: { name: "GITHUB_TOKEN", origin: "https://api.github.com", purpose: "Read issues" },
+        input: {
+          name: "GITHUB_TOKEN",
+          origin: "https://api.github.com",
+          purpose: "Read issues",
+        },
         approval: { id: "a1" },
       })
     )
@@ -53,6 +61,24 @@ describe("toBlocks for cards", () => {
         output: { saved: true },
       })
     )
-    expect(done).toEqual([{ kind: "event", key: "m:0", label: "Saved GITHUB_TOKEN" }])
+    expect(done).toEqual([
+      { kind: "event", key: "m:0", label: "Saved GITHUB_TOKEN" },
+    ])
+  })
+})
+
+describe("web search steps", () => {
+  it("describes source discovery as a search step", () => {
+    const call = {
+      id: "search-1",
+      name: "web_search",
+      input: { objective: "Find Cloudflare product releases" },
+      output: { results: [] },
+      state: "done" as const,
+    }
+    expect(stepKind(call)).toBe("search")
+    expect(describeCall(call)).toBe(
+      "Searched the web: Find Cloudflare product releases"
+    )
   })
 })

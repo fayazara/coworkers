@@ -126,7 +126,8 @@ import { LoopGuard, shapeToolResults } from "./guards"
 import { failureCard, replyCard, scriptCard, waitingCard } from "./desk"
 import type { DemoBotSeed } from "./demo-seed"
 import { MAX_MEMORY_CHARS, appendFact } from "./memory"
-import { languageModel, pickModel } from "./models"
+import { gatewayId, languageModel, pickModel } from "./models"
+import { createSearchTools } from "./search-tools"
 import {
   MAX_SECRET_RESPONSE_CHARS,
   SECRET_REQUEST_TIMEOUT_MS,
@@ -181,6 +182,7 @@ const TOOL_CLASS: Record<string, ActionClass> = {
   delete: "files",
   exec: "shell",
   run_js: "shell",
+  web_search: "browse",
   browser_markdown: "browse",
   browser_extract: "browse",
   browser_links: "browse",
@@ -236,6 +238,7 @@ const READ_ONLY_TOOLS = new Set([
   "ls",
   "find",
   "grep",
+  "web_search",
   "browser_markdown",
   "browser_extract",
   "browser_links",
@@ -1420,6 +1423,13 @@ export class BotAgent extends Think<Env, BotState> {
       }),
       ...this.scriptTools(),
       ...this.browser.tools,
+      ...createSearchTools({
+        apiKey: this.env.PARALLEL_API_KEY,
+        gatewayToken: this.env.AI_GATEWAY_API_TOKEN,
+        gatewayUrl: () =>
+          this.env.AI.gateway(gatewayId(this.env)).getUrl("parallel"),
+        save: (path, content) => this.saveFile(path, content),
+      }),
       ...this.webTools(),
       // No app tools here: beforeTurn adds them, and Think appends them
       // after these. Listing last turn's here too moved them around between
