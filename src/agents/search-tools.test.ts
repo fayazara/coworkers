@@ -38,6 +38,10 @@ const response = {
       message: "Some sources were unavailable.",
       detail: { unavailable_urls: 1 },
     },
+    {
+      type: "warning",
+      message: "Search completed with a fallback.",
+    },
   ],
   usage: [{ name: "sku_search", count: 1 }],
 }

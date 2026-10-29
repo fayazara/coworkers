@@ -114,6 +114,7 @@ describe("Parallel quick connect", () => {
     "https://search.parallel.ai/mcp",
     "https://search.parallel.ai/mcp-oauth",
     "https://search-mcp.parallel.ai/mcp",
+    "https://task-mcp.parallel.ai/mcp",
   ])("recognizes an existing Parallel connection at %s", (url) => {
     hub.state.connections = [{ ...connection, name: "Research", url }]
     render(createElement(ConnectionsSettings))
