@@ -69,6 +69,10 @@ export default defineConfig({
       // Rendering - Edit" in .dev.vars / the deploy secrets file.
       BROWSER_RUN_ACCOUNT_ID: bindings.text(""),
       BROWSER_RUN_API_TOKEN: bindings.secret(),
+      // Optional: both secrets enable web_search through the Parallel proxy
+      // on AI_GATEWAY_ID. The gateway token needs "AI Gateway - Run".
+      PARALLEL_API_KEY: bindings.secret(),
+      AI_GATEWAY_API_TOKEN: bindings.secret(),
       // Dynamic Workers: the bot's shell and sandboxed browser code.
       LOADER: bindings.workerLoader(),
       UserHub: bindings.durableObject({

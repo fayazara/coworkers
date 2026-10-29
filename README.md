@@ -39,11 +39,11 @@ flowchart LR
   Hub --> MCP["Your apps<br/>(MCP / Executor)"]
 ```
 
-| Durable Object | What it owns                                                        |
-| -------------- | ------------------------------------------------------------------- |
-| `UserHub`      | Your bot list, app connections, shared memory, push subscriptions    |
-| `BotAgent`     | One bot: chat, memory, rules, routines, files, browser, secrets      |
-| `AppLive`      | Live updates for a web app a bot built                              |
+| Durable Object | What it owns                                                      |
+| -------------- | ----------------------------------------------------------------- |
+| `UserHub`      | Your bot list, app connections, shared memory, push subscriptions |
+| `BotAgent`     | One bot: chat, memory, rules, routines, files, browser, secrets   |
+| `AppLive`      | Live updates for a web app a bot built                            |
 
 - Each bot keeps everything in its own SQLite. There's no separate database.
 - You sign in to an app once, on the hub. Every bot uses that connection.
@@ -51,24 +51,25 @@ flowchart LR
 
 ## What a bot can do
 
-| Feature        | How it works                                                                 |
-| -------------- | ---------------------------------------------------------------------------- |
-| Chat           | Streaming, resumable turns. Names itself from your first task                |
-| Computer       | Files in `/workspace`, a shell (`curl`, `jq`) and JavaScript scripts in Dynamic Workers. No container. Scripts survive deploys and can pause for your OK before touching your apps |
-| Read the web   | Quick reads (markdown, extract, links, screenshot, PDF, crawl). Kitesurf first, Chromium fallback |
-| Drive a browser| A real Chromium session you can watch live                                  |
-| Take over      | Bot hands you its browser to sign in. You click **I'm done**, it continues   |
-| Your apps      | Calls tools on connected MCP servers or Executor                             |
-| Rules          | Per action type: allow, ask first, or block                                  |
-| Routines       | Cron or one-off jobs. Can watch a URL/command and only wake when it changes   |
-| Check-ins      | Wakes every few hours, speaks only if something's worth saying             |
-| Memory         | Its own memory + one shared across all your bots. Both have version history  |
-| Open items     | Tracks things it's waiting on until they're resolved                         |
-| Other bots     | Messages and files to other bots                                             |
-| Web apps       | Builds small sites (trackers, dashboards) on its own data, shareable by link |
-| Teach by demo  | Records you doing a task in its browser, saves it as a skill                 |
-| Secrets        | You type an API key in a masked card. The bot uses it but never sees it      |
-| Wake-ups       | Inbound email, webhooks, and push notifications to you                       |
+| Feature         | How it works                                                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chat            | Streaming, resumable turns. Names itself from your first task                                                                                                                      |
+| Computer        | Files in `/workspace`, a shell (`curl`, `jq`) and JavaScript scripts in Dynamic Workers. No container. Scripts survive deploys and can pause for your OK before touching your apps |
+| Read the web    | Quick reads (markdown, extract, links, screenshot, PDF, crawl). Kitesurf first, Chromium fallback                                                                                  |
+| Search the web  | Optional Parallel Search through AI Gateway, or a connected search MCP                                                                                                             |
+| Drive a browser | A real Chromium session you can watch live                                                                                                                                         |
+| Take over       | Bot hands you its browser to sign in. You click **I'm done**, it continues                                                                                                         |
+| Your apps       | Calls tools on connected MCP servers or Executor                                                                                                                                   |
+| Rules           | Per action type: allow, ask first, or block                                                                                                                                        |
+| Routines        | Cron or one-off jobs. Can watch a URL/command and only wake when it changes                                                                                                        |
+| Check-ins       | Wakes every few hours, speaks only if something's worth saying                                                                                                                     |
+| Memory          | Its own memory + one shared across all your bots. Both have version history                                                                                                        |
+| Open items      | Tracks things it's waiting on until they're resolved                                                                                                                               |
+| Other bots      | Messages and files to other bots                                                                                                                                                   |
+| Web apps        | Builds small sites (trackers, dashboards) on its own data, shareable by link                                                                                                       |
+| Teach by demo   | Records you doing a task in its browser, saves it as a skill                                                                                                                       |
+| Secrets         | You type an API key in a masked card. The bot uses it but never sees it                                                                                                            |
+| Wake-ups        | Inbound email, webhooks, and push notifications to you                                                                                                                             |
 
 ## How a turn works
 
@@ -103,15 +104,15 @@ sequenceDiagram
 
 Each bot has one setting per action type:
 
-| Action type       | Default   |
-| ----------------- | --------- |
-| Edit files        | allow     |
-| Run commands      | allow     |
-| Read the web      | allow     |
-| Drive the browser | allow     |
-| Use connected apps| ask first |
-| Message other bots| allow     |
-| Schedule routines | allow     |
+| Action type        | Default   |
+| ------------------ | --------- |
+| Edit files         | allow     |
+| Run commands       | allow     |
+| Read the web       | allow     |
+| Drive the browser  | allow     |
+| Use connected apps | ask first |
+| Message other bots | allow     |
+| Schedule routines  | allow     |
 
 Nobody is around to approve a background turn. So by default it can only use
 app tools that are read-only.
@@ -131,16 +132,16 @@ flowchart LR
 
 ## Stack
 
-| Layer      | What we use                                                   |
-| ---------- | ------------------------------------------------------------- |
-| Runtime    | Cloudflare Workers, Durable Objects (SQLite)                  |
-| Agents     | `agents` SDK, `@cloudflare/think`, `@cloudflare/computer`     |
-| Models     | Workers AI, or any provider through AI Gateway                |
-| Browser    | Browser Run: Chromium, Live View, Kitesurf                    |
-| Sandboxing | Dynamic Workers (shell, scripts, bot-built app servers)       |
-| Inbound    | Email Routing, webhooks, Web Push                             |
-| Frontend   | TanStack Start, React 19, Tailwind v4, Kumo, Hugeicons        |
-| Tooling    | `cf` CLI, Vite, Vitest, pnpm                                  |
+| Layer      | What we use                                               |
+| ---------- | --------------------------------------------------------- |
+| Runtime    | Cloudflare Workers, Durable Objects (SQLite)              |
+| Agents     | `agents` SDK, `@cloudflare/think`, `@cloudflare/computer` |
+| Models     | Workers AI, or any provider through AI Gateway            |
+| Browser    | Browser Run: Chromium, Live View, Kitesurf                |
+| Sandboxing | Dynamic Workers (shell, scripts, bot-built app servers)   |
+| Inbound    | Email Routing, webhooks, Web Push                         |
+| Frontend   | TanStack Start, React 19, Tailwind v4, Kumo, Hugeicons    |
+| Tooling    | `cf` CLI, Vite, Vitest, pnpm                              |
 
 ## Run it locally
 
@@ -284,24 +285,99 @@ models need nothing more. For Anthropic, OpenAI, Google or xAI, add
 [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/)
 credits or your own provider key to the gateway, then press **Test**.
 
+### Optional: web search
+
+Bots can search for sources with [Parallel Search](https://docs.parallel.ai/search/search-quickstart).
+Choose the built-in tool for deployment-wide access, or connect the Parallel
+MCP for your own account.
+
+**Built-in tool through AI Gateway**
+
+1. Create a Parallel API key at [Parallel Platform](https://platform.parallel.ai).
+2. Create a Cloudflare API token with **Account → AI Gateway → Run** for
+   the account that hosts Coworkers. The token authorizes the proxy request,
+   including when the gateway requires authentication.
+3. Fill in both values in `.dev.vars` for local development, or in your
+   production secrets file:
+
+   ```dotenv
+   PARALLEL_API_KEY="your-parallel-key"
+   AI_GATEWAY_API_TOKEN="your-cloudflare-token"
+   ```
+
+4. Restart local dev, or upload the production secrets with
+   `pnpm run deploy --secrets-file <PATH>`. Leave both values empty to keep
+   the tool off. Existing deployments need no changes.
+
+The tool uses the existing `AI_GATEWAY_ID` (or `default`) and the
+[Parallel provider proxy](https://developers.cloudflare.com/ai-gateway/usage/providers/parallel/):
+`/parallel/v1/search`. It uses the current v1 request format with `mode: "fast"`,
+five results by default (up to ten), and a 20,000-character excerpt budget.
+It skips the gateway cache, sets a 30-second request timeout, and returns
+source URLs, titles, publication dates, excerpts and warnings. Long results
+are saved in the bot's files with a preview and a path to read the rest.
+This keeps source details available within the bot's context limit.
+The gateway can still log
+search queries and responses according to its settings. Search calls use your
+Parallel account; model billing credits do not replace the Parallel key.
+
+`web_search` follows the bot's **Read the web** rule, which defaults to
+**Allow**. In routines and check-ins, **Allow** runs searches without approval;
+**Ask** and **Block** prevent them. Browser tools remain available to read
+pages or interact with sites. Deployment secrets serve all users and bots
+on that deployment. They stay on the server and out of model context.
+
+To check the setup, ask a bot to search for a recent Cloudflare announcement
+and cite its sources. Confirm that `web_search` appears in the steps and
+that a Parallel request appears in your gateway logs. Set **Read the web**
+to **Block** and confirm that the bot cannot call the tool. Without either
+secret, the tool is absent. An invalid key or token produces a credential
+error; a rate limit produces an HTTP 429 message without an automatic retry.
+
+**Parallel MCP through Connections**
+
+No code change or deployment secret is needed for this route:
+
+Open **Settings → Connections** and click **Connect** on the **Parallel** row
+under **Quick connect**. One click adds web search and page reads without an
+API key, with free access at lower rate limits. The connection then appears
+under **Your connections**, where you can check its status, retry or remove it.
+If you already connected an official Parallel MCP server, the shortcut is
+hidden to avoid adding it twice.
+
+For paid access with your own key, use **Add a connection** instead. Set the
+name to **Parallel**, the URL to
+`https://mcp.parallel.ai/mcp?tools=web_search,web_fetch`, and add the header
+`Authorization` with value `Bearer YOUR_PARALLEL_API_KEY`. Remove an existing
+free connection first if you want to replace it with your own key.
+
+The connection is shared by your bots and uses the **Use connected apps**
+rule. Read-only app tools can run in background turns unless that rule is
+**Block**. MCP calls go directly to Parallel. See the
+[Parallel MCP guide](https://docs.parallel.ai/integrations/mcp/quickstart)
+for authentication and rate limits. Use either this connection or the
+built-in tool unless you need both.
+
 ## Configuration
 
 Set in `cloudflare.config.ts`. Everything has a working default.
 `coworkers.deploy.json`, if present, overrides the name, `MODEL`,
 `AI_GATEWAY_ID` and the two `ACCESS_*` values.
 
-| Setting                  | What it does                                                          |
-| ------------------------ | --------------------------------------------------------------------- |
-| `MODEL`                  | Default chat model. `@cf/...` = Workers AI, `provider/model` = catalog |
-| `BACKGROUND_MODEL`       | Model for routines, check-ins and email. Empty = the chat model        |
-| `FALLBACK_MODEL`         | Workers AI model a turn retries on when a third-party model fails      |
-| `AI_GATEWAY_ID`          | Gateway for every model call. Empty = `default` (created on first use) |
-| `ACCESS_TEAM_DOMAIN`     | With `ACCESS_AUD`, require a valid Access token on every request       |
-| `ACCESS_AUD`             | The Access application's AUD tag                                       |
-| `QUICK_ACTION_ENGINE`    | `kitesurf` (cheaper) or `chromium` for quick page reads                |
-| `EMAIL_DOMAIN`           | Turns on inbound email. Each bot gets `<user>.<bot>@<domain>`         |
-| `BROWSER_RUN_ACCOUNT_ID` | With `BROWSER_RUN_API_TOKEN` (secret), turns on the crawl tool        |
-| `VAPID_*`                | Push notification keys (`npx web-push generate-vapid-keys`)           |
+| Setting                  | What it does                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `MODEL`                  | Default chat model. `@cf/...` = Workers AI, `provider/model` = catalog               |
+| `BACKGROUND_MODEL`       | Model for routines, check-ins and email. Empty = the chat model                      |
+| `FALLBACK_MODEL`         | Workers AI model a turn retries on when a third-party model fails                    |
+| `AI_GATEWAY_ID`          | Gateway for every model call. Empty = `default` (created on first use)               |
+| `ACCESS_TEAM_DOMAIN`     | With `ACCESS_AUD`, require a valid Access token on every request                     |
+| `ACCESS_AUD`             | The Access application's AUD tag                                                     |
+| `QUICK_ACTION_ENGINE`    | `kitesurf` (cheaper) or `chromium` for quick page reads                              |
+| `EMAIL_DOMAIN`           | Turns on inbound email. Each bot gets `<user>.<bot>@<domain>`                        |
+| `BROWSER_RUN_ACCOUNT_ID` | With `BROWSER_RUN_API_TOKEN` (secret), turns on the crawl tool                       |
+| `PARALLEL_API_KEY`       | With `AI_GATEWAY_API_TOKEN`, enables the built-in web search tool (both are secrets) |
+| `AI_GATEWAY_API_TOKEN`   | Cloudflare token with AI Gateway Run permission, used by web search                  |
+| `VAPID_*`                | Push notification keys (`npx web-push generate-vapid-keys`)                          |
 
 The Models page overrides `MODEL` and `BACKGROUND_MODEL` for your account,
 and each bot can pick its own chat model in its settings.
@@ -316,6 +392,7 @@ src/
     bot-agent.ts      one per bot: tools, rules, routines, computer, browser
     prompt.ts         the bot's system prompt
     web-tools.ts      quick web read tools
+    search-tools.ts   optional Parallel web search through AI Gateway
     apps-runtime.ts   serves bot-built apps + AppLive
     app-store.ts      app data and share links
     teach.ts          records a demo in the browser

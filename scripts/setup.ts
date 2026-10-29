@@ -142,7 +142,11 @@ function writeDeploy(file: DeployFile) {
  * while any declared secret is missing, and Coworkers treats an empty one as
  * "feature off", so they start empty.
  */
-const OPTIONAL_SECRETS = ["BROWSER_RUN_API_TOKEN"]
+const OPTIONAL_SECRETS = [
+  "BROWSER_RUN_API_TOKEN",
+  "PARALLEL_API_KEY",
+  "AI_GATEWAY_API_TOKEN",
+]
 
 function ensureSecrets() {
   let file = existsSync(SECRETS_FILE) ? readFileSync(SECRETS_FILE, "utf8") : ""
@@ -245,7 +249,9 @@ async function main() {
   account ??= await choose("Account", accounts, (a) => a.name)
   console.log(`  Account: ${account.name}`)
 
-  const name = (await ask("Worker name", saved.name ?? "coworkers")).toLowerCase()
+  const name = (
+    await ask("Worker name", saved.name ?? "coworkers")
+  ).toLowerCase()
   const emails = (
     await ask(
       "Who can sign in (comma separated)",

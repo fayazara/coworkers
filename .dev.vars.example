@@ -10,3 +10,9 @@ VAPID_PRIVATE_KEY=""
 # Optional: Browser Run API token (permission "Browser Rendering - Edit") for
 # the bot's crawl tool. Also set BROWSER_RUN_ACCOUNT_ID in cloudflare.config.ts.
 BROWSER_RUN_API_TOKEN=""
+
+# Optional: both values enable web_search through the configured AI Gateway.
+# Get a Parallel key at https://platform.parallel.ai.
+# The Cloudflare token needs "AI Gateway - Run" for the gateway's account.
+PARALLEL_API_KEY=""
+AI_GATEWAY_API_TOKEN=""

@@ -323,6 +323,8 @@ export function describeCall(call: ToolCall): string {
       return `Deleted ${str("path")}`
     case "exec":
       return `Ran ${str("command").replace(/\s+/g, " ").trim()}`
+    case "web_search":
+      return `Searched the web: ${str("objective")}`
     case "browser_markdown":
       return `Read ${str("url")}`
     case "browser_extract":
@@ -405,6 +407,7 @@ export function stepKind(call: ToolCall): StepKind {
       return "files"
     case "find":
     case "grep":
+    case "web_search":
       return "search"
     case "search_history":
     case "read_history":
