@@ -161,7 +161,11 @@ function writeDeploy(file: DeployFile) {
  * while any declared secret is missing, and Coworkers treats an empty one as
  * "feature off", so they start empty.
  */
-const OPTIONAL_SECRETS = ["BROWSER_RUN_API_TOKEN", "AI_GATEWAY_API_TOKEN"]
+const OPTIONAL_SECRETS = [
+  "BROWSER_RUN_API_TOKEN",
+  "PARALLEL_API_KEY",
+  "AI_GATEWAY_API_TOKEN",
+]
 
 function ensureSecrets() {
   let file = existsSync(SECRETS_FILE) ? readFileSync(SECRETS_FILE, "utf8") : ""

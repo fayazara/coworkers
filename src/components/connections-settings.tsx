@@ -31,6 +31,7 @@ function isParallelConnection(value: string) {
         "https://mcp.parallel.ai",
         "https://search.parallel.ai",
         "https://search-mcp.parallel.ai",
+        "https://task-mcp.parallel.ai",
       ].includes(url.origin) &&
       ["/mcp", "/mcp-oauth"].includes(url.pathname.replace(/\/+$/, ""))
     )

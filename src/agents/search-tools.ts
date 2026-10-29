@@ -42,7 +42,13 @@ const searchResponse = z.object({
     })
   ),
   warnings: z
-    .array(z.object({ type: z.string(), message: z.string() }))
+    .array(
+      z.object({
+        type: z.string(),
+        message: z.string(),
+        detail: z.record(z.string(), z.unknown()).nullish(),
+      })
+    )
     .nullish(),
 })
 

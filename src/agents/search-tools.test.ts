@@ -32,7 +32,13 @@ const response = {
       excerpts: ["Another source."],
     },
   ],
-  warnings: [{ type: "warning", message: "Some sources were unavailable." }],
+  warnings: [
+    {
+      type: "warning",
+      message: "Some sources were unavailable.",
+      detail: { unavailable_urls: 1 },
+    },
+  ],
   usage: [{ name: "sku_search", count: 1 }],
 }
 
