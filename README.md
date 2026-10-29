@@ -322,10 +322,11 @@ The gateway can still log
 search queries and responses according to its settings. Search calls use your
 Parallel account; model billing credits do not replace the Parallel key.
 
-`web_search` follows the bot's **Read the web** rule. It works in routines
-and check-ins when that rule allows it. Browser tools remain available to
-read pages or interact with sites. Deployment secrets serve all users and
-bots on that deployment. They stay on the server and out of model context.
+`web_search` follows the bot's **Read the web** rule, which defaults to
+**Allow**. In routines and check-ins, **Allow** runs searches without approval;
+**Ask** and **Block** prevent them. Browser tools remain available to read
+pages or interact with sites. Deployment secrets serve all users and bots
+on that deployment. They stay on the server and out of model context.
 
 To check the setup, ask a bot to search for a recent Cloudflare announcement
 and cite its sources. Confirm that `web_search` appears in the steps and
