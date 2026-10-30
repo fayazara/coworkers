@@ -17,6 +17,7 @@ import { spawn } from "node:child_process"
 import { generateKeyPairSync } from "node:crypto"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { createInterface } from "node:readline/promises"
+import { fileURLToPath } from "node:url"
 import { MODELS, PROVIDERS } from "../src/lib/models.ts"
 
 const DEPLOY_FILE = "coworkers.deploy.json"
@@ -76,13 +77,22 @@ async function choose<T>(
   }
 }
 
+/**
+ * The project's own `cf`, run with this Node. Spawning plain "cf" fails on
+ * Windows, where the bin is a `cf.cmd` shim that spawn cannot run without a
+ * shell (and a shell would mangle the JSON `--body` arguments).
+ */
+const CF_BIN = fileURLToPath(
+  new URL("../node_modules/cf/bin/cf", import.meta.url)
+)
+
 /** Runs `cf`, returns its JSON stdout. Throws with its stderr on failure. */
 function cf<T = unknown>(
   args: string[],
   options: { accountId?: string; echo?: boolean } = {}
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const child = spawn("cf", args, {
+    const child = spawn(process.execPath, [CF_BIN, ...args], {
       env: {
         ...process.env,
         ...(options.accountId
@@ -171,7 +181,10 @@ function ensureSecrets() {
 /** `pnpm build` (bindings come from coworkers.deploy.json at build time). */
 function build() {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn("pnpm", ["build"], {
+    // pnpm is a .cmd shim on Windows, which needs a shell to run. One command
+    // string, since Node warns about passing args alongside `shell`.
+    const child = spawn("pnpm build", {
+      shell: true,
       stdio: ["ignore", "ignore", "pipe"],
     })
     let err = ""
