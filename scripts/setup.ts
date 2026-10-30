@@ -458,7 +458,7 @@ main().catch((err) => {
   console.error(
     `\n\x1b[31m✗\x1b[0m ${err instanceof Error ? err.message : err}\n`
   )
-// Not   process.exit(): on Windows it can abort Node with a libuv assertion
+  // Not process.exit(): on Windows it can abort Node with a libuv assertion
   // while stdin and child pipes are still closing.
   process.exitCode = 1
 })
