@@ -1,0 +1,77 @@
+AGENTS.md
+  s_9e63466dc8f9bd::t_31f0bb55efd8a0 13-26,40-42
+cloudflare.config.ts
+  s_9e63466dc8f9bd::t_d1d9012ab1945c 63-65,99-102
+docs/mcp-plan.md
+  s_9e63466dc8f9bd::t_09b8865dc0367e 203-245,267-273,293-294
+installer/src/deploy/upload.test.ts
+  s_9e63466dc8f9bd::t_186579f469599b 2,12-44
+installer/src/deploy/upload.ts
+  s_9e63466dc8f9bd::t_326d5111663f40 82-125,128,143-144,168,179-180
+installer/src/installer.ts
+  s_9e63466dc8f9bd::t_7e225767587cc1 23-24,42-56,264-270,326-328,376-379,445-448
+package.json
+  s_9e63466dc8f9bd::t_a2ddccfd050ef9 27,30
+pnpm-lock.yaml
+  s_9e63466dc8f9bd::t_45e53f689862e8 16,31,35-37,44-46,76,197,665-667,1519-1522,1533-1534,5853,5855,5941,5947,6000-6001,6595-6598,6623,6625,7814,7820,7846,7852
+scripts/setup.ts
+  s_9e63466dc8f9bd::t_866fa10464bd20 23-36,429-432
+src/agents/bot-agent.ts
+  s_9e63466dc8f9bd::t_8d954193abdcdf 1526-1530,3986-3997
+src/agents/desk.ts
+  s_9e63466dc8f9bd::t_81a8cb499669a8 104-105,107,137-138
+src/agents/pipelines.ts
+  s_9e63466dc8f9bd::t_3b107fd01ec1ec 62-71
+src/agents/prompt.ts
+  s_9e63466dc8f9bd::t_cd777e7d49c9c0 394
+src/agents/user-hub.ts
+  s_9e63466dc8f9bd::t_d117ffae873839 32-33,77-80,134-149,1247-1260,1269,1282-1364,1408-1415
+src/components/agents-settings.tsx
+  s_9e63466dc8f9bd::t_3768019d6a9c8d 1-123
+src/components/desk-card.tsx
+  s_9e63466dc8f9bd::t_123a3599f85723 17,40
+src/components/thread.tsx
+  s_9e63466dc8f9bd::t_845361657d2d72 21,661-681
+src/control/access.test.ts
+  s_9e63466dc8f9bd::t_c8837ebcd8d9ea 8,11,14,47-57,438-542
+src/control/access.ts
+  s_9e63466dc8f9bd::t_1ad934fccd3fa3 1,44-45,51-52,54,63-74
+src/control/bots.ts
+  s_9e63466dc8f9bd::t_ed340ce36cf464 6,47,96-97,138-254,352-358
+src/control/operation.ts
+  s_9e63466dc8f9bd::t_9133fa8db501c8 118-149
+src/control/operations.ts
+  s_9e63466dc8f9bd::t_f6f7b30d9a0126 7,11,15,30-32,44-48,53-54
+src/lib/types.ts
+  s_9e63466dc8f9bd::t_ad1353921bf4a4 423-424,453-454
+src/mcp/oauth-store.ts
+  s_9e63466dc8f9bd::t_149f6a93e69d6d 1-142
+src/mcp/oauth.ts
+  s_9e63466dc8f9bd::t_028f32a0cd4317 1-305
+src/mcp/scopes.ts
+  s_9e63466dc8f9bd::t_ccacd35c2b6a9d 1-24
+src/mcp/server.ts
+  s_9e63466dc8f9bd::t_86734d203e331d 1-96
+src/routes/_app/settings.tsx
+  s_9e63466dc8f9bd::t_22ed9e772e6439 3,15,24-26,79-80
+src/server.ts
+  s_9e63466dc8f9bd::t_1991641939913b 6,14-15,34,39-43
+src/lib/agent-fns.ts
+  s_9e63466dc8f9bd::t_83cda2422ba4a8 1-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4ec1b5992dbff2f7907cda59d1e89ef98b5a900d",
+  "prompts": {},
+  "sessions": {
+    "s_9e63466dc8f9bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d176dea-54e7-43df-be2d-69f979471a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
