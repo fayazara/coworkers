@@ -1,0 +1,63 @@
+AGENTS.md
+  s_9e63466dc8f9bd::t_5d8ba647386045 21
+docs/mcp-plan.md
+  s_9e63466dc8f9bd::t_cb46f2e642c3be 1-286
+src/agents/bot-agent.ts
+  s_9e63466dc8f9bd::t_e78959fd7eed8c 113-124,192-193,231,893-903,922-931,1028,1256-1257,1493-1559,1781-1782,2474,4228-4235,4771-4772,4807-4808,4924-4936,4947,4949-5007
+src/agents/desk.ts
+  s_9e63466dc8f9bd::t_050fb51932a764 102,133-134
+src/agents/prompt.ts
+  s_9e63466dc8f9bd::t_6f7120764d286b 11,397,500-512
+src/agents/user-hub.ts
+  s_9e63466dc8f9bd::t_879fd44c12d50a 7,28-35,105,367,369,391,414,418-468,760-765,918,1199,1201,1212,1217,1221-1223,1225-1227,1231,1235,1237,1242-1248,1265,1267,1284,1505-1508
+src/components/composer.tsx
+  s_9e63466dc8f9bd::t_f0ccec8b8fc096 19-21,26-29,40-41,66-88,217,220,229-247,336-343,347-364,411-439,538-556,563-580
+src/components/desk-card.tsx
+  s_9e63466dc8f9bd::t_c792e6290ab6f1 14,38
+src/components/settings-panel.tsx
+  s_9e63466dc8f9bd::t_28a23c8bc69099 38-43,180-218,445-448,455,993
+src/components/sidebar.tsx
+  s_9e63466dc8f9bd::t_e8c282653bfeb7 27,115-116
+src/components/thread.tsx
+  s_9e63466dc8f9bd::t_152d351eed7724 10-11,25,43,144-219,224-226,706-708,711-717
+src/control/access.test.ts
+  s_9e63466dc8f9bd::t_0680c0006a92d1 1-423
+src/control/access.ts
+  s_9e63466dc8f9bd::t_b6b91f364bc67a 1-97
+src/control/bots.ts
+  s_9e63466dc8f9bd::t_2a92d0127ccae2 1-331
+src/control/operation.ts
+  s_9e63466dc8f9bd::t_51a42144e46e5b 1-184
+src/lib/bot-links.test.ts
+  s_9e63466dc8f9bd::t_e1f16fe42c54b3 1-98
+src/lib/bot-links.ts
+  s_9e63466dc8f9bd::t_c44880a94ba475 1-114
+src/lib/hub-context.tsx
+  s_9e63466dc8f9bd::t_b9cb684d73f29b 32-35,121-125,149-150,187-189
+src/lib/types.ts
+  s_9e63466dc8f9bd::t_49944f3b765e51 44-49,52-57,225-229,241,376-379,421-423
+src/routes/_app/bots.$botId.tsx
+  s_9e63466dc8f9bd::t_7541192febd3f0 20,248-253,380-396,405
+src/routes/_app/index.tsx
+  s_9e63466dc8f9bd::t_39d51b603222e4 430,432-433,435-438,441,468-469,472-492
+src/components/bot-mention.tsx
+  s_9e63466dc8f9bd::t_f285dfcbcdf17b 1-38
+src/control/operations.ts
+  s_9e63466dc8f9bd::t_044b6e784880f8 1-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "016f2f226cd4b17e4b7f217be108dc1ffff65eed",
+  "prompts": {},
+  "sessions": {
+    "s_9e63466dc8f9bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d176dea-54e7-43df-be2d-69f979471a04",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
