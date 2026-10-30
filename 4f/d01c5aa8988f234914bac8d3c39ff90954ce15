@@ -1,0 +1,55 @@
+AGENTS.md
+  s_c212debbc792f0::t_b81b43f6f85634 13-24
+src/agents/bot-agent.ts
+  s_c212debbc792f0::t_03803cf3d1e3f8 67,115-116,138,147-165,214-215,628-629,702-763,928-952,1837-1839,1867,2923-2926,2932,2940,2960-2972,2974,2976-2978,3097,3133,3235,3250,3269,3283-3310,3325-3329,3332-3333,3515,3557-3579,3720-3721,3938,4322-4327,4353,4372-4410,4494-4503,4506
+src/agents/demo-seed.ts
+  s_c212debbc792f0::t_78bb087cd50dd3 1-808
+src/agents/desk.test.ts
+  s_c212debbc792f0::t_096e12b7b6f665 1-257
+src/agents/desk.ts
+  s_c212debbc792f0::t_b79c5671f13e72 1-359
+src/agents/user-hub.ts
+  s_c212debbc792f0::t_908d563ac7af72 15-16,24,28-29,31-40,78-84,140-162,179-325,401-402,445-446,451-453,711-888
+src/components/desk-card.tsx
+  s_c212debbc792f0::t_d3e71fd9103fe1 1-458
+src/components/icons.tsx
+  s_c212debbc792f0::t_8b36e2c3032fd2 29-30,115-116
+src/components/sidebar.tsx
+  s_c212debbc792f0::t_e07e760a2f7c1c 18,184-235,317-322
+src/lib/auth.ts
+  s_c212debbc792f0::t_a6d6a4db5a946b 14-26,49-51
+src/lib/hub-context.tsx
+  s_c212debbc792f0::t_3c07f4206ce2e0 45-46,59-70,153-154,181,186-187,231-241
+src/lib/server-fns.ts
+  s_c212debbc792f0::t_4f503ff34b9f59 5,29-31
+src/routes/_app/index.tsx
+  s_c212debbc792f0::t_898948f78486fa 1-7,9-10,12-13,15-16,19,22-426
+src/routes/api/demo-profile.ts
+  s_c212debbc792f0::t_2374e79b367108 1-52
+src/styles.css
+  s_c212debbc792f0::t_a6a56e27685526 1045-1129
+docs/desk-plan.md
+  s_c212debbc792f0::t_434053d59529cf 1-187
+src/lib/types.ts
+  s_c212debbc792f0::t_327e727e0605af 98-183,239-244,375-376
+src/lib/use-presence.ts
+  s_c212debbc792f0::t_3e7d68c4df858b 1-73
+src/routeTree.gen.ts
+  s_c212debbc792f0::t_8125171378da5e 15,38-42,83,94,108,123,134,147,160,188-194,281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4fd01c5aa8988f234914bac8d3c39ff90954ce15",
+  "prompts": {},
+  "sessions": {
+    "s_c212debbc792f0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "71649ad7-c669-4fe6-8a90-20c083a3d760",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
