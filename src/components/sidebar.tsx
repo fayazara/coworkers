@@ -342,7 +342,7 @@ function BotsView({ home }: { home: boolean }) {
 
   return (
     <>
-      <div className="col-header">
+      <div className="col-header max-md:px-4!">
         <SearchPill value={query} onChange={setQuery} label="Search bots">
           <Tooltip
             content="New bot"
@@ -517,7 +517,7 @@ function PipelinesView() {
 
   return (
     <>
-      <div className="col-header">
+      <div className="col-header max-md:px-4!">
         <SearchPill value={query} onChange={setQuery} label="Search pipelines">
           <Tooltip
             content="New pipeline"
@@ -623,7 +623,7 @@ export function Sidebar({ home = false }: { home?: boolean }) {
 
       {/* Same row as the search bar at the top: --header-h tall, --inset
           from the edges, the avatar where the search icon sits. */}
-      <div className="col-header pl-4">
+      <div className="col-header pl-4!">
         <span className="flex shrink-0">
           {hub.viewer.avatarUrl ? (
             <img

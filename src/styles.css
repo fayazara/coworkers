@@ -95,9 +95,51 @@
   transform: translateY(var(--app-top, 0px));
 }
 
+/*
+ * Continues the iOS launch image: the same robot, the same place. The offsets
+ * are where robot-heads puts its canvas around the head, so the two line up.
+ * Hidden unless installed, for the server's first paint.
+ */
+.launch-splash {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  display: none;
+  height: var(--screen-h);
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  transition: opacity 300ms ease-out;
+}
+
+@media (display-mode: standalone) and (max-width: 767.98px) {
+  .launch-splash {
+    display: flex;
+  }
+}
+
+.launch-splash[data-leaving="true"] {
+  opacity: 0;
+}
+
+.launch-splash-box {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.launch-splash-box img {
+  position: absolute;
+  top: -39px;
+  left: -7px;
+  width: 154px;
+  max-width: none;
+  height: 191px;
+}
+
 .app-main {
-  /* The bar's inset leaves more air than a header row needs. */
-  padding-top: max(0px, calc(var(--safe-top) - 12px));
+  /* iOS blurs what sits just under the status bar, so stay clear of it. */
+  padding-top: var(--safe-top);
   padding-right: var(--safe-right);
   padding-left: var(--safe-left);
 }
