@@ -160,7 +160,7 @@ export function ModelsSettings() {
           />
         </button>
         {advanced ? (
-          <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+          <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
             <ModelPicker
               value={settings.background}
               label="Background work"

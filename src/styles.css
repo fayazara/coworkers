@@ -3,8 +3,7 @@
 @import "tailwindcss";
 
 /*
- * `dark:` follows the app's mode (Kumo's data-mode), not the OS. The app is
- * light, so without this a dark-mode Mac gets dark switches on a light page.
+ * `dark:` follows the app's mode (Kumo's data-mode), not the OS.
  */
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
@@ -171,11 +170,26 @@
  * separate without drawing hard edges. Unlayered, so it wins over the theme.
  */
 :root {
+  color-scheme: light;
+  --app-color-scheme: light;
   --color-kumo-line: light-dark(oklch(0% 0 0 / 0.06), oklch(100% 0 0 / 0.08));
 
   /* Translucent fills that read the same on the canvas and on white. */
   --fill-hover: light-dark(oklch(0% 0 0 / 0.045), oklch(100% 0 0 / 0.07));
   --fill-active: light-dark(oklch(0% 0 0 / 0.07), oklch(100% 0 0 / 0.11));
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --app-color-scheme: dark;
+}
+
+::selection {
+  background: light-dark(
+    oklch(57.7% 0.232 260 / 0.2),
+    oklch(70.7% 0.165 254.6 / 0.32)
+  );
+  color: var(--text-color-kumo-strong);
 }
 
 /*
