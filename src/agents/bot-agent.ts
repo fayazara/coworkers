@@ -122,6 +122,7 @@ import type {
   Caller,
   HubPort,
 } from "@/control/operation"
+import { appToolName } from "./app-tools"
 import { LoopGuard, shapeToolResults } from "./guards"
 import { failureCard, replyCard, scriptCard, waitingCard } from "./desk"
 import type { DemoBotSeed } from "./demo-seed"
@@ -194,11 +195,14 @@ const TOOL_CLASS: Record<string, ActionClass> = {
   secret_request: "apps",
   schedule_routine: "routines",
   update_routine: "routines",
+  cancel_routine: "routines",
   start_teaching: "browser",
   finish_teaching: "browser",
   save_skill: "files",
   save_app: "files",
   delete_app: "files",
+  app_data_put: "files",
+  app_data_delete: "files",
 }
 
 const MAX_PREVIEW = 140
@@ -528,17 +532,6 @@ function toOpenItem(r: OpenItemRow): OpenItem {
     ...(r.check_after ? { checkAfter: r.check_after } : {}),
     status: r.status,
   }
-}
-
-/**
- * Model-facing name for a connection's tool: `tool_<connection>_<tool>`,
- * limited to the characters and length tool names allow.
- */
-function appToolName(connectionId: string, name: string) {
-  return `tool_c${connectionId}_${name.replace(/[^a-zA-Z0-9_-]/g, "_")}`.slice(
-    0,
-    64
-  )
 }
 
 /** MCP results carry text in `content`; an `isError` result becomes a throw. */
@@ -1173,10 +1166,17 @@ export class BotAgent extends Think<Env, BotState> {
       // In lazy mode these are reached through app_tool_call.
       ...catalog.tools.map((t) => appToolName(t.connectionId, t.name)),
     ])
+    // A name counts as read-only only if every tool behind it is.
+    const writers = new Set(
+      catalog.tools
+        .filter((t) => !t.readOnly)
+        .map((t) => appToolName(t.connectionId, t.name))
+    )
     this.#readOnlyAppTools = new Set(
       catalog.tools
         .filter((t) => t.readOnly)
         .map((t) => appToolName(t.connectionId, t.name))
+        .filter((name) => !writers.has(name))
     )
     const context = turnContext(this.state, others, catalog.apps, {
       openItems: this.openItems(),

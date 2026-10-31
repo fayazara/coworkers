@@ -35,6 +35,7 @@ import type {
   FailureCode,
   HubPort,
 } from "@/control/operation"
+import { isReadOnlyTool } from "./app-tools"
 import type { BotAgent } from "./bot-agent"
 import { demoSeed } from "./demo-seed"
 import { visibleCards } from "./desk"
@@ -55,19 +56,6 @@ import {
   pipelineStepPrompt,
   validatePipeline,
 } from "./pipelines"
-
-const READ_VERBS =
-  /(^|[_\-.])(get|list|search|read|fetch|find|query|lookup|describe|view|show|count)([_\-.]|$)/i
-const WRITE_VERBS =
-  /(^|[_\-.])(send|create|delete|remove|update|edit|post|write|set|move|archive|reply|forward|draft|cancel|pay|approve|invite|share|execute|run)([_\-.]|$)/i
-
-/**
- * Background turns may only use read-only app tools. Servers that do not
- * annotate their tools get a conservative guess from the name.
- */
-function looksReadOnly(name: string) {
-  return READ_VERBS.test(name) && !WRITE_VERBS.test(name)
-}
 
 const MAX_PIPELINES = 50
 /** Runs kept in state (and their outputs in SQL), across all pipelines. */
@@ -1135,7 +1123,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
         name: t.name,
         description: t.description ?? "",
         inputSchema: t.inputSchema as Record<string, unknown>,
-        readOnly: t.annotations?.readOnlyHint ?? looksReadOnly(t.name),
+        readOnly: isReadOnlyTool(t.name, t.annotations),
       })
     }
     return {
