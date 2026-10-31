@@ -86,6 +86,7 @@ export function ModelPicker({
     <>
       <Row
         label={label}
+        stacked
         detail={
           provider === INHERIT && effective
             ? modelName(effective)
@@ -97,7 +98,7 @@ export function ModelPicker({
         <Select
           aria-label="Provider"
           size="sm"
-          className="w-44 shrink-0"
+          className="w-full @md:w-44 @md:shrink-0"
           disabled={disabled}
           value={provider}
           items={providerItems}
@@ -123,12 +124,13 @@ export function ModelPicker({
       ) : provider !== INHERIT ? (
         <Row
           label="Model"
+          stacked
           detail={value ? <ModelDetail modelId={value} /> : undefined}
         >
           <Select
             aria-label="Model"
             size="sm"
-            className="w-56 shrink-0"
+            className="w-full @md:w-56 @md:shrink-0"
             disabled={disabled}
             value={value && providerOf(value) === provider ? value : ""}
             // The list shows each model's exact id; the trigger only its name.

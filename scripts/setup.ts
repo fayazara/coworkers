@@ -23,7 +23,9 @@ const DEPLOY_FILE = "coworkers.deploy.json"
 /**
  * Paths Access lets through: they carry their own tokens. Shared app links,
  * webhooks, and what an MCP client calls on its own (`/oauth/authorize`,
- * the consent page, stays behind Access). Keep in step with the installer.
+ * the consent page, stays behind Access). The install files hold nothing
+ * private, and phones fetch them without the Access cookie. Keep in step
+ * with the installer.
  */
 const BYPASS_PATHS = [
   "/apps",
@@ -33,6 +35,9 @@ const BYPASS_PATHS = [
   "/oauth/register",
   "/.well-known/oauth-authorization-server",
   "/.well-known/oauth-protected-resource",
+  "/manifest.json",
+  "/sw.js",
+  "/icons",
 ]
 const LEGACY_DEPLOY_FILE = "bdots.deploy.json"
 const SECRETS_FILE = ".dev.vars.production"

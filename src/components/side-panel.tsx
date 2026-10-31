@@ -19,12 +19,14 @@ export function SidePanel({
 }) {
   const { botId } = useBot()
   return (
-    <aside
-      aria-label={title}
-      className="flex h-full flex-col bg-kumo-canvas"
-    >
+    <aside aria-label={title} className="flex h-full flex-col bg-kumo-canvas">
       <div className="col-header justify-between">
-        {toolbar ?? (
+        {toolbar ? (
+          // Tabs scroll on a phone; the close button stays on screen.
+          <div className="min-w-0 flex-1 [scrollbar-width:none] overflow-x-auto">
+            {toolbar}
+          </div>
+        ) : (
           <h2 className="pl-1.5 text-[15px] font-medium text-kumo-default">
             {title}
           </h2>

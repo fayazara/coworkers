@@ -24,6 +24,7 @@ Durable Object with its own chat, memory, routines, computer and browser.
 | First paint    | `src/lib/server-fns.ts`                                                           | Server functions that read a snapshot over DO RPC.                                                                                                                                |
 | Live state     | `src/lib/hub-context.tsx`, `src/routes/_app/bots.$botId.tsx`                      | `useAgent` / `useAgentChat`, browser only, inside `ClientOnly`.                                                                                                                   |
 | Thread UI      | `src/components/thread.tsx`, `computer-card.tsx`, `src/lib/message-parts.ts`      | Tool parts become Computer cards, step lists, approval cards and system events.                                                                                                   |
+| Phones and PWA | `src/components/sheet.tsx`, `src/lib/viewport.ts`, `public/manifest.json`, `public/sw.js` | Below `md`, `SplitView` panels open as Base UI Drawer sheets, `/` is the bot list (`Sidebar home`) and the Desk is `/?desk=true`. The service worker caches `/assets/*` only, never pages. Install files are on the Access bypass list.                |
 
 Things that will bite you:
 

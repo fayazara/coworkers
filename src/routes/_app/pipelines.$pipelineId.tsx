@@ -82,7 +82,7 @@ function PipelinePage() {
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PageHeader title={isNew ? "New pipeline" : "Pipeline"} />
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[640px] px-6 pt-4 pb-16">
+          <div className="mx-auto max-w-[640px] px-4 pt-4 pb-16 md:px-6">
             {pipeline === undefined ? (
               <p className="pt-16 text-center text-sm text-kumo-subtle">
                 This pipeline does not exist any more.
@@ -102,6 +102,7 @@ function PipelinePage() {
     <SplitView
       id="pipeline"
       side="right"
+      label="Pipeline setup"
       open={setupOpen}
       width={widths.panel ?? "40vw"}
       minWidth={340}
@@ -150,7 +151,7 @@ function PipelinePage() {
           }
         />
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[720px] px-6 pt-4 pb-16">
+          <div className="mx-auto max-w-[720px] px-4 pt-4 pb-16 md:px-6">
             <ClientOnly fallback={<Loading />}>
               <PipelineRuns pipeline={pipeline} />
             </ClientOnly>

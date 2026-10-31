@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react"
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels"
+import { Sheet } from "@/components/sheet"
+import { useIsPhone } from "@/lib/use-is-phone"
 
 // Match --panel-open-dur and --panel-close-dur in styles.css.
 const OPEN_MS = 400
@@ -44,6 +46,8 @@ interface SplitViewProps {
   id: string
   /** Which side the collapsible panel sits on. */
   side: "left" | "right"
+  /** Names the panel when it opens as a sheet on a phone. */
+  label: string
   open: boolean
   /** The panel's width when open: px, or any CSS length for the default. */
   width: number | string
@@ -55,17 +59,22 @@ interface SplitViewProps {
   onWidthChange: (px: number) => void
   /** The user dragged the panel shut. */
   onClose: () => void
+  /** The user swiped the panel in, on a phone. */
+  onOpen?: () => void
   panel: React.ReactNode
   children: React.ReactNode
 }
 
 /**
  * Main content beside a panel that slides open and shut and can be resized
- * by dragging the line between them.
+ * by dragging the line between them. On a phone the panel becomes a sheet
+ * over the content. The group stays mounted, with styles.css giving the main
+ * panel the full width, so rotating a phone does not remount the content.
  */
 export function SplitView({
   id,
   side,
+  label,
   open,
   width,
   minWidth,
@@ -73,9 +82,11 @@ export function SplitView({
   mainMinWidth,
   onWidthChange,
   onClose,
+  onOpen,
   panel,
   children,
 }: SplitViewProps) {
+  const phone = useIsPhone()
   const groupRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const panelRef = usePanelRef()
@@ -87,7 +98,7 @@ export function SplitView({
 
   // Open and close by resizing the panel; CSS animates the change.
   useEffect(() => {
-    if (openRef.current === open) return
+    if (phone || openRef.current === open) return
     openRef.current = open
     const group = groupRef.current
     const handle = panelRef.current
@@ -105,7 +116,7 @@ export function SplitView({
       open ? OPEN_MS : CLOSE_MS
     )
     return () => clearTimeout(timer)
-  }, [open, panelRef])
+  }, [open, phone, panelRef])
 
   const sidePanel = (
     <Panel
@@ -128,28 +139,30 @@ export function SplitView({
         }
       }}
     >
-      <div
-        ref={contentRef}
-        className="split-content"
-        data-open={open}
-        data-side={side}
-        style={
-          {
-            "--split-width": typeof width === "number" ? `${width}px` : width,
-          } as React.CSSProperties
-        }
-        // Keep a closed panel out of the tab order and the accessibility tree.
-        inert={!open}
-      >
-        {panel}
-      </div>
+      {phone ? null : (
+        <div
+          ref={contentRef}
+          className="split-content"
+          data-open={open}
+          data-side={side}
+          style={
+            {
+              "--split-width": typeof width === "number" ? `${width}px` : width,
+            } as React.CSSProperties
+          }
+          // Keep a closed panel out of the tab order and the accessibility tree.
+          inert={!open}
+        >
+          {panel}
+        </div>
+      )}
     </Panel>
   )
 
   const main = (
     <Panel
       id={`${id}-main`}
-      minSize={mainMinWidth}
+      minSize={phone ? 0 : mainMinWidth}
       className="flex h-full min-w-0"
       style={{ overflow: "hidden" }}
     >
@@ -176,6 +189,17 @@ export function SplitView({
       {side === "left" ? sidePanel : main}
       <ResizeHandle disabled={!open} />
       {side === "left" ? main : sidePanel}
+      {phone ? (
+        <Sheet
+          side={side}
+          label={label}
+          open={open}
+          onOpen={onOpen}
+          onClose={onClose}
+        >
+          {panel}
+        </Sheet>
+      ) : null}
     </Group>
   )
 }

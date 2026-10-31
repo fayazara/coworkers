@@ -282,8 +282,8 @@ function OnItsOwn() {
           }
         />
       </Row>
-      <Row label="Quiet hours">
-        <span className="flex shrink-0 items-center gap-1.5 text-sm text-kumo-subtle">
+      <Row label="Quiet hours" stacked>
+        <span className="flex items-center gap-1.5 text-sm text-kumo-subtle @md:shrink-0">
           <input
             type="time"
             aria-label="Quiet from"
@@ -292,7 +292,7 @@ function OnItsOwn() {
             onChange={(e) =>
               e.target.value && update({ quietStart: e.target.value })
             }
-            className={PILL_INPUT}
+            className={`${PILL_INPUT} flex-1 @md:flex-none`}
           />
           to
           <input
@@ -303,7 +303,7 @@ function OnItsOwn() {
             onChange={(e) =>
               e.target.value && update({ quietEnd: e.target.value })
             }
-            className={PILL_INPUT}
+            className={`${PILL_INPUT} flex-1 @md:flex-none`}
           />
         </span>
       </Row>

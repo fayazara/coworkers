@@ -902,7 +902,7 @@ export function Thread({
     >
       <div
         ref={content}
-        className="mx-auto flex max-w-[820px] flex-col gap-5 px-6 pt-2 pb-8"
+        className="mx-auto flex max-w-[820px] flex-col gap-5 px-4 pt-2 pb-8 md:px-6"
       >
         {rendered.map(({ message, blocks, at, durationMs }, index) => (
           <Fragment key={message.id}>

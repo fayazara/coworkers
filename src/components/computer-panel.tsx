@@ -365,8 +365,8 @@ function FilesPane({ agent }: { agent: BotConnection }) {
   }, [refresh])
 
   return (
-    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
-      <div className="flex w-60 shrink-0 flex-col border-r border-kumo-line">
+    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06] max-md:flex-col">
+      <div className="flex shrink-0 flex-col border-kumo-line max-md:h-1/2 max-md:border-b md:w-60 md:border-r">
         <div className="flex h-10 items-center justify-between pr-1 pl-4">
           <span className="text-xs font-medium text-kumo-subtle">
             {WORKSPACE_ROOT}

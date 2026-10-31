@@ -41,8 +41,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * Paths Access lets through: they carry their own tokens. Shared app links,
- * webhooks, and what an MCP client calls on its own. Keep in step with
- * scripts/setup.ts.
+ * webhooks, what an MCP client calls on its own, and the install files
+ * phones fetch without the Access cookie. Keep in step with scripts/setup.ts.
  */
 const BYPASS_PATHS = [
   "/apps",
@@ -52,6 +52,9 @@ const BYPASS_PATHS = [
   "/oauth/register",
   "/.well-known/oauth-authorization-server",
   "/.well-known/oauth-protected-resource",
+  "/manifest.json",
+  "/sw.js",
+  "/icons",
 ]
 
 /** What a 403 on each step means, in the user's terms. */

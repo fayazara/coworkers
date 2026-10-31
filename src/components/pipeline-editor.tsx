@@ -66,7 +66,7 @@ function StepCard({
 
   return (
     <div className="rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
-      <div className="flex items-center gap-3 py-2.5 pr-2 pl-4">
+      <div className="flex items-center gap-1.5 py-2.5 pr-2 pl-3 md:gap-3 md:pl-4">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-xs font-medium text-kumo-subtle tabular-nums">
           {index + 1}
         </span>
@@ -76,7 +76,7 @@ function StepCard({
             <Select
               aria-label={`Bot for step ${index + 1}`}
               size="sm"
-              className="w-48 min-w-0 shrink"
+              className="w-48 min-w-0 shrink-[100]"
               placeholder={bots.length ? "Pick a bot" : "No bots yet"}
               value={bot ? step.botId : null}
               items={botItems}

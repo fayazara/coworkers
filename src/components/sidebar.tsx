@@ -27,8 +27,12 @@ import { ShimmerText } from "@/components/shimmer-text"
 import { plainMentions } from "@/lib/bot-links"
 import { useHub } from "@/lib/hub-context"
 import { usePushNotifications } from "@/lib/push"
+import { useIsPhone } from "@/lib/use-is-phone"
 import { useSwipeViews } from "@/lib/use-swipe-views"
 import type { BotSummary, Pipeline, PipelineRun } from "@/lib/types"
+
+/** Bots large enough to earn the phone home's top row. */
+const FEATURED = 3
 
 /** The sidebar's views, left to right. Swiping moves between them. */
 const VIEWS = ["bots", "pipelines"] as const
@@ -186,7 +190,11 @@ function BotRow({ bot, active }: { bot: BotSummary; active: boolean }) {
 /** The Desk: everything the bots brought to you, above the bots themselves. */
 function DeskRow() {
   const { state } = useHub()
-  const active = useLocation({ select: (l) => l.pathname === "/" })
+  const phone = useIsPhone()
+  // A phone's `/` is the bot list; its Desk is one step further in.
+  const active = useLocation({
+    select: (l) => l.pathname === "/" && (!phone || l.search.desk === true),
+  })
   const desk = state.desk ?? []
   const needs = desk.filter((c) => c.lane === "needs_you").length
   const seenAt = state.deskSeenAt ?? Infinity
@@ -201,6 +209,7 @@ function DeskRow() {
   return (
     <Link
       to="/"
+      search={phone ? { desk: true } : {}}
       className={`${ROW} ${active ? "bg-(--fill-active)" : "hover:bg-(--fill-hover)"}`}
     >
       <span className="relative flex size-12 shrink-0 items-center justify-center rounded-2xl bg-(--fill-hover) text-kumo-default">
@@ -264,7 +273,43 @@ function SearchPill({
   )
 }
 
-function BotsView() {
+/** The phone home's top row: the first bots, large, like a contacts strip. */
+function FeaturedBots({ bots }: { bots: BotSummary[] }) {
+  return (
+    <ul className="grid grid-cols-3 gap-1 px-1 pt-3 pb-2">
+      {bots.map((bot) => (
+        <li key={bot.id}>
+          <Link
+            to="/bots/$botId"
+            params={{ botId: bot.id }}
+            className="pressable flex flex-col items-center gap-2 rounded-2xl p-2 outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
+          >
+            <span className="relative">
+              <BotAvatar avatar={bot.avatar} status={bot.status} size={72} />
+              {bot.unread || bot.status === "action_needed" ? (
+                <span
+                  className={`unread-dot absolute top-0 right-0 size-3.5 rounded-full ring-2 ring-kumo-canvas ${
+                    bot.status === "action_needed"
+                      ? "bg-kumo-warning"
+                      : "bg-kumo-danger"
+                  }`}
+                  aria-label={
+                    bot.status === "action_needed" ? "Needs you" : "Unread"
+                  }
+                />
+              ) : null}
+            </span>
+            <span className="max-w-full truncate text-[13px] text-kumo-subtle">
+              {bot.name}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function BotsView({ home }: { home: boolean }) {
   const hub = useHub()
   const navigate = useNavigate()
   const { botId } = useParams({ strict: false })
@@ -280,6 +325,10 @@ function BotsView() {
         b.preview.toLowerCase().includes(needle)
     )
   }, [hub.state.bots, query])
+
+  // Only worth a strip when the list still has rows left under it.
+  const featured =
+    home && !query && bots.length > FEATURED ? bots.slice(0, FEATURED) : []
 
   async function createBot() {
     setCreating(true)
@@ -316,13 +365,14 @@ function BotsView() {
         aria-label="Bots"
         className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-(--inset) pt-1"
       >
+        {featured.length ? <FeaturedBots bots={featured} /> : null}
         {!query && hub.state.bots.length ? (
           <>
             <DeskRow />
             <div className="mx-2.5 my-1 h-px bg-kumo-line" />
           </>
         ) : null}
-        {bots.map((bot) => (
+        {bots.slice(featured.length).map((bot) => (
           <BotRow key={bot.id} bot={bot} active={bot.id === botId} />
         ))}
         {bots.length === 0 ? (
@@ -525,8 +575,10 @@ function PipelinesView() {
   )
 }
 
-export function Sidebar() {
+/** `home`: filling a phone's home page, not sitting beside the content. */
+export function Sidebar({ home = false }: { home?: boolean }) {
   const hub = useHub()
+  const phone = useIsPhone()
   const section = useLocation({
     select: (l) => (l.pathname.startsWith("/pipelines") ? "pipelines" : "bots"),
   })
@@ -547,9 +599,10 @@ export function Sidebar() {
   )
 
   return (
-    // The whole sidebar takes swipes, footer and gaps included.
+    // The whole sidebar takes swipes, footer and gaps included. On a phone a
+    // sideways swipe closes the drawer instead; the footer button switches.
     <aside
-      ref={swipe.viewportRef}
+      ref={phone ? undefined : swipe.viewportRef}
       className="flex h-full w-full touch-pan-y flex-col"
     >
       <div className="sidebar-views">
@@ -560,7 +613,7 @@ export function Sidebar() {
         >
           {/* The view off to the side stays out of the tab order. */}
           <div className="sidebar-view" inert={view !== "bots"}>
-            <BotsView />
+            <BotsView home={home} />
           </div>
           <div className="sidebar-view" inert={!onPipelines}>
             <PipelinesView />

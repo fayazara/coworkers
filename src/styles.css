@@ -53,8 +53,52 @@
   html,
   body {
     height: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
   }
+
+  /* No double-tap zoom delay on anything pressable. */
+  a,
+  button,
+  [role="button"],
+  summary,
+  label {
+    touch-action: manipulation;
+  }
+
+  /* iOS zooms the page into any field smaller than 16px. */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Installed, it behaves like an app: no link previews on long press. */
+  @media (display-mode: standalone) {
+    a,
+    button {
+      -webkit-touch-callout: none;
+      user-select: none;
+    }
+  }
+}
+
+/*
+ * The app fills the part of the screen the keyboard leaves. --app-h and
+ * --app-top come from lib/viewport.ts; iOS slides the visible area over the
+ * page instead of resizing it, so the app has to follow.
+ */
+.app-root {
+  height: var(--app-h, 100dvh);
+  transform: translateY(var(--app-top, 0px));
+}
+
+.app-main {
+  padding-top: var(--safe-top);
+  padding-right: var(--safe-right);
+  padding-left: var(--safe-left);
 }
 
 /* Hugeicons: a 1.5px stroke on screen whatever the icon's size. */
@@ -104,6 +148,24 @@
   --control-size: 36px;
   --inset: 10px;
   --footer-h: 80px;
+
+  /* Notch and home bar. The keyboard covers the home bar, so it goes to 0. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+:root[data-keyboard] {
+  --safe-bottom: 0px;
+}
+
+/* Fingers need bigger targets. --inset shrinks so the row stays 56px tall. */
+@media (pointer: coarse) {
+  :root {
+    --control-size: 44px;
+    --inset: 6px;
+  }
 }
 
 @layer components {
@@ -481,6 +543,163 @@
 }
 
 /*
+ * On a phone the main panel takes the whole group and the side panel opens
+ * as a sheet. This is CSS so it also holds for the server's first paint,
+ * before anything can measure the screen.
+ */
+@media (max-width: 767.98px) {
+  .split-view > [data-panel] {
+    flex: 1 1 100% !important;
+  }
+
+  .split-view > [id$="-panel"],
+  .split-view > .resize-handle {
+    display: none !important;
+  }
+}
+
+/*
+ * Sheets (components/sheet.tsx): the sidebar as a drawer from the left, side
+ * panels as a bottom sheet with two detents. Base UI sets the --drawer-*
+ * variables as the finger moves, and data-swiping turns the easing off.
+ */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  min-height: 100dvh;
+  background: oklch(0 0 0 / 0.32);
+  opacity: calc(1 - var(--drawer-swipe-progress));
+  transition: opacity var(--panel-open-dur) var(--panel-ease);
+}
+
+/* Progress reaches 1 at the lower detent, where the page must still dim. */
+.sheet-backdrop[data-side="right"] {
+  opacity: calc(1 - 0.6 * var(--drawer-swipe-progress));
+}
+
+/* iOS: fixed stops short of the screen's bottom edge. */
+@supports (-webkit-touch-callout: none) {
+  .sheet-backdrop {
+    position: absolute;
+  }
+}
+
+.sheet-backdrop[data-starting-style],
+.sheet-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.sheet-backdrop[data-swiping] {
+  transition-duration: 0ms;
+}
+
+.sheet-viewport {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  touch-action: none;
+}
+
+.sheet-viewport[data-side="right"] {
+  align-items: flex-end;
+}
+
+.sheet-popup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+  background: var(--color-kumo-canvas);
+  touch-action: none;
+  transition: transform var(--panel-open-dur) var(--panel-ease);
+}
+
+.sheet-popup[data-ending-style] {
+  transition-duration: calc(
+    var(--drawer-swipe-strength) * var(--panel-close-dur)
+  );
+}
+
+.sheet-popup[data-swiping] {
+  user-select: none;
+  transition-duration: 0ms;
+}
+
+.sheet-popup[data-side="left"] {
+  width: min(84vw, 320px);
+  height: 100%;
+  padding: var(--safe-top) 0 var(--safe-bottom) var(--safe-left);
+  border-radius: 0 20px 20px 0;
+  box-shadow: 0 0 32px oklch(0 0 0 / 0.16);
+  transform: translateX(var(--drawer-swipe-movement-x));
+}
+
+.sheet-popup[data-side="left"][data-starting-style],
+.sheet-popup[data-side="left"][data-ending-style] {
+  transform: translateX(calc(-100% - 32px));
+}
+
+/* The padding keeps the bottom of the content on screen at the lower detent. */
+.sheet-popup[data-side="right"] {
+  width: 100%;
+  height: calc(100dvh - var(--safe-top) - 8px);
+  padding-bottom: max(
+    0px,
+    calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))
+  );
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 32px oklch(0 0 0 / 0.12);
+  transform: translateY(
+    calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))
+  );
+}
+
+.sheet-popup[data-side="right"][data-starting-style],
+.sheet-popup[data-side="right"][data-ending-style] {
+  padding-bottom: 0;
+  transform: translateY(calc(100% + 2px));
+}
+
+/* The bar is thin; the row around it is what a thumb catches. */
+.sheet-handle {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+}
+
+.sheet-handle::before {
+  content: "";
+  width: 36px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--fill-active);
+}
+
+.sheet-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  touch-action: auto;
+}
+
+.sheet-popup[data-side="right"] .sheet-content {
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Below the header, so it never covers the sidebar button. */
+.sheet-swipe-area {
+  position: fixed;
+  top: calc(var(--safe-top) + var(--header-h));
+  bottom: 0;
+  left: 0;
+  width: 20px;
+}
+
+/*
  * Sidebar views (bots | pipelines) side by side on a track that slides.
  * A finger drags it via --drag (set from script, with data-dragging so it
  * follows without easing); letting go eases it to the chosen view. The view
@@ -628,6 +847,22 @@
     "plus . send";
   row-gap: 6px;
   padding: 8px;
+}
+
+/* The buttons grow for fingers; the one-line field stays between them. */
+@media (pointer: coarse) {
+  .composer-grid {
+    padding: 4px;
+  }
+
+  .composer[data-expanded="false"] .composer-field {
+    margin-block: 4px;
+  }
+
+  .composer-send > button {
+    width: var(--control-size);
+    height: var(--control-size);
+  }
 }
 
 .composer-plus {

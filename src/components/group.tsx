@@ -23,7 +23,7 @@ export function Group({
         <h3 className="text-sm font-medium text-kumo-default">{title}</h3>
         {action}
       </div>
-      <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+      <ul className="@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
         {children}
       </ul>
       {hint ? (
@@ -33,11 +33,16 @@ export function Group({
   )
 }
 
-/** One row: what it is on the left, its control on the right. */
+/**
+ * One row: what it is on the left, its control on the right. With `stacked`,
+ * a control too wide to share a narrow group goes under the label, full width.
+ * It follows the group's width, so a narrow side panel gets it too.
+ */
 export function Row({
   label,
   detail,
   icon,
+  stacked = false,
   children,
   className = "",
 }: {
@@ -45,12 +50,13 @@ export function Row({
   detail?: React.ReactNode
   /** Leading icon or avatar, 28px wide. */
   icon?: React.ReactNode
+  stacked?: boolean
   children?: React.ReactNode
   className?: string
 }) {
   return (
     <li
-      className={`flex min-h-14 items-center gap-4 border-t border-kumo-line py-3 pr-3 pl-4 first:border-t-0 ${className}`}
+      className={`flex min-h-14 gap-4 border-t border-kumo-line py-3 pr-3 pl-4 first:border-t-0 ${stacked ? "flex-col gap-2 @md:flex-row @md:items-center @md:gap-4" : "items-center"} ${className}`}
     >
       {icon ? (
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle">
@@ -58,14 +64,16 @@ export function Row({
         </span>
       ) : null}
       {label !== undefined || detail !== undefined ? (
-        <span className="min-w-0 flex-1">
+        <span className={`min-w-0 ${stacked ? "@md:flex-1" : "flex-1"}`}>
           {label !== undefined ? (
             <span className="block truncate text-sm text-kumo-default">
               {label}
             </span>
           ) : null}
           {detail !== undefined ? (
-            <span className="mt-0.5 block max-w-[75%] text-xs text-pretty text-kumo-subtle">
+            <span
+              className={`mt-0.5 block text-xs text-pretty text-kumo-subtle ${stacked ? "@md:max-w-[75%]" : "max-w-[75%]"}`}
+            >
               {detail}
             </span>
           ) : null}
@@ -91,7 +99,7 @@ export const FIELD =
 
 /** Small pill control for time inputs, matching Kumo's small select. */
 export const PILL_INPUT =
-  "h-8 rounded-lg bg-(--fill-hover) px-2.5 text-sm text-kumo-default tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus disabled:opacity-50"
+  "h-8 min-w-0 rounded-lg bg-(--fill-hover) px-2.5 text-sm text-kumo-default tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus disabled:opacity-50"
 
 /** Round icon button for row actions. */
 export function RowAction({
@@ -166,4 +174,3 @@ export function SaveBar({
     </div>
   )
 }
-

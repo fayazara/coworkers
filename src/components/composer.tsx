@@ -408,13 +408,13 @@ export function Composer({
   }
 
   return (
-    <div className="relative mx-auto w-full max-w-[820px] px-6 pb-4">
+    <div className="relative mx-auto w-full max-w-[820px] px-4 pb-[max(1rem,var(--safe-bottom))] md:px-6">
       {picking ? (
         <ul
           id="composer-mentions"
           role="listbox"
           aria-label="Bots"
-          className="absolute bottom-full left-6 z-10 mb-2 w-64 rounded-2xl bg-kumo-base p-1 shadow-[0_0_0_1px_var(--color-kumo-line),0_8px_24px_oklch(0_0_0/0.08)]"
+          className="absolute bottom-full left-4 z-10 mb-2 w-64 md:left-6 rounded-2xl bg-kumo-base p-1 shadow-[0_0_0_1px_var(--color-kumo-line),0_8px_24px_oklch(0_0_0/0.08)]"
         >
           {options.map((bot, i) => (
             <li
@@ -581,7 +581,9 @@ export function Composer({
               if (
                 e.key === "Enter" &&
                 !e.shiftKey &&
-                !e.nativeEvent.isComposing
+                !e.nativeEvent.isComposing &&
+                // A touch keyboard's return is a new line; send has a button.
+                !matchMedia("(pointer: coarse)").matches
               ) {
                 e.preventDefault()
                 submit()

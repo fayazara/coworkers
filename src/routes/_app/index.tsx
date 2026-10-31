@@ -11,17 +11,50 @@ import { InboxCheckIcon, PlusIcon } from "@/components/icons"
 import { BotAvatar } from "@/components/bot-avatar"
 import { DeskCardView, DoneRow } from "@/components/desk-card"
 import { PageHeader } from "@/components/page-header"
+import { Sidebar } from "@/components/sidebar"
 import { useHub } from "@/lib/hub-context"
+import { useIsPhone } from "@/lib/use-is-phone"
 import { usePresence } from "@/lib/use-presence"
 import type { BotSummary, DeskCard } from "@/lib/types"
 
 export const Route = createFileRoute("/_app/")({
+  // `desk` is how a phone reaches the Desk; its `/` is the bot list.
+  validateSearch: (search: Record<string, unknown>): { desk?: true } =>
+    search.desk === true ? { desk: true } : {},
   component: Home,
 })
 
+/** A phone's first screen: the sidebar, as a page of its own. */
+function PhoneHome() {
+  return (
+    <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-kumo-canvas pb-(--safe-bottom)">
+      <Sidebar home />
+    </section>
+  )
+}
+
 function Home() {
   const { state } = useHub()
-  return state.bots.length ? <Desk /> : <Onboarding />
+  const { desk } = Route.useSearch()
+  const phone = useIsPhone()
+  const hydrated = useHydrated()
+  if (!state.bots.length) return <Onboarding />
+  if (desk) return <Desk />
+  // The server cannot tell a phone, so it sends both and CSS shows the right
+  // one. The Desk only marks cards seen once live, so this first copy cannot.
+  if (!hydrated) {
+    return (
+      <>
+        <div className="flex min-w-0 flex-1 md:hidden">
+          <PhoneHome />
+        </div>
+        <div className="flex min-w-0 flex-1 max-md:hidden">
+          <Desk />
+        </div>
+      </>
+    )
+  }
+  return phone ? <PhoneHome /> : <Desk />
 }
 
 /** How long a closing card takes to fold away (see .desk-item). */
@@ -241,7 +274,7 @@ function Desk() {
 
   return (
     <section className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-      <PageHeader title="Desk" />
+      <PageHeader title="Desk" back />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[640px] px-5 pt-6 pb-24 sm:px-6 sm:pt-10">
           <div className="reveal mb-10">
@@ -408,7 +441,7 @@ function Desk() {
         <div
           key={undo.id}
           role="status"
-          className="desk-toast absolute inset-x-0 bottom-6 z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-kumo-contrast py-1.5 pr-1.5 pl-4 text-sm text-kumo-inverse shadow-lg"
+          className="desk-toast absolute inset-x-0 bottom-[calc(1.5rem+var(--safe-bottom))] z-10 mx-auto flex w-fit items-center gap-3 rounded-full bg-kumo-contrast py-1.5 pr-1.5 pl-4 text-sm text-kumo-inverse shadow-lg"
         >
           <span>{undo.label}</span>
           <button
@@ -443,53 +476,59 @@ function Onboarding() {
   }
 
   return (
-    <div className="reveal flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-(--header-h) text-center">
-      <div
-        className="flex items-end gap-2"
-        style={{ "--i": 0 } as React.CSSProperties}
-      >
-        <BotAvatar avatar="coral-circle" size={56} interactive />
-        <BotAvatar avatar="blue-rectangle" size={80} interactive />
-        <BotAvatar avatar="green-hexagon" size={56} interactive />
+    <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      {/* A phone has no sidebar on screen, so it needs the way to it. */}
+      <div className="md:hidden">
+        <PageHeader title="Coworkers" />
       </div>
-      <div
-        className="max-w-md space-y-2"
-        style={{ "--i": 1 } as React.CSSProperties}
-      >
-        <h1 className="text-2xl font-semibold tracking-tight text-balance text-kumo-default">
-          Create your first bot
-        </h1>
-        <p className="text-[15px] text-pretty text-kumo-subtle">
-          A bot is a teammate with its own computer and browser. Tell it what
-          the job is and it names itself, remembers how you like things done,
-          and keeps working while you're away.
-        </p>
-      </div>
-      <div
-        className="flex flex-col items-center gap-3"
-        style={{ "--i": 2 } as React.CSSProperties}
-      >
-        <Button
-          variant="primary"
-          size="lg"
-          className="btn-ink rounded-full"
-          icon={<PlusIcon />}
-          onClick={() => void create("blank")}
-          loading={creating === "blank"}
-          disabled={!hub.live || creating !== null}
+      <div className="reveal flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-(--header-h) text-center">
+        <div
+          className="flex items-end gap-2"
+          style={{ "--i": 0 } as React.CSSProperties}
         >
-          New bot
-        </Button>
-        <Button
-          variant="ghost"
-          className="rounded-full"
-          onClick={() => void create("chief")}
-          loading={creating === "chief"}
-          disabled={!hub.live || creating !== null}
+          <BotAvatar avatar="coral-circle" size={56} interactive />
+          <BotAvatar avatar="blue-rectangle" size={80} interactive />
+          <BotAvatar avatar="green-hexagon" size={56} interactive />
+        </div>
+        <div
+          className="max-w-md space-y-2"
+          style={{ "--i": 1 } as React.CSSProperties}
         >
-          Or start with a Chief of Staff who sets up the rest
-        </Button>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance text-kumo-default">
+            Create your first bot
+          </h1>
+          <p className="text-[15px] text-pretty text-kumo-subtle">
+            A bot is a teammate with its own computer and browser. Tell it what
+            the job is and it names itself, remembers how you like things done,
+            and keeps working while you're away.
+          </p>
+        </div>
+        <div
+          className="flex flex-col items-center gap-3"
+          style={{ "--i": 2 } as React.CSSProperties}
+        >
+          <Button
+            variant="primary"
+            size="lg"
+            className="btn-ink rounded-full"
+            icon={<PlusIcon />}
+            onClick={() => void create("blank")}
+            loading={creating === "blank"}
+            disabled={!hub.live || creating !== null}
+          >
+            New bot
+          </Button>
+          <Button
+            variant="ghost"
+            className="rounded-full"
+            onClick={() => void create("chief")}
+            loading={creating === "chief"}
+            disabled={!hub.live || creating !== null}
+          >
+            Or start with a Chief of Staff who sets up the rest
+          </Button>
+        </div>
       </div>
-    </div>
+    </section>
   )
 }

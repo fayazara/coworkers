@@ -19,14 +19,11 @@ import { useAgent } from "agents/react"
 import { useAgentChat } from "@cloudflare/think/react"
 import { Button } from "@cloudflare/kumo/components/button"
 import { Tooltip } from "@cloudflare/kumo/components/tooltip"
-import {
-  GearSixIcon,
-  ComputerIcon,
-  SidebarSimpleIcon,
-} from "@/components/icons"
+import { GearSixIcon, ComputerIcon } from "@/components/icons"
 import { BotAvatar } from "@/components/bot-avatar"
 import { Composer } from "@/components/composer"
 import { ComputerPanel } from "@/components/computer-panel"
+import { SidebarToggle } from "@/components/page-header"
 import { SettingsPanel } from "@/components/settings-panel"
 import { SidePanel } from "@/components/side-panel"
 import { useLatchedWhileClosing } from "@/components/slide-shell"
@@ -141,26 +138,13 @@ function BotHeader({
   bot?: Pick<BotSummary, "name" | "avatar" | "status">
   children?: React.ReactNode
 }) {
-  const { sidebarOpen, toggleSidebar } = useLayout()
   return (
     <header className="col-header relative justify-between">
-      <Tooltip
-        content={sidebarOpen ? "Hide bots" : "Show bots"}
-        render={
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            aria-label={sidebarOpen ? "Hide bots" : "Show bots"}
-            aria-pressed={!sidebarOpen}
-            className="icon-btn"
-          >
-            <SidebarSimpleIcon size={20} />
-          </button>
-        }
-      />
-      {/* The bot's name floats in the middle, like a window title. */}
+      <SidebarToggle back />
+      {/* The bot's name floats in the middle, like a window title. On a
+          phone it sits beside the back button instead. */}
       {bot ? (
-        <div className="absolute left-1/2 flex h-9 max-w-[50%] -translate-x-1/2 items-center gap-2 rounded-full bg-kumo-base pr-4 pl-1.5 shadow-[0_0_0_1px_var(--color-kumo-line),0_1px_2px_oklch(0_0_0/0.04),0_2px_8px_oklch(0_0_0/0.04)]">
+        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 md:absolute md:left-1/2 md:max-w-[50%] md:flex-none md:-translate-x-1/2 md:rounded-full md:bg-kumo-base md:pr-4 md:pl-1.5 md:shadow-[0_0_0_1px_var(--color-kumo-line),0_1px_2px_oklch(0_0_0/0.04),0_2px_8px_oklch(0_0_0/0.04)]">
           <BotAvatar avatar={bot.avatar} status={bot.status} size={30} />
           <h1 className="truncate text-[15px] font-medium text-kumo-default">
             {bot.name}
@@ -232,6 +216,7 @@ function BotLayout({
       <SplitView
         id="bot"
         side="right"
+        label={shownPanel === "computer" ? "Computer" : "Settings"}
         open={panel !== null}
         width={widths.panel ?? "44vw"}
         minWidth={360}
@@ -430,14 +415,14 @@ function LiveBot({
       {chat.error ? (
         <p
           role="alert"
-          className="mx-auto w-full max-w-[820px] px-6 pb-2 text-sm text-kumo-danger"
+          className="mx-auto w-full max-w-[820px] px-4 pb-2 text-sm text-kumo-danger md:px-6"
         >
           {chat.error.message ||
             "Something went wrong. Try sending that again."}
         </p>
       ) : null}
       {paused ? (
-        <div className="mx-auto flex w-full max-w-[820px] items-center justify-between gap-3 px-6 pb-2 text-sm text-kumo-subtle">
+        <div className="mx-auto flex w-full max-w-[820px] items-center justify-between gap-3 px-4 pb-2 text-sm text-kumo-subtle md:px-6">
           <span className="text-pretty">
             Paused. Its routines, check-ins, email, webhooks and messages from
             other bots are skipped.

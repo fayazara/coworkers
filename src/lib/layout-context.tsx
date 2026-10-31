@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from "react"
+import { useIsPhone } from "@/lib/use-is-phone"
 
 export const SIDEBAR_COOKIE = "coworkers-sidebar"
 export const WIDTHS_COOKIE = "coworkers-widths"
@@ -46,7 +47,9 @@ export function useLayout() {
 
 /**
  * App chrome state. The sidebar preference and panel widths live in cookies
- * so the server renders them in place and nothing moves on page load.
+ * so the server renders them in place and nothing moves on page load. On a
+ * phone the sidebar is a drawer over the page: it starts shut and leaves the
+ * saved preference alone.
  */
 export function LayoutProvider({
   initialSidebarOpen,
@@ -57,20 +60,28 @@ export function LayoutProvider({
   initialWidths: PanelWidths
   children: React.ReactNode
 }) {
-  const [sidebarOpen, setOpen] = useState(initialSidebarOpen)
+  const phone = useIsPhone()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [pinnedOpen, setOpen] = useState(initialSidebarOpen)
+  const sidebarOpen = phone ? drawerOpen : pinnedOpen
   const [widths, setWidths] = useState(initialWidths)
 
-  const setSidebarOpen = useCallback((open: boolean) => {
-    setOpen(open)
-    writeCookie(SIDEBAR_COOKIE, open ? "open" : "closed")
-  }, [])
+  const setSidebarOpen = useCallback(
+    (open: boolean) => {
+      if (phone) return setDrawerOpen(open)
+      setOpen(open)
+      writeCookie(SIDEBAR_COOKIE, open ? "open" : "closed")
+    },
+    [phone]
+  )
 
   const toggleSidebar = useCallback(() => {
+    if (phone) return setDrawerOpen((open) => !open)
     setOpen((open) => {
       writeCookie(SIDEBAR_COOKIE, open ? "closed" : "open")
       return !open
     })
-  }, [])
+  }, [phone])
 
   const setWidth = useCallback((key: keyof PanelWidths, px: number) => {
     setWidths((current) => {
