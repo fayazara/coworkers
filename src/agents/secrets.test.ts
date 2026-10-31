@@ -22,6 +22,45 @@ describe("redact", () => {
     const text = `a ${secret} b ${encodeURIComponent(secret)} c ${btoa(secret)}`
     expect(redact(text, secret)).toBe("a [redacted] b [redacted] c [redacted]")
   })
+
+  it("removes base64 without padding and base64url", () => {
+    // 13 bytes, so the base64 ends in padding and contains + and /.
+    const secret = "s3cr3t/+value"
+    const b64 = btoa(secret)
+    expect(b64).toMatch(/=$/)
+    const unpadded = b64.replace(/=+$/, "")
+    const url = unpadded.replace(/\+/g, "-").replace(/\//g, "_")
+    expect(redact(`a ${unpadded} b ${url} c`, secret)).toBe(
+      "a [redacted] b [redacted] c"
+    )
+  })
+
+  it("removes base64 of a non-Latin-1 value", () => {
+    const secret = "pässwörd-🔑"
+    const encoded = btoa(
+      String.fromCharCode(...new TextEncoder().encode(secret))
+    )
+    expect(redact(`x ${encoded} y`, secret)).toBe("x [redacted] y")
+  })
+
+  it("removes the value from inside a longer base64 blob", () => {
+    const secret = "tok_9f8e7d6c5b4a"
+    // One prefix for each byte offset the value can start at.
+    for (const prefix of ["", "a", "ab"]) {
+      const blob = btoa(`${prefix}${secret}&scope=all`)
+      const left = redact(blob, secret).split("[redacted]")
+      expect(left).toHaveLength(2)
+      // Only the edge characters that mix in neighbouring bytes stay.
+      const removed = blob.length - left.join("").length
+      expect(removed).toBeGreaterThanOrEqual((secret.length * 4) / 3 - 2)
+    }
+  })
+
+  it("leaves unrelated text alone", () => {
+    expect(redact("nothing to see here", "s3cr3t-value")).toBe(
+      "nothing to see here"
+    )
+  })
 })
 
 describe("authHeader", () => {
