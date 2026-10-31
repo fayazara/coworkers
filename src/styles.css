@@ -138,8 +138,7 @@
 }
 
 .app-main {
-  /* iOS blurs what sits just under the status bar, so stay clear of it. */
-  padding-top: var(--safe-top);
+  padding-top: var(--top-clear);
   padding-right: var(--safe-right);
   padding-left: var(--safe-left);
 }
@@ -200,16 +199,21 @@
 
   /* The whole screen. lib/viewport.ts corrects it once scripts run. */
   --screen-h: 100dvh;
+
+  /* Where the app's top edge starts. See the installed-on-iOS rule below. */
+  --top-clear: var(--safe-top);
 }
 
 /*
  * Installed on iOS, with the app drawn under the status bar, 100dvh comes up
- * short by that bar, leaving a band at the bottom of the screen.
+ * short by that bar, leaving a band at the bottom of the screen. iOS also
+ * fades what sits just below the bar, so the app starts further down.
  */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) {
     :root {
       --screen-h: calc(100dvh + var(--safe-top));
+      --top-clear: calc(var(--safe-top) + 16px);
     }
   }
 }
@@ -687,7 +691,7 @@
 .sheet-popup[data-side="left"] {
   width: min(84vw, 320px);
   height: 100%;
-  padding: var(--safe-top) 0 var(--safe-bottom) var(--safe-left);
+  padding: var(--top-clear) 0 var(--safe-bottom) var(--safe-left);
   border-radius: 0 20px 20px 0;
   box-shadow: 0 0 32px oklch(0 0 0 / 0.16);
   transform: translateX(var(--drawer-swipe-movement-x));
@@ -701,7 +705,7 @@
 /* The padding keeps the bottom of the content on screen at the lower detent. */
 .sheet-popup[data-side="right"] {
   width: 100%;
-  height: calc(var(--screen-h) - var(--safe-top) - 8px);
+  height: calc(var(--screen-h) - var(--top-clear) - 8px);
   padding-bottom: max(
     0px,
     calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))
@@ -752,7 +756,7 @@
 /* Below the header, so it never covers the sidebar button. */
 .sheet-swipe-area {
   position: fixed;
-  top: calc(var(--safe-top) + var(--header-h));
+  top: calc(var(--top-clear) + var(--header-h));
   bottom: 0;
   left: 0;
   width: 20px;
