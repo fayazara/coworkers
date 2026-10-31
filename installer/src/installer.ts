@@ -52,7 +52,7 @@ const BYPASS_PATHS = [
   "/oauth/register",
   "/.well-known/oauth-authorization-server",
   "/.well-known/oauth-protected-resource",
-  "/manifest.json",
+  "/manifest.webmanifest",
   "/sw.js",
   "/icons",
 ]

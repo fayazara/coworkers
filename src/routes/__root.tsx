@@ -6,7 +6,7 @@ import { LaunchSplash } from "@/components/launch-splash"
 import { followViewport } from "@/lib/viewport"
 import appCss from "../styles.css?url"
 
-// The page background, and theme_color in public/manifest.json.
+// The page background, and theme_color in public/manifest.webmanifest.
 const THEME_COLOR = "#ffffff"
 
 // What iOS shows while an installed app starts: width, height, pixel ratio.
@@ -43,12 +43,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      // Without credentials Access would answer with its login page.
-      {
-        rel: "manifest",
-        href: "/manifest.json",
-        crossOrigin: "use-credentials",
-      },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       {
         rel: "preload",
