@@ -23,7 +23,7 @@ export function Group({
         <h3 className="text-sm font-medium text-kumo-default">{title}</h3>
         {action}
       </div>
-      <ul className="@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+      <ul className="@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
         {children}
       </ul>
       {hint ? (

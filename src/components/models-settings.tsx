@@ -130,7 +130,11 @@ export function ModelsSettings() {
           />
         </Group>
         {result ? <TestResult result={result} model={chat} /> : null}
-        {provider && provider !== "workers-ai" ? (
+        {provider === "command-code" ? (
+          <p className="px-1.5 text-xs text-pretty text-kumo-subtle">
+            Requests use the Command Code key stored in AI Gateway.
+          </p>
+        ) : provider && provider !== "workers-ai" ? (
           <p className="px-1.5 text-xs text-pretty text-kumo-subtle">
             {PROVIDERS.find((p) => p.id === provider)?.name} models bill through
             AI Gateway credits or your own key.{" "}
@@ -160,7 +164,7 @@ export function ModelsSettings() {
           />
         </button>
         {advanced ? (
-          <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+          <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
             <ModelPicker
               value={settings.background}
               label="Background work"

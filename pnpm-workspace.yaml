@@ -2,6 +2,15 @@ packages:
   - "."
   - "installer"
 
+allowBuilds:
+  '@mongodb-js/zstd': true
+  core-js-pure: true
+  esbuild: true
+  msw: true
+  node-liblzma: true
+  unrs-resolver: true
+  workerd: true
+
 onlyBuiltDependencies:
   - esbuild
   - msw
