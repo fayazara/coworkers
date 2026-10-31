@@ -1,0 +1,21 @@
+src/lib/viewport.ts
+  s_805c4ed2af2350::t_1eab2c09750575 8-10,16-18,23-28
+src/styles.css
+  s_805c4ed2af2350::t_c4502de8adb8f6 55,94,99-100,158-172,585,614-615,662
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "44e7c353b7187b5e17ec986200a7b078c0c723a7",
+  "prompts": {},
+  "sessions": {
+    "s_805c4ed2af2350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ca37391-47e9-4a06-8ad1-4eac99cc644e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
