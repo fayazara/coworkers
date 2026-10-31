@@ -1,0 +1,75 @@
+AGENTS.md
+  s_805c4ed2af2350::t_8a7ca3a692ba08 27
+installer/src/installer.ts
+  s_805c4ed2af2350::t_316dab83b77085 44-45,55-57
+package.json
+  s_805c4ed2af2350::t_0d75cccea1933b 20
+pnpm-lock.yaml
+  s_805c4ed2af2350::t_5c64e3c8b61daf 14-16
+public/manifest.json
+  s_805c4ed2af2350::t_67ae3f1af3c74e 2,4-10,13,18,21-26,28
+public/sw.js
+  s_805c4ed2af2350::t_c473120c4e30aa 2-25,29-38,41-73,95
+scripts/setup.ts
+  s_805c4ed2af2350::t_1740ef9f2fe341 26-28,38-40
+src/components/composer.tsx
+  s_805c4ed2af2350::t_0817ebf9893905 411,417,584-586
+src/components/computer-panel.tsx
+  s_805c4ed2af2350::t_3dc428e685eb13 368-369
+src/components/group.tsx
+  s_805c4ed2af2350::t_53efa41786362e 26,36-40,45,53,59,67,74-76,102
+src/components/model-picker.tsx
+  s_805c4ed2af2350::t_ee913b1395f159 89,101,127,133
+src/components/page-header.tsx
+  s_805c4ed2af2350::t_c83d6cbe825b7c 2-3,5-43,48,52-53,59-60
+src/components/pipeline-editor.tsx
+  s_805c4ed2af2350::t_6ff4dd388bb614 69,79
+src/components/settings-panel.tsx
+  s_805c4ed2af2350::t_11defb0b1fb1de 285-286,295,306
+src/components/sheet.tsx
+  s_805c4ed2af2350::t_a1e6a9e1c0db58 1-83
+src/components/side-panel.tsx
+  s_805c4ed2af2350::t_32b31a552d9b59 22,24-29
+src/components/sidebar.tsx
+  s_805c4ed2af2350::t_be75dd1ff5efc1 30,34-36,193-197,212,276-312,329-332,368,375,578-579,581,602-603,605,616
+src/components/thread.tsx
+  s_805c4ed2af2350::t_aef3f2f0cb9070 905
+src/lib/layout-context.tsx
+  s_805c4ed2af2350::t_eebd5c7f300380 2,50-52,63-66,69-76,79,84
+src/lib/viewport.ts
+  s_805c4ed2af2350::t_c2f746a8ac8ca1 1-36
+src/routes/__root.tsx
+  s_805c4ed2af2350::t_613a474a9976a9 1,5,8-10,15-28,31-40,46-54,62
+src/routes/_app.tsx
+  s_805c4ed2af2350::t_94b43c20a3a6f5 1-7,13,24-33,39,47,50
+src/routes/_app/bots.$botId.tsx
+  s_805c4ed2af2350::t_88cba6a034779d 22,26,143-145,147,219,418,425
+src/routes/_app/index.tsx
+  s_805c4ed2af2350::t_80ac578d5065cc 14,16,21-23,27-35,38-57,277,444,479-482,484-487,489-508,510-530,532
+src/routes/_app/pipelines.$pipelineId.tsx
+  s_805c4ed2af2350::t_3ead46640df620 85,105,154
+src/routes/_app/settings.tsx
+  s_805c4ed2af2350::t_b5d8b72ed37119 5,40,46
+src/styles.css
+  s_805c4ed2af2350::t_de801a9d1a6400 56,59-101,151-168,545-701,852-867
+src/components/split-view.tsx
+  s_805c4ed2af2350::t_72b19b43da219e 3-4,49-50,62-63,70-72,77,85,89,101,119,142-158,165,192-202
+src/lib/use-is-phone.ts
+  s_805c4ed2af2350::t_12bdd988ef0f29 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a5b14cbdee867cebdb8afb208ab459d10484dcc0",
+  "prompts": {},
+  "sessions": {
+    "s_805c4ed2af2350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ca37391-47e9-4a06-8ad1-4eac99cc644e",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
