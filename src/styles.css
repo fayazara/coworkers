@@ -52,7 +52,7 @@
 
   html,
   body {
-    height: 100%;
+    height: var(--screen-h);
     overflow: hidden;
     overscroll-behavior: none;
   }
@@ -91,12 +91,13 @@
  * page instead of resizing it, so the app has to follow.
  */
 .app-root {
-  height: var(--app-h, 100dvh);
+  height: var(--app-h, var(--screen-h));
   transform: translateY(var(--app-top, 0px));
 }
 
 .app-main {
-  padding-top: var(--safe-top);
+  /* The bar's inset leaves more air than a header row needs. */
+  padding-top: max(0px, calc(var(--safe-top) - 12px));
   padding-right: var(--safe-right);
   padding-left: var(--safe-left);
 }
@@ -154,6 +155,21 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* The whole screen. lib/viewport.ts corrects it once scripts run. */
+  --screen-h: 100dvh;
+}
+
+/*
+ * Installed on iOS, with the app drawn under the status bar, 100dvh comes up
+ * short by that bar, leaving a band at the bottom of the screen.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    :root {
+      --screen-h: calc(100dvh + var(--safe-top));
+    }
+  }
 }
 
 :root[data-keyboard] {
@@ -566,7 +582,7 @@
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  min-height: 100dvh;
+  min-height: var(--screen-h);
   background: oklch(0 0 0 / 0.32);
   opacity: calc(1 - var(--drawer-swipe-progress));
   transition: opacity var(--panel-open-dur) var(--panel-ease);
@@ -595,7 +611,8 @@
 
 .sheet-viewport {
   position: fixed;
-  inset: 0;
+  inset: 0 0 auto;
+  height: var(--screen-h);
   display: flex;
   touch-action: none;
 }
@@ -642,7 +659,7 @@
 /* The padding keeps the bottom of the content on screen at the lower detent. */
 .sheet-popup[data-side="right"] {
   width: 100%;
-  height: calc(100dvh - var(--safe-top) - 8px);
+  height: calc(var(--screen-h) - var(--safe-top) - 8px);
   padding-bottom: max(
     0px,
     calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))

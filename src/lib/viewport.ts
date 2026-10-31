@@ -5,16 +5,27 @@ const KEYBOARD_MIN_PX = 120
  * Keeps the app on the part of the screen the on-screen keyboard leaves. iOS
  * does not resize anything for the keyboard (Chrome does, through
  * interactive-widget in the viewport meta), so read the visual viewport and
- * size the app to it. Returns a cleanup function.
+ * size the app to it. Installed on iOS, the page's own sizes come up short by
+ * the status bar, so the screen is the only true height. Returns a cleanup
+ * function.
  */
 export function followViewport() {
   const viewport = window.visualViewport
   if (!viewport) return
   const root = document.documentElement
+  // Only iOS has this property, and it is true once on the home screen.
+  const installedOnIos =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
 
   function update() {
     // Pinch zoom moves the visual viewport too; the app stays put for that.
     if (!viewport || viewport.scale > 1.01) return
+    if (installedOnIos) {
+      const { width, height } = window.screen
+      const portrait = window.innerHeight > window.innerWidth
+      const full = portrait ? Math.max(width, height) : Math.min(width, height)
+      root.style.setProperty("--screen-h", `${full}px`)
+    }
     const keyboard = window.innerHeight - viewport.height > KEYBOARD_MIN_PX
     root.toggleAttribute("data-keyboard", keyboard)
     if (keyboard) {
