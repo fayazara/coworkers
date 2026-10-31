@@ -33,6 +33,7 @@ import { useLatchedWhileClosing } from "@/components/slide-shell"
 import { SplitView } from "@/components/split-view"
 import { Thread } from "@/components/thread"
 import { BotContext } from "@/lib/bot-context"
+import { cachedBot, rememberBot } from "@/lib/bot-cache"
 import { useHub } from "@/lib/hub-context"
 import { useLayout } from "@/lib/layout-context"
 import { getBotSnapshot } from "@/lib/server-fns"
@@ -41,7 +42,7 @@ import type { UIMessage } from "ai"
 import type { BotAgent } from "@/agents/bot-agent"
 import type { BrowserNav } from "@/components/computer-card"
 import type { OnApproval, OnScriptApproval } from "@/components/thread"
-import type { BotState } from "@/lib/types"
+import type { BotState, BotSummary } from "@/lib/types"
 
 interface ApprovalResponse {
   id: string
@@ -60,26 +61,35 @@ function batchAnswered(messages: UIMessage[]) {
 
 export const Route = createFileRoute("/_app/bots/$botId")({
   loader: async ({ params }) => {
+    const cached = cachedBot(params.botId)
+    if (cached) return cached
     const snapshot = await getBotSnapshot({ data: params.botId })
     if (!snapshot) throw redirect({ to: "/" })
-    return snapshot
+    return {
+      state: snapshot.state,
+      messages: JSON.parse(snapshot.messagesJson) as UIMessage[],
+    }
   },
-  // Chat is live over a WebSocket; refetching history on every navigation
+  // Chat is live over a WebSocket; refetching history while a bot is open
   // would only race it.
   staleTime: Infinity,
+  // Run the loader on every visit: the router's copy is from the first one,
+  // and the cache behind the loader is newer.
+  gcTime: 0,
+  preloadGcTime: 30_000,
+  // A bot that is not cached waits on the server. Show it right away.
+  pendingMs: 100,
+  pendingMinMs: 0,
+  pendingComponent: BotPending,
   component: BotRoute,
 })
 
 function BotRoute() {
   const { botId } = Route.useParams()
   const snapshot = Route.useLoaderData()
-  const messages = useMemo(
-    () => JSON.parse(snapshot.messagesJson) as UIMessage[],
-    [snapshot.messagesJson]
-  )
   const fallback = (
     <BotLayout botId={botId} state={snapshot.state} agent={null}>
-      <Thread bot={snapshot.state} messages={messages} busy={false} />
+      <Thread bot={snapshot.state} messages={snapshot.messages} busy={false} />
       <Composer
         botName={snapshot.state.name}
         disabled
@@ -93,9 +103,72 @@ function BotRoute() {
     <ClientOnly fallback={fallback}>
       <Suspense fallback={fallback}>
         {/* Remount per bot so each gets its own socket and chat state. */}
-        <LiveBot key={botId} botId={botId} initialState={snapshot.state} />
+        <LiveBot
+          key={botId}
+          botId={botId}
+          initialState={snapshot.state}
+          initialMessages={snapshot.messages}
+        />
       </Suspense>
     </ClientOnly>
+  )
+}
+
+/** A bot on its way from the server: what the sidebar already knows of it. */
+function BotPending() {
+  const { botId } = Route.useParams()
+  const hub = useHub()
+  const bot = hub.state.bots.find((b) => b.id === botId)
+  return (
+    <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+      <BotHeader bot={bot} />
+      <div className="flex-1" />
+      <Composer
+        botName={bot?.name ?? ""}
+        disabled
+        busy={false}
+        onSend={() => {}}
+        onStop={() => {}}
+      />
+    </section>
+  )
+}
+
+function BotHeader({
+  bot,
+  children,
+}: {
+  bot?: Pick<BotSummary, "name" | "avatar" | "status">
+  children?: React.ReactNode
+}) {
+  const { sidebarOpen, toggleSidebar } = useLayout()
+  return (
+    <header className="col-header relative justify-between">
+      <Tooltip
+        content={sidebarOpen ? "Hide bots" : "Show bots"}
+        render={
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={sidebarOpen ? "Hide bots" : "Show bots"}
+            aria-pressed={!sidebarOpen}
+            className="icon-btn"
+          >
+            <SidebarSimpleIcon size={20} />
+          </button>
+        }
+      />
+      {/* The bot's name floats in the middle, like a window title. */}
+      {bot ? (
+        <div className="absolute left-1/2 flex h-9 max-w-[50%] -translate-x-1/2 items-center gap-2 rounded-full bg-kumo-base pr-4 pl-1.5 shadow-[0_0_0_1px_var(--color-kumo-line),0_1px_2px_oklch(0_0_0/0.04),0_2px_8px_oklch(0_0_0/0.04)]">
+          <BotAvatar avatar={bot.avatar} status={bot.status} size={30} />
+          <h1 className="truncate text-[15px] font-medium text-kumo-default">
+            {bot.name}
+          </h1>
+        </div>
+      ) : null}
+      {children}
+    </header>
   )
 }
 
@@ -147,7 +220,7 @@ function BotLayout({
   const panel = computerOpen ? "computer" : settingsOpen ? "settings" : null
   // Keep the closing panel's content on screen while it slides away.
   const shownPanel = useLatchedWhileClosing(panel, panel !== null)
-  const { sidebarOpen, toggleSidebar, widths, setWidth } = useLayout()
+  const { widths, setWidth } = useLayout()
   const navigate = useNavigate()
   const context = useMemo(
     () => ({ botId, state, agent }),
@@ -177,32 +250,7 @@ function BotLayout({
         }
       >
         <section className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="col-header relative justify-between">
-            <Tooltip
-              content={sidebarOpen ? "Hide bots" : "Show bots"}
-              render={
-                <button
-                  type="button"
-                  onClick={toggleSidebar}
-                  aria-label={sidebarOpen ? "Hide bots" : "Show bots"}
-                  aria-pressed={!sidebarOpen}
-                  className="icon-btn"
-                >
-                  <SidebarSimpleIcon size={20} />
-                </button>
-              }
-            />
-            {/* The bot's name floats in the middle, like a window title. */}
-            <div className="absolute left-1/2 flex h-9 max-w-[50%] -translate-x-1/2 items-center gap-2 rounded-full bg-kumo-base pr-4 pl-1.5 shadow-[0_0_0_1px_var(--color-kumo-line),0_1px_2px_oklch(0_0_0/0.04),0_2px_8px_oklch(0_0_0/0.04)]">
-              <BotAvatar
-                avatar={state.avatar}
-                status={state.status}
-                size={30}
-              />
-              <h1 className="truncate text-[15px] font-medium text-kumo-default">
-                {state.name}
-              </h1>
-            </div>
+          <BotHeader bot={state}>
             <div className="flex items-center gap-1">
               <PanelLink
                 to="/bots/$botId/settings"
@@ -221,7 +269,7 @@ function BotLayout({
                 <ComputerIcon size={20} />
               </PanelLink>
             </div>
-          </header>
+          </BotHeader>
           {children}
         </section>
       </SplitView>
@@ -234,9 +282,11 @@ function BotLayout({
 function LiveBot({
   botId,
   initialState,
+  initialMessages,
 }: {
   botId: string
   initialState: BotState
+  initialMessages: UIMessage[]
 }) {
   const hub = useHub()
   const agent = useAgent<BotAgent, BotState>({
@@ -244,7 +294,16 @@ function LiveBot({
     name: botInstanceName(hub.viewer.id, botId),
   })
   const state = agent.state ?? initialState
-  const chat = useAgentChat({ agent })
+  // The loader already has the history, and the socket sends it on connect.
+  // By default the hook fetches it a third time and suspends until it lands.
+  const chat = useAgentChat({
+    agent,
+    getInitialMessages: null,
+    messages: initialMessages,
+  })
+  useEffect(() => {
+    rememberBot(botId, { state, messages: chat.messages })
+  }, [botId, state, chat.messages])
   const paused = hub.state.bots.find((b) => b.id === botId)?.paused === true
   // Every other bot, for @mentions.
   const mentionable = useMemo(

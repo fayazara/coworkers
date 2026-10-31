@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo } from "react"
+import { createContext, useContext, useEffect, useMemo } from "react"
 import { useAgent } from "agents/react"
+import { syncBotSummaries } from "@/lib/bot-cache"
 import type { ReactNode } from "react"
 import type { UIMessage } from "ai"
 import type {
@@ -176,6 +177,10 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
     name: viewer.id,
   })
   const state = agent.state ?? initial
+
+  useEffect(() => {
+    syncBotSummaries(state.bots)
+  }, [state.bots])
 
   const value = useMemo<HubContextValue>(
     () => ({
