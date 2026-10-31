@@ -125,6 +125,7 @@ import type {
 import { LoopGuard, shapeToolResults } from "./guards"
 import { failureCard, replyCard, scriptCard, waitingCard } from "./desk"
 import type { DemoBotSeed } from "./demo-seed"
+import { attachmentNames } from "./inbound"
 import { MAX_MEMORY_CHARS, appendFact } from "./memory"
 import { languageModel, pickModel } from "./models"
 import {
@@ -3668,6 +3669,18 @@ export class BotAgent extends Think<Env, BotState> {
     // The hub is only a cache of this; heal it on every sweep.
     void this.report({ status: this.state.status })
 
+    // Answered approvals leave their reminder keys behind; drop them.
+    const pending = new Set(
+      this.messages.flatMap((m) => m.parts.map((p) => pendingApprovalId(p)))
+    )
+    for (const prefix of ["approval_at:", "approval_reminded:"]) {
+      for (const [key] of [...this.ctx.storage.kv.list({ prefix })]) {
+        if (!pending.has(key.slice(prefix.length))) {
+          this.ctx.storage.kv.delete(key)
+        }
+      }
+    }
+
     for (const message of this.messages) {
       if (message.role !== "assistant") continue
       let changed = false
@@ -4767,17 +4780,23 @@ export class BotAgent extends Think<Env, BotState> {
     const sender = parsed.from?.name ? `${parsed.from.name} <${from}>` : from
     const subject = parsed.subject?.trim() || "(no subject)"
     const body = (parsed.text ?? htmlToText(parsed.html ?? "")).trim()
-    const stamp = fileStamp()
-    const dir = `/workspace/inbox/email/${stamp}-${slugify(subject, 40)}`
+    // Two emails with one subject can arrive in the same second.
+    const dir = `/workspace/inbox/email/${fileStamp()}-${slugify(subject, 40)}-${crypto.randomUUID().slice(0, 6)}`
     await this.workspace.fs.mkdir(dir, { recursive: true })
     const path = `${dir}/message.md`
     await this.workspace.fs.writeFile(
       path,
       `From: ${sender}\nTo: ${email.to}\nSubject: ${subject}\nDate: ${parsed.date ?? new Date().toISOString()}\n\n${body}\n`
     )
+    const files = parsed.attachments.slice(0, 10)
+    // An attachment called message.md must not replace the email itself.
+    const names = attachmentNames(
+      files.map((file) => file.filename ?? undefined),
+      ["message.md"]
+    )
     const attachments: string[] = []
-    for (const file of parsed.attachments.slice(0, 10)) {
-      const name = (file.filename ?? "attachment").replace(/[^\w.\- ]+/g, "_")
+    for (const [i, file] of files.entries()) {
+      const name = names[i]
       const content =
         typeof file.content === "string"
           ? file.content
@@ -4804,7 +4823,12 @@ export class BotAgent extends Think<Env, BotState> {
   /** Durable Object RPC from `/api/hooks/...`. False means a bad token. */
   async receiveWebhook(
     token: string,
-    event: { source: string; contentType: string; body: string }
+    event: {
+      source: string
+      contentType: string
+      body: string
+      deliveryId?: string
+    }
   ): Promise<boolean> {
     if (!timingSafeEqual(token, this.webhookToken())) return false
     const body = event.body.slice(0, MAX_WEBHOOK_BYTES)
@@ -4816,7 +4840,8 @@ export class BotAgent extends Think<Env, BotState> {
         // Not valid JSON after all: keep the raw text.
       }
     }
-    const path = `/workspace/inbox/webhooks/${fileStamp()}-${slugify(event.source, 30)}.txt`
+    // Several deliveries from one source can arrive in the same second.
+    const path = `/workspace/inbox/webhooks/${fileStamp()}-${slugify(event.source, 30)}-${crypto.randomUUID().slice(0, 6)}.txt`
     await this.workspace.fs.mkdir("/workspace/inbox/webhooks", {
       recursive: true,
     })
@@ -4830,7 +4855,11 @@ export class BotAgent extends Think<Env, BotState> {
         path,
         body: clip(pretty, MAX_INBOUND_CHARS),
       }),
-      { background: true }
+      {
+        background: true,
+        // A sender's retry of the same delivery does not start a second turn.
+        key: event.deliveryId ? `webhook:${event.deliveryId}` : undefined,
+      }
     )
     return true
   }
