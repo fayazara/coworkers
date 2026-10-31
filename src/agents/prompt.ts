@@ -113,6 +113,27 @@ export function routinePrompt(input: {
   return lines.join("\n")
 }
 
+/** The routine's own prompt, back out of the text routinePrompt() made. */
+export function routineInstructionsOf(text: string) {
+  // It sits between the header line and the routine id.
+  return text.split("\n").slice(1).join("\n").split("\n\nRoutine id:")[0].trim()
+}
+
+const WATCH_CHANGED = "\n\nThis run was started because "
+
+/** Added to a routine's trigger when its watch saw a change. */
+export function watchChangeNote(what: string, before: string, now: string) {
+  return `${WATCH_CHANGED}${what} changed since the last check.\nBefore:\n${before}\n\nNow:\n${now}`
+}
+
+/** The watch change note in a routine's trigger text, or "" if it has none. */
+export function watchChangeNoteOf(text: string) {
+  // Look after the routine's own prompt, which the user wrote.
+  const from = Math.max(text.indexOf("\n\nRoutine id:"), 0)
+  const at = text.indexOf(WATCH_CHANGED, from)
+  return at < 0 ? "" : text.slice(at)
+}
+
 /** The trigger when a crawl the bot started has finished. */
 export function crawlPrompt(input: {
   url: string
