@@ -44,7 +44,7 @@ export function RoutineSummary({
   const schedule = useMemo(() => when(routine, hydrated), [routine, hydrated])
   return (
     <div className="flex w-full max-w-[640px] items-center gap-3 rounded-3xl bg-kumo-tint p-3 pr-4">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-kumo-base text-kumo-subtle outline outline-1 -outline-offset-1 outline-black/[0.06]">
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-kumo-base text-kumo-subtle outline outline-1 -outline-offset-1 outline-kumo-line">
         <ClockIcon size={20} />
       </span>
       <div className="min-w-0 flex-1">
