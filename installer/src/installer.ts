@@ -108,6 +108,12 @@ export class Installer extends Agent<Env, InstallerState> {
     return this.state.user !== null
   }
 
+  /** RPC from the Worker on logout: the Cloudflare tokens go too. */
+  async signOut() {
+    this.ctx.storage.kv.delete("tokens")
+    this.setState(INITIAL_STATE)
+  }
+
   // ── Setup (from the page) ──────────────────────────────────────────
 
   @callable()
