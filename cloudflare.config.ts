@@ -80,10 +80,10 @@ export default defineConfig({
       BROWSER_RUN_ACCOUNT_ID: bindings.text(""),
       BROWSER_RUN_API_TOKEN: bindings.secret(),
       // Optional: per-bot spend in Settings. Reads AI Gateway logs, which
-      // needs the account id and an API token with "AI Gateway Read".
+      // needs the account id and AI_GATEWAY_API_TOKEN ("AI Gateway Read").
       ACCOUNT_ID: bindings.text(deploy.accountId ?? ""),
-      // Optional: both secrets enable web_search through the Parallel proxy
-      // on AI_GATEWAY_ID. The gateway token needs "AI Gateway - Run".
+      // Optional: with AI_GATEWAY_API_TOKEN ("AI Gateway - Run"), enables
+      // web_search through the Parallel proxy on AI_GATEWAY_ID.
       PARALLEL_API_KEY: bindings.secret(),
       AI_GATEWAY_API_TOKEN: bindings.secret(),
       // Dynamic Workers: the bot's shell and sandboxed browser code.
