@@ -1,0 +1,67 @@
+AGENTS.md
+  s_4020a6e35a67c2::t_decdc3edfdb0e7 21,55-58
+src/agents/bot-agent.ts
+  s_4020a6e35a67c2::t_d72fcebe38bdc2 139-143,259-260,1112-1122,1549,2171,5126
+src/agents/desk.test.ts
+  s_4020a6e35a67c2::t_26a0d95cd38d29 172-181
+src/agents/desk.ts
+  s_4020a6e35a67c2::t_99cdadc8e15c45 282-289
+src/agents/prompt.ts
+  s_4020a6e35a67c2::t_3090f55bc0d680 371-375
+src/agents/skill-fetch.test.ts
+  s_4020a6e35a67c2::t_379ded8d72116f 1-252
+src/agents/skill-fetch.ts
+  s_4020a6e35a67c2::t_617bcde191b381 1-552
+src/agents/skill-sources.ts
+  s_4020a6e35a67c2::t_ef511f380bba65 1-93
+src/agents/skill-store.ts
+  s_4020a6e35a67c2::t_5bb135c8054221 1-136
+src/agents/user-hub.ts
+  s_4020a6e35a67c2::t_a28e788270fcb2 19-20,27-28,44-52,101-107,139-145,147,460-463,545-712
+src/components/group.tsx
+  s_4020a6e35a67c2::t_97e7a3a147c63c 4-7,30
+src/components/settings-panel.tsx
+  s_4020a6e35a67c2::t_96ede342d1d88c 12,31,543-556,558-567,583-657
+src/components/thread.tsx
+  s_4020a6e35a67c2::t_884e89fb578da4 29,427-453,657-665
+src/control/access.test.ts
+  s_4020a6e35a67c2::t_2132c617450ca1 17,36,211-249,257,271
+src/control/operation.ts
+  s_4020a6e35a67c2::t_e12492fcbd3c0c 134-135
+src/control/operations.ts
+  s_4020a6e35a67c2::t_f8eb4fdb0225b0 18,41
+src/lib/hub-context.tsx
+  s_4020a6e35a67c2::t_24f63235bf9cb8 10,16-17,56-59,163-165,218-220
+src/lib/message-parts.test.ts
+  s_4020a6e35a67c2::t_ba2a646e50cb6f 20-22,35-62,71-75,89-91
+src/lib/message-parts.ts
+  s_4020a6e35a67c2::t_d874895ac12e99 27,189-215,374-375
+src/lib/types.ts
+  s_4020a6e35a67c2::t_25107e53abd757 119-120,319-371
+src/mcp/server.ts
+  s_4020a6e35a67c2::t_e8d2c3de7f45e8 95
+src/styles.css
+  s_4020a6e35a67c2::t_d1a8e15c0b03ff 344-361
+src/agents/skill-sources.test.ts
+  s_4020a6e35a67c2::t_654d673992248f 1-83
+src/components/skill-install.tsx
+  s_4020a6e35a67c2::t_b3238907c442cd 1-441
+src/control/skills.ts
+  s_4020a6e35a67c2::t_e2321130f50ba5 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e0738004a738209360cb79e7c2896e8783c888ab",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
