@@ -7,11 +7,14 @@ import type {
   BotSummary,
   Connection,
   HubState,
+  InstalledSkill,
   Pipeline,
   PipelineDraft,
   PipelineRun,
   PushSubscriptionData,
   ScriptApproval,
+  SkillInstallRequest,
+  SkillPreview,
 } from "@/lib/types"
 import type { ModelSettings, ModelTestResult } from "@/lib/models"
 import type { Viewer } from "@/lib/server-fns"
@@ -50,6 +53,10 @@ interface HubContextValue {
     approved: boolean,
     all?: boolean
   ) => Promise<void>
+  /** Read what a pasted command or link points at. Saves nothing. */
+  previewSkill: (source: string) => Promise<SkillPreview>
+  installSkills: (request: SkillInstallRequest) => Promise<InstalledSkill[]>
+  removeSkill: (name: string, botId?: string) => Promise<void>
   addConnection: (input: NewConnection) => Promise<Connection>
   removeConnection: (connectionId: string) => Promise<void>
   refreshConnections: () => void
@@ -153,6 +160,9 @@ export function StaticHubProvider({
       waitingParts: notConnected,
       answerApproval: notConnected,
       waitingScripts: notConnected,
+      previewSkill: notConnected,
+      installSkills: notConnected,
+      removeSkill: notConnected,
       answerScriptApproval: notConnected,
       addConnection: notConnected,
       removeConnection: notConnected,
@@ -205,6 +215,9 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
           approved,
           all
         ),
+      previewSkill: (source) => agent.stub.previewSkill(source),
+      installSkills: (request) => agent.stub.installSkills(request),
+      removeSkill: (name, botId) => agent.stub.removeSkill(name, botId),
       addConnection: (input) => agent.stub.addConnection(input),
       removeConnection: (id) => agent.stub.removeConnection(id),
       refreshConnections: () => void agent.stub.refreshConnections(),

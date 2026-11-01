@@ -9,6 +9,7 @@ import { Switch } from "@cloudflare/kumo/components/switch"
 import { CopyButton } from "@/components/copy-button"
 import { ModelPicker } from "@/components/model-picker"
 import { RoutineCard } from "@/components/routine-card"
+import { SkillInstall } from "@/components/skill-install"
 import { BotSpend } from "@/components/spend-settings"
 import {
   EmptyRow,
@@ -27,6 +28,7 @@ import {
   EnvelopeSimpleIcon,
   EyeIcon,
   PlugsConnectedIcon,
+  PlusIcon,
   TrashIcon,
   WebhooksLogoIcon,
   XIcon,
@@ -538,17 +540,31 @@ function Routines() {
 }
 
 function Skills() {
-  const { state, agent } = useBot()
-  const skills = state.skills ?? []
+  const { botId, state, agent } = useBot()
+  const hub = useHub()
+  const [draft, setDraft] = useState("")
+  const [source, setSource] = useState<string | null>(null)
+  const learned = state.skills ?? []
+  const installed = (hub.state.installedSkills ?? []).filter(
+    (s) => !s.bots || s.bots.includes(botId)
+  )
+
+  function close() {
+    setSource(null)
+    setDraft("")
+  }
+
   return (
-    <Group
-      title="Skills"
-      hint="Workflows it learned by watching you. Pick “Teach a task” from the composer's + menu to show it a new one."
-    >
-      {skills.length === 0 ? (
-        <EmptyRow>No skills yet</EmptyRow>
-      ) : (
-        skills.map((skill) => (
+    <div className="space-y-2">
+      <Group
+        title="Skills"
+        hint={
+          source
+            ? undefined
+            : "Add one with an npx skills add command, a GitHub repo or a site. Or pick “Teach a task” from the composer's + menu to show it one yourself."
+        }
+      >
+        {learned.map((skill) => (
           <Row
             key={skill.slug}
             icon={<BookOpenTextIcon size={14} />}
@@ -564,9 +580,81 @@ function Skills() {
               <TrashIcon size={16} />
             </RowAction>
           </Row>
-        ))
-      )}
-    </Group>
+        ))}
+        {installed.map((skill) => (
+          <Row
+            key={skill.name}
+            icon={<BookOpenTextIcon size={14} />}
+            label={skill.name}
+            detail={
+              <span className="line-clamp-2">
+                {skill.bots ? "" : "All bots · "}
+                {skill.source.replace(/^https:\/\//, "")}
+              </span>
+            }
+          >
+            <RowAction
+              label={
+                skill.bots
+                  ? `Remove ${skill.name}`
+                  : `Remove ${skill.name} from all bots`
+              }
+              danger
+              onClick={() => void hub.removeSkill(skill.name, botId)}
+            >
+              <TrashIcon size={16} />
+            </RowAction>
+          </Row>
+        ))}
+        <li className="border-t border-kumo-line first:border-t-0">
+          <form
+            className="flex min-h-14 items-center gap-3 py-3 pr-3 pl-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (draft.trim()) setSource(draft.trim())
+            }}
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle">
+              <PlusIcon size={14} />
+            </span>
+            <input
+              aria-label="Add a skill"
+              placeholder="Add a skill"
+              spellCheck={false}
+              autoComplete="off"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                setSource(null)
+              }}
+              className={`${FIELD} h-8 min-w-0 flex-1`}
+            />
+            {draft.trim() && !source ? (
+              <Button
+                type="submit"
+                size="sm"
+                variant="primary"
+                className="btn-ink shrink-0 rounded-full"
+                disabled={!hub.live}
+              >
+                Find
+              </Button>
+            ) : null}
+          </form>
+        </li>
+      </Group>
+      {source ? (
+        <div className="rounded-2xl bg-kumo-tint p-4">
+          <SkillInstall
+            key={source}
+            source={source}
+            botId={botId}
+            onInstalled={close}
+            onCancel={close}
+          />
+        </div>
+      ) : null}
+    </div>
   )
 }
 

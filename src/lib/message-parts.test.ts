@@ -17,7 +17,9 @@ describe("toBlocks for cards", () => {
         approval: { id: "a1" },
       })
     )
-    expect(blocks).toMatchObject([{ kind: "choice", call: { approvalId: "a1" } }])
+    expect(blocks).toMatchObject([
+      { kind: "choice", call: { approvalId: "a1" } },
+    ])
   })
 
   it("folds an answered ask_user into one line", () => {
@@ -30,7 +32,34 @@ describe("toBlocks for cards", () => {
         output: { answer: ".dev" },
       })
     )
-    expect(blocks).toMatchObject([{ kind: "event", label: "Which TLDs? · .dev" }])
+    expect(blocks).toMatchObject([
+      { kind: "event", label: "Which TLDs? · .dev" },
+    ])
+  })
+
+  it("shows install_skill as its own card, then as one line", () => {
+    const part = {
+      type: "tool-install_skill",
+      toolCallId: "1",
+      input: { source: "owner/repo" },
+    }
+    expect(
+      toBlocks(
+        reply({ ...part, state: "approval-requested", approval: { id: "a1" } })
+      )
+    ).toMatchObject([{ kind: "skill", call: { approvalId: "a1" } }])
+    expect(
+      toBlocks(
+        reply({
+          ...part,
+          state: "output-available",
+          output: { installed: ["one"] },
+        })
+      )
+    ).toMatchObject([{ kind: "event", label: "Installed one" }])
+    expect(toBlocks(reply({ ...part, state: "output-denied" }))).toMatchObject([
+      { kind: "event", label: "Skill not installed" },
+    ])
   })
 
   it("shows request_secret as a secret card, and never its value afterwards", () => {
@@ -39,7 +68,11 @@ describe("toBlocks for cards", () => {
         type: "tool-request_secret",
         toolCallId: "1",
         state: "approval-requested",
-        input: { name: "GITHUB_TOKEN", origin: "https://api.github.com", purpose: "Read issues" },
+        input: {
+          name: "GITHUB_TOKEN",
+          origin: "https://api.github.com",
+          purpose: "Read issues",
+        },
         approval: { id: "a1" },
       })
     )
@@ -53,6 +86,8 @@ describe("toBlocks for cards", () => {
         output: { saved: true },
       })
     )
-    expect(done).toEqual([{ kind: "event", key: "m:0", label: "Saved GITHUB_TOKEN" }])
+    expect(done).toEqual([
+      { kind: "event", key: "m:0", label: "Saved GITHUB_TOKEN" },
+    ])
   })
 })

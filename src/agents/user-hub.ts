@@ -16,12 +16,16 @@ import type {
   DeskCard,
   DeskCardInput,
   HubState,
+  BotSkillCatalog,
+  InstalledSkill,
   Pipeline,
   PipelineDraft,
   PipelineRun,
   PipelineRunStep,
   PipelineStep,
   PushSubscriptionData,
+  SkillInstallRequest,
+  SkillPreview,
   SpendSummary,
   TaskOutcome,
 } from "@/lib/types"
@@ -37,6 +41,15 @@ import type {
 } from "@/control/operation"
 import type { BotAgent } from "./bot-agent"
 import { demoSeed } from "./demo-seed"
+import {
+  SkillSourceError,
+  fetchSkillBundle,
+  parseSkillMd,
+  parseSkillRef,
+  skillSource,
+} from "./skill-fetch"
+import { resourceKind } from "./skill-sources"
+import { SkillStore } from "./skill-store"
 import { visibleCards } from "./desk"
 import { MAX_MEMORY_CHARS, appendFact } from "./memory"
 import { deploymentModels, gatewayId, languageModel } from "./models"
@@ -85,6 +98,13 @@ function clip(text: string, max: number) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
+/** A message for the user, without internals when it was not their input. */
+function skillError(err: unknown) {
+  if (err instanceof SkillSourceError) return err.message
+  console.error("Reading a skill failed", err)
+  return "Could not read that skill. Try again."
+}
+
 /** MCP server id for a connection; it namespaces the connection's tools. */
 function serverId(connectionId: string) {
   return `c${connectionId}`
@@ -116,7 +136,15 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     pipelineRuns: [],
   }
 
+  #skills?: SkillStore
+
+  private get skills() {
+    this.#skills ??= new SkillStore(this.ctx.storage.sql)
+    return this.#skills
+  }
+
   async onStart() {
+    this.skills.init()
     // Push endpoints are capability URLs: keep them out of broadcast state.
     this.sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
       endpoint TEXT PRIMARY KEY,
@@ -429,6 +457,10 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     }
     this.sql`DELETE FROM desk_cards WHERE bot_id = ${botId}`
     this.refreshDesk()
+    for (const skill of this.skills.list()) {
+      this.skills.removeBot(skill.name, botId)
+    }
+    this.publishSkills()
     try {
       const bot = await this.bot(botId)
       await bot.destroy()
@@ -508,6 +540,174 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       throw new Error("No such bot.")
     }
     await (await this.bot(botId)).answerApproval(approvalId, approved)
+  }
+
+  /** What a source holds, for the user to read. Nothing is saved yet. */
+  @callable()
+  async previewSkill(input: string): Promise<SkillPreview> {
+    try {
+      const ref = parseSkillRef(input)
+      const bundle = await fetchSkillBundle(ref)
+      return {
+        source: bundle.source,
+        version: bundle.version,
+        global: ref.global,
+        named: ref.skills.length > 0,
+        skills: bundle.skills.map((skill) => {
+          const installed = this.skills.get(skill.name)
+          return {
+            name: skill.name,
+            description: skill.description,
+            digest: skill.digest,
+            instructions:
+              parseSkillMd(skill.files[0].content)?.body ??
+              skill.files[0].content,
+            files: skill.files.slice(1).map((f) => ({
+              path: f.path,
+              size: f.content.length,
+            })),
+            skipped: skill.skipped,
+            ...(installed && installed.source !== bundle.source
+              ? { replaces: installed.source }
+              : {}),
+          }
+        }),
+      }
+    } catch (err) {
+      throw new Error(skillError(err))
+    }
+  }
+
+  /**
+   * Install what the user reviewed. It is fetched again at the same version
+   * and must hash the same, so what they read is what bots get. If any one
+   * changed, none are installed.
+   */
+  @callable()
+  async installSkills(request: SkillInstallRequest): Promise<InstalledSkill[]> {
+    const { source, version, skills: wanted, scope } = request
+    if (scope !== "all" && !this.state.bots.some((b) => b.id === scope)) {
+      throw new Error("No such bot.")
+    }
+    try {
+      const ref = {
+        ...parseSkillRef(source),
+        skills: wanted.map((s) => s.name),
+      }
+      const bundle = await fetchSkillBundle(ref, version)
+      const found = wanted.map(({ name, digest }) => {
+        const skill = bundle.skills.find((s) => s.name === name)
+        if (!skill) throw new SkillSourceError(`${name} is no longer there.`)
+        if (skill.digest !== digest) {
+          throw new SkillSourceError(
+            `${name} changed after you looked at it. Open it again to review the new version.`
+          )
+        }
+        return skill
+      })
+      const installed = found.map((skill) => {
+        const current = this.skills.get(skill.name)
+        const sameSource = current?.source === bundle.source
+        // Installing for one bot never narrows a skill all bots already have.
+        const bots =
+          scope === "all" || (sameSource && current.bots === null)
+            ? null
+            : [...new Set([...(sameSource ? current.bots! : []), scope])]
+        const record: InstalledSkill = {
+          name: skill.name,
+          description: skill.description,
+          source: bundle.source,
+          version: bundle.version,
+          digest: skill.digest,
+          bots,
+          installedAt: Date.now(),
+        }
+        this.skills.put(record, skill.files)
+        return record
+      })
+      this.publishSkills()
+      return installed
+    } catch (err) {
+      throw new Error(skillError(err))
+    }
+  }
+
+  /** Remove a skill: for one bot when `botId` is given and it is scoped. */
+  @callable()
+  async removeSkill(name: string, botId?: string) {
+    if (botId && this.skills.get(name)?.bots) {
+      this.skills.removeBot(name, botId)
+    } else {
+      this.skills.remove(name)
+    }
+    this.publishSkills()
+  }
+
+  private publishSkills() {
+    this.setState({ ...this.state, installedSkills: this.skills.list() })
+  }
+
+  /** A skill's record, if this bot may use it. */
+  private skillFor(botId: string, name: string) {
+    const skill = this.skills.get(name)
+    return skill && (!skill.bots || skill.bots.includes(botId)) ? skill : null
+  }
+
+  /** Durable Object RPC: the skills a bot lists before each turn. */
+  async skillCatalog(botId: string): Promise<BotSkillCatalog> {
+    const skills = this.skills
+      .list()
+      .filter((s) => !s.bots || s.bots.includes(botId))
+    return {
+      fingerprint: skills.map((s) => `${s.name}:${s.digest}`).join("|"),
+      skills: skills.map((s) => ({
+        name: s.name,
+        description: s.description,
+      })),
+    }
+  }
+
+  /** Durable Object RPC: a skill's instructions, when the model activates it. */
+  async skillContent(botId: string, name: string) {
+    const skill = this.skillFor(botId, name)
+    const raw = skill && this.skills.file(name, "SKILL.md")
+    if (!skill || raw === null) return null
+    return {
+      name,
+      description: skill.description,
+      body: parseSkillMd(raw)?.body ?? raw,
+      resources: this.skills
+        .files(name)
+        .filter((f) => f.path !== "SKILL.md")
+        .map((f) => ({
+          path: f.path,
+          kind: resourceKind(f.path),
+          size: f.size,
+        })),
+    }
+  }
+
+  /** Durable Object RPC: one file bundled with a skill. */
+  async skillResource(botId: string, name: string, path: string) {
+    if (!this.skillFor(botId, name)) return null
+    const content = this.skills.file(name, path)
+    if (content === null) return null
+    return { path, kind: resourceKind(path), content }
+  }
+
+  /** Durable Object RPC: what the install_skill card put in place. */
+  async installedFrom(botId: string, source: string) {
+    const ref = parseSkillRef(source)
+    const from = skillSource(ref)
+    return this.skills
+      .list()
+      .filter(
+        (s) =>
+          s.source === from &&
+          (!s.bots || s.bots.includes(botId)) &&
+          (!ref.skills.length || ref.skills.includes(s.name))
+      )
+      .map((s) => s.name)
   }
 
   /** A bot's script app calls waiting on the user, for the sidebar. */

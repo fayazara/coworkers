@@ -92,5 +92,6 @@ function hubPort(env: Env, userId: string): HubPort {
     messageFromClient: (...args) => hub().messageFromClient(...args),
     delegateFromClient: (...args) => hub().delegateFromClient(...args),
     clientTask: (...args) => hub().clientTask(...args),
+    installedFrom: (...args) => hub().installedFrom(...args),
   }
 }

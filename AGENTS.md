@@ -18,6 +18,7 @@ Durable Object with its own chat, memory, routines, computer and browser.
 | Models         | `src/lib/models.ts`, `src/agents/models.ts`                                       | Model catalog (shared) and the AI Gateway model factory. Account choice on `UserHub`, per-bot override in `BotState.model`, Workers AI fallback.                                  |
 | System prompt  | `src/agents/prompt.ts`                                                            | Stable "soul" plus per-turn context.                                                                                                                                              |
 | Desk           | `src/agents/desk.ts`, `src/routes/_app/index.tsx`, `src/components/desk-card.tsx` | Home screen of cards. Bots build them (`desk.ts`), the `UserHub` stores them (`desk_cards`) and closes approval cards once they are answered anywhere. Plan: `docs/desk-plan.md`. |
+| Skills         | `src/agents/skill-*.ts`, `src/components/skill-install.tsx`                       | Agent Skills from GitHub or `/.well-known/agent-skills/`. Installed ones live once on the `UserHub`, scoped to bots or all; bots get them from `getSkills()`. Only the user can install.  |
 | Operations     | `src/control/`                                                                    | One definition per action (bots, the browser, later `/mcp`): `runOperation` checks caller, level, approval and ceiling. Plan: `docs/mcp-plan.md`.                                 |
 | Outside agents | `src/mcp/`, `src/components/agents-settings.tsx`                                  | OAuth server, consent page (`/oauth/authorize`) and `/mcp` serving the operations to Claude Code, Codex and other MCP clients. Storage: the `OAuthStore` Durable Object.          |
 | Shared types   | `src/lib/types.ts`                                                                | Imported by both the agents and the client. No server-only imports.                                                                                                               |
@@ -51,6 +52,10 @@ Things that will bite you:
   `ctx.interrupt()`, and anything with side effects that cannot dedupe on
   `ctx.callId` must be wrapped in `unsafeToRepeat()`. `script_runs` tracks
   each run so its result reaches the bot as a message once its turn is gone.
+- **A skill is only what `getSkills()` returns.** Do not switch to Think's
+  workspace source: bots have a networked shell, so any file they fetched
+  into that folder would become a skill with no review. Installed skills come
+  from the hub, learned ones from `BotState.skills`.
 - **`cf dev` needs a Cloudflare login** because `AI` and `BROWSER` are
   remote-only bindings. The dev server uses Wrangler's login
   (`npx wrangler login`), which can differ from `cf auth login`.

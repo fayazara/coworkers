@@ -15,6 +15,7 @@ import {
   taskStatus,
   updateBot,
 } from "./bots"
+import { installSkill } from "./skills"
 import { LEVEL_RANK, isFailure, levelOf } from "./operation"
 import type {
   AnyOperation,
@@ -37,6 +38,7 @@ export const OPERATIONS = [
   pauseBot,
   resumeBot,
   deleteBot,
+  installSkill,
 ] as const satisfies readonly AnyOperation[]
 
 export type OperationName = (typeof OPERATIONS)[number]["name"]

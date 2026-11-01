@@ -24,6 +24,7 @@ export type Block =
   | { kind: "approval"; key: string; call: ToolCall }
   | { kind: "choice"; key: string; call: ToolCall }
   | { kind: "secret"; key: string; call: ToolCall }
+  | { kind: "skill"; key: string; call: ToolCall }
   | { kind: "capture"; key: string; call: ToolCall; capture: Capture }
   | { kind: "routine"; key: string; routine: Routine; updated: boolean }
 
@@ -181,6 +182,33 @@ export function toBlocks(message: UIMessage): Block[] {
           kind: "event",
           key,
           label: `Learned a skill: ${String(call.input.name ?? "")}`,
+        })
+      }
+      return
+    }
+    if (call.name === "install_skill") {
+      if (call.state === "waiting") blocks.push({ kind: "skill", key, call })
+      else if (call.state === "done") {
+        const names = (call.output as { installed?: string[] } | null)
+          ?.installed
+        blocks.push({
+          kind: "event",
+          key,
+          label: names?.length
+            ? `Installed ${names.join(", ")}`
+            : "Skill not installed",
+        })
+      } else if (call.state !== "running") {
+        blocks.push({ kind: "event", key, label: "Skill not installed" })
+      }
+      return
+    }
+    if (call.name === "activate_skill") {
+      if (call.state === "done") {
+        blocks.push({
+          kind: "event",
+          key,
+          label: `Using the ${String(call.input.name ?? "")} skill`,
         })
       }
       return
@@ -343,6 +371,8 @@ export function describeCall(call: ToolCall): string {
       return `Gave ${str("to")} a task`
     case "attach_result_files":
       return "Attached files to the result"
+    case "read_skill_resource":
+      return `Read ${str("path") || "a skill's file"}`
     case "schedule_routine":
       return `Scheduled "${str("name")}"`
     case "update_routine":

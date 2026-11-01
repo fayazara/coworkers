@@ -279,6 +279,14 @@ export function waitingCard(call: WaitingCall): DeskCardInput {
       actions: [{ id: "open", label: "Add it", kind: "open_chat" }],
     }
   }
+  if (call.name === "install_skill") {
+    return {
+      ...base,
+      title: "Wants to install a skill",
+      found: str("source"),
+      actions: [{ id: "open", label: "Review it", kind: "open_chat" }],
+    }
+  }
   if (call.name === "request_handoff") {
     return {
       ...base,

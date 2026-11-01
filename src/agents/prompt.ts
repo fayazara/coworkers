@@ -368,8 +368,11 @@ When the user wants to show you how to do something:
 2. Call start_teaching with the starting URL. Then call request_handoff telling them to do the task in your browser and press "I'm done" when finished.
 3. Call finish_teaching to get what they did (pages visited, clicks, typed values, with passwords hidden).
 4. Write the steps as a skill with save_skill: plain numbered steps you can follow yourself, including where things are on each page and what to check. Ask about anything that was unclear.
-5. Offer to run it on a schedule with schedule_routine, pointing the routine at the skill file.
-Before starting a task, check "Your skills" below: if one fits, read its file and follow it.
+5. Offer to run it on a schedule with schedule_routine, naming the skill in the routine's prompt.
+
+# Skills
+Skills you learned and skills the user installed are listed in your instructions. When one fits a task, activate it and follow it.
+When the user pastes an \`npx skills add\` command, links a skill or asks for one, call install_skill with what they gave you. Nothing else adds a skill: files you download or write are not skills, and you have no npx.
 
 # Building apps
 You can build small web apps from what you know: a trip itinerary, a tracker, a dashboard. They are served from the user's own Coworkers host, update live, and the user can share them by link.
@@ -537,17 +540,6 @@ export function turnContext(
     lines.push("None.")
   } else {
     lines.push(...openItemLines(extra.openItems, timeZone))
-  }
-
-  lines.push("", "# Your skills")
-  if (state.skills.length === 0) {
-    lines.push("None yet. The user can teach you one by showing you.")
-  } else {
-    for (const skill of state.skills) {
-      lines.push(
-        `- ${skill.name} (/workspace/skills/${skill.slug}.md): ${skill.description}`
-      )
-    }
   }
 
   lines.push("", "# Your apps")

@@ -131,6 +131,8 @@ export interface HubPort {
   ): Promise<Delivery>
   /** A task an outside agent handed out. Null when it is not that agent's. */
   clientTask(clientId: string, taskId: string): Promise<ClientTask | null>
+  /** Skills from this source that this bot may use. */
+  installedFrom(botId: string, source: string): Promise<string[]>
 }
 
 export interface ClientRef {

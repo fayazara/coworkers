@@ -169,6 +169,16 @@ describe("waitingCard", () => {
     expect(card.actions.map((a) => a.kind)).toEqual(["approve", "reject"])
   })
 
+  it("sends skill installs to the chat, where they can be read", () => {
+    const card = waitingCard({
+      ...call,
+      name: "install_skill",
+      input: { source: "npx skills add owner/repo" },
+    })
+    expect(card.found).toBe("npx skills add owner/repo")
+    expect(card.actions.map((a) => a.kind)).toEqual(["open_chat"])
+  })
+
   it("sends questions to the chat", () => {
     const card = waitingCard({
       ...call,

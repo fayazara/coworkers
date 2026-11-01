@@ -26,6 +26,7 @@ import { BotAvatar } from "@/components/bot-avatar"
 import { BotMention } from "@/components/bot-mention"
 import { CaptureCard } from "@/components/capture-card"
 import { CodeBlock } from "@/components/code-block"
+import { SkillInstall } from "@/components/skill-install"
 import { ComputerCard } from "@/components/computer-card"
 import { ShimmerText } from "@/components/shimmer-text"
 import { WorkGroup } from "@/components/work-group"
@@ -423,6 +424,33 @@ function ChoiceCard({
   )
 }
 
+/** install_skill: the user reads the skill and installs it from here. */
+function SkillCard({
+  call,
+  botId,
+  onApproval,
+}: {
+  call: ToolCall
+  botId?: string
+  onApproval?: OnApproval
+}) {
+  return (
+    <div className="msg-enter w-full max-w-[640px] rounded-3xl bg-kumo-tint p-4">
+      {botId && onApproval && call.approvalId ? (
+        <SkillInstall
+          source={String(call.input.source ?? "")}
+          botId={botId}
+          forAllBots={call.input.for_all_bots === true}
+          onInstalled={() => onApproval(call.approvalId!, true)}
+          onCancel={() =>
+            onApproval(call.approvalId!, false, "The user said no.")
+          }
+        />
+      ) : null}
+    </div>
+  )
+}
+
 /** request_secret: a masked field. The value goes to the bot, not the chat. */
 function SecretCard({
   call,
@@ -624,6 +652,15 @@ function AssistantMessage({
                 call={block.call}
                 onApproval={onApproval}
                 onProvideSecret={onProvideSecret}
+              />
+            )
+          case "skill":
+            return (
+              <SkillCard
+                key={block.key}
+                call={block.call}
+                botId={botId}
+                onApproval={onApproval}
               />
             )
         }

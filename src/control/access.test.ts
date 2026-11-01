@@ -14,6 +14,7 @@ import {
   taskStatus,
   updateBot,
 } from "./bots"
+import { installSkill } from "./skills"
 import { runAsUser, visibleTo } from "./operations"
 import type { BotPort, Caller, HubPort, OperationContext } from "./operation"
 
@@ -32,6 +33,7 @@ function botCaller(patch: Partial<Extract<Caller, { kind: "bot" }>> = {}) {
 function fakeHub(patch: Partial<HubPort> = {}): HubPort {
   return {
     hasBot: vi.fn(async () => true),
+    installedFrom: vi.fn(async () => []),
     listBots: vi.fn(async () => []),
     readBot: vi.fn(async () => null),
     addBot: vi.fn(async () => ({
@@ -206,6 +208,45 @@ describe("runAsUser", () => {
   })
 })
 
+describe("installSkill", () => {
+  const ctx = (hub: HubPort, approved: boolean): OperationContext => ({
+    caller: botCaller(),
+    requestId: "r1",
+    approved,
+    hub,
+  })
+  const input = { source: "owner/repo" }
+
+  it("never runs without the card", async () => {
+    const hub = fakeHub()
+    expect(
+      await runOperation(installSkill, ctx(hub, false), input)
+    ).toMatchObject({ code: "needs_approval" })
+    expect(hub.installedFrom).not.toHaveBeenCalled()
+  })
+
+  it("reports what the user installed, and nothing else", async () => {
+    expect(
+      await runOperation(
+        installSkill,
+        ctx(fakeHub({ installedFrom: async () => ["one"] }), true),
+        input
+      )
+    ).toMatchObject({ installed: ["one"] })
+    expect(
+      await runOperation(installSkill, ctx(fakeHub(), true), input)
+    ).toMatchObject({ ok: false, error: "The user did not install it." })
+  })
+
+  it("is not offered to outside agents or read-only bots", () => {
+    const names = (caller: Caller) => visibleTo(caller).map((op) => op.name)
+    expect(
+      names({ kind: "client", clientId: "c", label: "c", level: "manage" })
+    ).not.toContain("install_skill")
+    expect(names(botCaller({ level: "read" }))).not.toContain("install_skill")
+  })
+})
+
 describe("visibleTo", () => {
   it("shows a bot only what its kind and level allow", () => {
     expect(visibleTo(botCaller()).map((op) => op.name)).toEqual([
@@ -213,6 +254,7 @@ describe("visibleTo", () => {
       "delegate_task",
       "list_bots",
       "read_bot",
+      "install_skill",
     ])
     expect(
       visibleTo(botCaller({ level: "manage" })).map((op) => op.name)
@@ -226,6 +268,7 @@ describe("visibleTo", () => {
       "pause_bot",
       "resume_bot",
       "delete_bot",
+      "install_skill",
     ])
     expect(visibleTo({ kind: "user" }).map((op) => op.name)).toEqual([
       "list_bots",

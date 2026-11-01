@@ -1,6 +1,10 @@
 import { Button } from "@cloudflare/kumo/components/button"
 import { Tooltip } from "@cloudflare/kumo/components/tooltip"
 
+/** The rounded card of a group, for lists that have no title of their own. */
+export const GROUP_LIST =
+  "@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]"
+
 /**
  * Grouped list, the shape every settings-like surface uses: a small title, a
  * rounded card of rows split by hairlines, and at most one short hint below.
@@ -23,9 +27,7 @@ export function Group({
         <h3 className="text-sm font-medium text-kumo-default">{title}</h3>
         {action}
       </div>
-      <ul className="@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
-        {children}
-      </ul>
+      <ul className={GROUP_LIST}>{children}</ul>
       {hint ? (
         <p className="px-1.5 text-xs text-pretty text-kumo-subtle">{hint}</p>
       ) : null}

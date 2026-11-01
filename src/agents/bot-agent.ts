@@ -136,6 +136,11 @@ import {
   validSecretName,
 } from "./secrets"
 import type { SecretMeta, SecretScheme } from "./secrets"
+import {
+  installedSkillSource,
+  learnedSkillPath,
+  learnedSkillSource,
+} from "./skill-sources"
 import { createWebTools } from "./web-tools"
 import type { CrawlInput, QuickEngine } from "./web-tools"
 
@@ -251,6 +256,8 @@ const READ_ONLY_TOOLS = new Set([
   "was_reported",
   "list_apps",
   "app_data_list",
+  "activate_skill",
+  "read_skill_resource",
 ])
 /** A foreground turn longer than this gets a push when it finishes. */
 const LONG_TURN_MS = 90_000
@@ -1102,6 +1109,17 @@ export class BotAgent extends Think<Env, BotState> {
     })
   }
 
+  /** What the user installed, then what this bot learned (first name wins). */
+  override getSkills() {
+    return [
+      learnedSkillSource(
+        () => this.state.skills ?? [],
+        (path) => this.workspace.fs.readFile(path, "utf8").catch(() => null)
+      ),
+      installedSkillSource(() => this.hub(), this.botId),
+    ]
+  }
+
   override configureContext(): ContextConfig[] {
     return [
       { label: "soul", provider: { get: async () => SOUL } },
@@ -1528,6 +1546,7 @@ export class BotAgent extends Think<Env, BotState> {
       delegateFromClient: async (...args) =>
         (await hub()).delegateFromClient(...args),
       clientTask: async (...args) => (await hub()).clientTask(...args),
+      installedFrom: async (...args) => (await hub()).installedFrom(...args),
     }
   }
 
@@ -2149,7 +2168,7 @@ export class BotAgent extends Think<Env, BotState> {
         }),
         execute: async ({ name, description, steps }) => {
           const slug = slugify(name)
-          const path = `/workspace/skills/${slug}.md`
+          const path = learnedSkillPath(slug)
           const body = `---\nname: ${JSON.stringify(name)}\ndescription: ${JSON.stringify(description)}\n---\n\n# ${name}\n\n${steps.trim()}\n`
           await this.workspace.fs.mkdir("/workspace/skills", {
             recursive: true,
@@ -5104,7 +5123,7 @@ export class BotAgent extends Think<Env, BotState> {
     const skill = this.state.skills.find((s) => s.slug === slug)
     if (!skill) return
     try {
-      await this.workspace.fs.rm(`/workspace/skills/${slug}.md`)
+      await this.workspace.fs.rm(learnedSkillPath(slug))
     } catch {
       // Already gone from the computer.
     }

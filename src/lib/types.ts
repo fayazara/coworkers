@@ -116,6 +116,8 @@ export interface HubState {
   desk?: DeskCard[]
   /** Last time the user looked at the Desk, for "while you were away". */
   deskSeenAt?: number
+  /** Skills the user installed. Absent on hubs created before them. */
+  installedSkills?: InstalledSkill[]
 }
 
 /**
@@ -312,6 +314,59 @@ export interface Skill {
   slug: string
   name: string
   description: string
+}
+
+/** An Agent Skill the user installed. The UserHub holds its one copy. */
+export interface InstalledSkill {
+  name: string
+  description: string
+  /** Where it came from: `owner/repo` or a site's URL. */
+  source: string
+  /** The commit it was read at. Empty for sites. */
+  version: string
+  digest: string
+  /** The bots that may use it. Null means every bot. */
+  bots: string[] | null
+  installedAt: number
+}
+
+/** One skill found at a source, for the user to read before installing. */
+export interface SkillCandidate {
+  name: string
+  description: string
+  digest: string
+  /** SKILL.md after its frontmatter: exactly what a bot will read. */
+  instructions: string
+  files: { path: string; size: number }[]
+  /** Binary or oversized files that will be left out. */
+  skipped: string[]
+  /** The other source this name is installed from, which it would replace. */
+  replaces?: string
+}
+
+export interface SkillPreview {
+  source: string
+  version: string
+  /** The pasted command had -g. */
+  global: boolean
+  /** The pasted command named these skills, so they start selected. */
+  named: boolean
+  skills: SkillCandidate[]
+}
+
+export interface SkillInstallRequest {
+  source: string
+  version: string
+  /** Each with the digest the user reviewed. One that changed is refused. */
+  skills: { name: string; digest: string }[]
+  /** A bot's id, or "all". */
+  scope: string
+}
+
+/** The skills one bot may use. */
+export interface BotSkillCatalog {
+  fingerprint: string
+  skills: { name: string; description: string }[]
 }
 
 /**
