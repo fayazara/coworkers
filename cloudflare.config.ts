@@ -17,6 +17,7 @@ const deploy: Partial<{
   gateway: string
   accessTeamDomain: string
   accessAud: string
+  emailDomain: string
 }> =
   // The installer packs a release for everyone: never with your values.
   !process.env.COWORKERS_PACKING && DEPLOY_FILE
@@ -127,7 +128,7 @@ export default defineConfig({
       // Domain with Email Routing that forwards to this Worker (catch-all
       // or one rule per bot). Each bot gets <user>.<bot>@EMAIL_DOMAIN.
       // Empty turns inbound email off.
-      EMAIL_DOMAIN: bindings.text(""),
+      EMAIL_DOMAIN: bindings.text(deploy.emailDomain ?? ""),
       // Web Push. Generate a pair with `npx web-push generate-vapid-keys`
       // and put both keys in .dev.vars / the deploy secrets file. Push
       // notifications stay off until they are set.
