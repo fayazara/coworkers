@@ -469,6 +469,9 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     }
     try {
       const bot = await this.bot(botId)
+      await bot.releaseEmail().catch((err) => {
+        console.warn(`removeBot ${botId}: routing rule not removed`, err)
+      })
       await bot.destroy()
     } catch (err) {
       console.warn(`removeBot ${botId}: teardown reported`, err)

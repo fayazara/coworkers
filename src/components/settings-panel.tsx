@@ -662,6 +662,7 @@ function Reach() {
   const { agent } = useBot()
   const [inbound, setInbound] = useState<BotInbound | null>(null)
   const [rotating, setRotating] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!agent) return
@@ -709,6 +710,8 @@ function Reach() {
                   Set <code>EMAIL_DOMAIN</code> and route that domain's mail to
                   this Worker.
                 </>
+              ) : emailError ? (
+                <span className="block text-kumo-danger">{emailError}</span>
               ) : inbound.email ? (
                 <span className="block truncate">{inbound.email}</span>
               ) : (
@@ -724,9 +727,17 @@ function Reach() {
                 aria-label="Receive email"
                 checked={inbound.emailEnabled}
                 disabled={!agent}
-                onCheckedChange={(next) =>
-                  void agent?.stub.setEmailEnabled(next).then(setInbound)
-                }
+                onCheckedChange={(next) => {
+                  setEmailError(null)
+                  void agent?.stub
+                    .setEmailEnabled(next)
+                    .then(setInbound)
+                    .catch((err: unknown) =>
+                      setEmailError(
+                        err instanceof Error ? err.message : String(err)
+                      )
+                    )
+                }}
               />
             ) : null}
           </Row>

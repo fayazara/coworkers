@@ -30,37 +30,53 @@ describe("LoopGuard", () => {
   it("resets when any argument changes", () => {
     const guard = new LoopGuard()
     for (let i = 0; i < 20; i++) {
-      expect(guard.check("browser_markdown", { url: `https://x.test/${i % 2}` })).toBeNull()
+      expect(
+        guard.check("browser_markdown", { url: `https://x.test/${i % 2}` })
+      ).toBeNull()
     }
   })
 
   it("starts over after reset", () => {
     const guard = new LoopGuard()
-    for (let i = 0; i <= MAX_IDENTICAL_CALLS; i++) guard.check("exec", { command: "ls" })
+    for (let i = 0; i <= MAX_IDENTICAL_CALLS; i++)
+      guard.check("exec", { command: "ls" })
     guard.reset()
     expect(guard.check("exec", { command: "ls" })).toBeNull()
   })
 })
 
-function toolMessage(toolName: string, output: unknown, id: string): ModelMessage {
+function toolMessage(
+  toolName: string,
+  output: unknown,
+  id: string
+): ModelMessage {
   return {
     role: "tool",
-    content: [{ type: "tool-result", toolCallId: id, toolName, output } as never],
+    content: [
+      { type: "tool-result", toolCallId: id, toolName, output } as never,
+    ],
   }
 }
 
 function outputOf(message: ModelMessage) {
-  return (message.content as { output: { type: string; value: unknown } }[])[0].output
+  return (message.content as { output: { type: string; value: unknown } }[])[0]
+    .output
 }
 
 describe("shapeToolResults", () => {
   it("returns null when nothing needs changing", () => {
-    expect(shapeToolResults([toolMessage("exec", { type: "text", value: "ok" }, "1")])).toBeNull()
+    expect(
+      shapeToolResults([
+        toolMessage("exec", { type: "text", value: "ok" }, "1"),
+      ])
+    ).toBeNull()
   })
 
   it("caps any single result", () => {
     const big = "x".repeat(MAX_TOOL_RESULT_CHARS + 500)
-    const shaped = shapeToolResults([toolMessage("exec", { type: "text", value: big }, "1")])!
+    const shaped = shapeToolResults([
+      toolMessage("exec", { type: "text", value: big }, "1"),
+    ])!
     const value = String(outputOf(shaped[0]).value)
     expect(value.length).toBeLessThan(big.length)
     expect(value).toMatch(/Truncated/)
@@ -72,7 +88,9 @@ describe("shapeToolResults", () => {
       toolMessage("browser_markdown", { type: "text", value: page }, String(i))
     )
     const shaped = shapeToolResults(messages)!
-    const shortened = shaped.filter((m) => /shortened after you read it/.test(String(outputOf(m).value)))
+    const shortened = shaped.filter((m) =>
+      /shortened after you read it/.test(String(outputOf(m).value))
+    )
     expect(shortened).toHaveLength(2)
     // The newest ones are the ones left alone.
     expect(String(outputOf(shaped.at(-1)!).value)).toBe(page)
@@ -82,10 +100,21 @@ describe("shapeToolResults", () => {
     const shot = (id: string) =>
       toolMessage(
         "browser_screenshot",
-        { type: "content", value: [{ type: "file", mediaType: "image/png", data: { type: "data", data: "AAAA" } }] },
+        {
+          type: "content",
+          value: [
+            {
+              type: "file",
+              mediaType: "image/png",
+              data: { type: "data", data: "AAAA" },
+            },
+          ],
+        },
         id
       )
-    const messages = Array.from({ length: KEEP_IMAGES + 2 }, (_, i) => shot(String(i)))
+    const messages = Array.from({ length: KEEP_IMAGES + 2 }, (_, i) =>
+      shot(String(i))
+    )
     const shaped = shapeToolResults(messages)!
     const kept = shaped.filter((m) => {
       const value = outputOf(m).value as { type: string }[]

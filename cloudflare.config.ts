@@ -18,6 +18,7 @@ const deploy: Partial<{
   accessTeamDomain: string
   accessAud: string
   emailDomain: string
+  emailZoneId: string
 }> =
   // The installer packs a release for everyone: never with your values.
   !process.env.COWORKERS_PACKING && DEPLOY_FILE
@@ -135,6 +136,14 @@ export default defineConfig({
       // or one rule per bot). Each bot gets <user>.<bot>@EMAIL_DOMAIN.
       // Empty turns inbound email off.
       EMAIL_DOMAIN: bindings.text(deploy.emailDomain ?? ""),
+      // Optional: lets a bot's email switch create and remove its routing
+      // rule. EMAIL_ZONE_ID is the zone that owns EMAIL_DOMAIN (its parent
+      // zone for a subdomain); the token needs "Email Routing Rules: Edit"
+      // on it. Without them, route the domain with a catch-all yourself.
+      EMAIL_ZONE_ID: bindings.text(deploy.emailZoneId ?? ""),
+      EMAIL_ROUTING_API_TOKEN: bindings.secret(),
+      // This Worker's name, the target of those routing rules.
+      WORKER_NAME: bindings.text(WORKER_NAME),
       // Web Push. Generate a pair with `npx web-push generate-vapid-keys`
       // and put both keys in .dev.vars / the deploy secrets file. Push
       // notifications stay off until they are set.

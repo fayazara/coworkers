@@ -38,6 +38,11 @@ import { CHAT_MESSAGE_TYPES } from "agents/chat"
 import type { ContextConfig } from "agents/context"
 import { isAutoReplyEmail } from "agents/email"
 import { emailDirectory } from "./email-directory"
+import {
+  createRoutingRule,
+  deleteRoutingRule,
+  routingManaged,
+} from "./email-routing"
 import type { AgentEmail } from "agents/email"
 import { jsonSchema, tool } from "ai"
 import type { JSONSchema7, ToolSet, UIMessage } from "ai"
@@ -5157,9 +5162,44 @@ export class BotAgent extends Think<Env, BotState> {
 
   @callable()
   async setEmailEnabled(enabled: boolean): Promise<BotInbound> {
-    this.ctx.storage.kv.put("email_enabled", enabled)
-    await this.ensureEmailName()
+    if (enabled) {
+      // Name first, then the rule for it. Nothing is switched on if the rule
+      // cannot be made, so the switch never claims more than is true.
+      this.ctx.storage.kv.put("email_enabled", true)
+      await this.ensureEmailName()
+      try {
+        await this.ensureRoutingRule()
+      } catch (err) {
+        this.ctx.storage.kv.put("email_enabled", false)
+        throw err
+      }
+    } else {
+      this.ctx.storage.kv.put("email_enabled", false)
+      await this.dropRoutingRule()
+    }
     return this.inbound()
+  }
+
+  /** The routing rule for this bot's address, when the app manages them. */
+  private async ensureRoutingRule() {
+    const address = this.inbound().email
+    if (!address || !routingManaged(this.env)) return
+    if (this.ctx.storage.kv.get<string>("email_rule_id")) return
+    const id = await createRoutingRule(this.env, address)
+    this.ctx.storage.kv.put("email_rule_id", id)
+  }
+
+  private async dropRoutingRule() {
+    const id = this.ctx.storage.kv.get<string>("email_rule_id")
+    if (!id || !routingManaged(this.env)) return
+    await deleteRoutingRule(this.env, id)
+    this.ctx.storage.kv.delete("email_rule_id")
+  }
+
+  /** Durable Object RPC from the hub when the bot is deleted. */
+  async releaseEmail() {
+    this.ctx.storage.kv.put("email_enabled", false)
+    await this.dropRoutingRule()
   }
 
   @callable()
