@@ -104,6 +104,10 @@ export default defineConfig({
         worker: WORKER_NAME,
         exportName: "OAuthStore",
       }),
+      EmailDirectory: bindings.durableObject({
+        worker: WORKER_NAME,
+        exportName: "EmailDirectory",
+      }),
       // Deployment default chat model. Users pick others (Workers AI,
       // Anthropic, OpenAI, Google, xAI) on the Models page and per bot;
       // those choices live on the UserHub. A "@cf/..." id runs on Workers

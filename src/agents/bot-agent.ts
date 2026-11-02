@@ -5132,12 +5132,17 @@ export class BotAgent extends Think<Env, BotState> {
       return
     }
     const base = slugify(this.state.name, 32).replace(/^untitled$/, "bot")
-    const name = await emailDirectory(this.env).claim(
-      base,
-      this.userId,
-      this.botId
-    )
-    this.ctx.storage.kv.put("email_name", name)
+    try {
+      const name = await emailDirectory(this.env).claim(
+        base,
+        this.userId,
+        this.botId
+      )
+      this.ctx.storage.kv.put("email_name", name)
+    } catch (err) {
+      // Keep the long address rather than fail the settings panel or a turn.
+      console.error("Claiming the email name failed", err)
+    }
   }
 
   /** Off until the user turns it on: a guessed address must not wake a bot. */
