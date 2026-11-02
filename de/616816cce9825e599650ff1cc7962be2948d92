@@ -1,0 +1,69 @@
+.agents/skills/diffs/SKILL.md
+  s_4020a6e35a67c2::t_761f4accafae9f 1-51
+.agents/skills/diffs/references/api-core.md
+  s_4020a6e35a67c2::t_5032e838c1f30a 1-225
+.agents/skills/diffs/references/api-editor.md
+  s_4020a6e35a67c2::t_ec5003326a863f 1-210
+.agents/skills/diffs/references/api-highlighting.md
+  s_4020a6e35a67c2::t_d1696c7a7ec55a 1-104
+.agents/skills/diffs/references/api-react.md
+  s_4020a6e35a67c2::t_1523d44d367687 1-69
+.agents/skills/diffs/references/api-rendering.md
+  s_4020a6e35a67c2::t_7d5a8648b930fb 1-181
+.agents/skills/diffs/references/api-ssr.md
+  s_4020a6e35a67c2::t_80aee3d233e724 1-35
+.agents/skills/diffs/references/api-types.md
+  s_4020a6e35a67c2::t_0f1cd800dddf66 1-177
+.agents/skills/diffs/references/api-worker.md
+  s_4020a6e35a67c2::t_fefdfcd567d9bd 1-104
+.agents/skills/diffs/references/recipe-annotations.md
+  s_4020a6e35a67c2::t_cd32a380e3598d 1-32
+.agents/skills/diffs/references/recipe-code-view.md
+  s_4020a6e35a67c2::t_6ae690927715ee 1-231
+.agents/skills/diffs/references/recipe-custom-highlighting.md
+  s_4020a6e35a67c2::t_bb272706a0f3a5 1-49
+.agents/skills/diffs/references/recipe-edit-react.md
+  s_4020a6e35a67c2::t_f159fed0badd9d 1-159
+.agents/skills/diffs/references/recipe-edit-vanilla.md
+  s_4020a6e35a67c2::t_14f7ee39b9fcee 1-177
+.agents/skills/diffs/references/recipe-react.md
+  s_4020a6e35a67c2::t_3b0827b5d62bc9 1-37
+.agents/skills/diffs/references/recipe-ssr.md
+  s_4020a6e35a67c2::t_944502fbb4d725 1-20
+.agents/skills/diffs/references/recipe-vanilla.md
+  s_4020a6e35a67c2::t_8554f681500f2c 1-41
+.agents/skills/diffs/references/recipe-workers.md
+  s_4020a6e35a67c2::t_bd58390d8702df 1-28
+package.json
+  s_4020a6e35a67c2::t_5b2b0293b30c16 33
+pnpm-lock.yaml
+  s_4020a6e35a67c2::t_e7aa161743b277 53-55,58,1734-1751,1772-1791,3315-3318,4207-4209,6828-6836,6838-6857,6863,6865,8312-8313,9211-9212
+skills-lock.json
+  s_4020a6e35a67c2::t_1651d8a69b4ee2 4-9
+src/components/call-preview.tsx
+  s_4020a6e35a67c2::t_3691ce34c74ef3 13,327-351
+src/components/diff-view.tsx
+  s_4020a6e35a67c2::t_bd35bf95da698d 1-74
+src/components/work-group.tsx
+  s_4020a6e35a67c2::t_ceeb11fc55acc3 20,217-220
+src/lib/call-preview.test.ts
+  s_4020a6e35a67c2::t_ed56a0ceecc768 2-7,101-129
+src/lib/call-preview.ts
+  s_4020a6e35a67c2::t_e844f1ccfd4146 33-40,233-247,317-335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "de616816cce9825e599650ff1cc7962be2948d92",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
