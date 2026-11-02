@@ -41,7 +41,7 @@ flowchart LR
 
 | Durable Object | What it owns                                                        |
 | -------------- | ------------------------------------------------------------------- |
-| `UserHub`      | Your bot list, app connections, shared memory, push subscriptions    |
+| `UserHub`      | Your bot list, app connections, shared memory, installed skills, push subscriptions |
 | `BotAgent`     | One bot: chat, memory, rules, routines, files, browser, secrets      |
 | `AppLive`      | Live updates for a web app a bot built                              |
 
@@ -68,6 +68,7 @@ flowchart LR
 | Other bots     | Messages and files to other bots                                             |
 | Web apps       | Builds small sites (trackers, dashboards) on its own data, shareable by link |
 | Teach by demo  | Records you doing a task in its browser, saves it as a skill                 |
+| Skills         | Installs Agent Skills from GitHub or a site, for one bot or all of them      |
 | Secrets        | You type an API key in a masked card. The bot uses it but never sees it      |
 | Wake-ups       | Inbound email, webhooks, and push notifications to you                       |
 
@@ -116,6 +117,41 @@ Each bot has one setting per action type:
 
 Nobody is around to approve a background turn. So by default it can only use
 app tools that are read-only.
+
+## Skills
+
+A skill is a set of instructions a bot loads when a task calls for it. Bots
+get them two ways: they learn one by watching you, or you install one written
+by someone else.
+
+To install, paste any of these into a bot's chat, or into **Skills** in its
+settings:
+
+```bash
+npx skills add https://github.com/owner/repo --skill code-review
+npx skills add owner/repo
+https://github.com/owner/repo/tree/main/skills/code-review
+developers.cloudflare.com
+```
+
+Coworkers only reads the command. It never runs it. Skills come straight from
+the GitHub repo, or from a site that publishes
+`/.well-known/agent-skills/index.json`, where each one is checked against its
+published digest.
+
+You then see a card with what it found. Open a skill to read its instructions,
+tick the ones you want, and choose who gets them: **This bot** or **All bots**.
+
+- **Only you can install.** A bot can ask, but the card is the only way in.
+  Files a bot downloads never become skills, and outside agents can't install.
+- **You get what you read.** The install is pinned to the commit you reviewed.
+  If a skill changes before you confirm, nothing is installed.
+- **Learned skills stay with their bot.** If a learned skill and an installed
+  one share a name, the learned one wins.
+- **Scripts don't run on install.** A skill's scripts are kept as files with
+  it. Binary and very large files are left out.
+
+Bots follow the skills you give them, so only install ones you trust.
 
 ## Ways to wake a bot
 
@@ -321,6 +357,9 @@ src/
     apps-runtime.ts   serves bot-built apps + AppLive
     app-store.ts      app data and share links
     teach.ts          records a demo in the browser
+    skill-fetch.ts    reads pasted commands, finds skills on GitHub and sites
+    skill-store.ts    installed skills, on the hub
+    skill-sources.ts  the skills each bot can use, for Think
     secrets.ts        credentials the bot never sees
     guards.ts         stops runaway loops
     memory.ts         memory helpers
