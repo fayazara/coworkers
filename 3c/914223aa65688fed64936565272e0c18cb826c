@@ -1,0 +1,21 @@
+cloudflare.config.ts
+  s_4020a6e35a67c2::t_b0a30971635a21 107-110
+src/agents/bot-agent.ts
+  s_4020a6e35a67c2::t_2afee81559b0f6 5135-5145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3c914223aa65688fed64936565272e0c18cb826c",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
