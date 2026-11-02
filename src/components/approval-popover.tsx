@@ -3,8 +3,9 @@ import { Link } from "@tanstack/react-router"
 import { Button } from "@cloudflare/kumo/components/button"
 import { Loader } from "@cloudflare/kumo/components/loader"
 import { Popover } from "@cloudflare/kumo/components/popover"
-import { CodeBlock } from "@/components/code-block"
+import { ArgsView, CallPreviewView } from "@/components/call-preview"
 import { useHub } from "@/lib/hub-context"
+import { approvalLabels } from "@/lib/call-preview"
 import { describeCall, toBlocks } from "@/lib/message-parts"
 import type { ReactElement } from "react"
 import type { ToolCall } from "@/lib/message-parts"
@@ -122,13 +123,7 @@ export function ApprovalPopover({
           {waiting?.calls.map((call) => (
             <div key={call.id} className="flex flex-col gap-2 pt-2">
               <p className="text-sm text-kumo-default">{describeCall(call)}</p>
-              {JSON.stringify(call.input) !== "{}" ? (
-                <CodeBlock
-                  code={JSON.stringify(call.input, null, 2)}
-                  lang="json"
-                  className="max-h-40 rounded-xl bg-kumo-tint p-2.5 text-xs"
-                />
-              ) : null}
+              <CallPreviewView name={call.name} input={call.input} compact />
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -138,7 +133,7 @@ export function ApprovalPopover({
                   loading={answering === call.approvalId}
                   onClick={() => void answer(call, true)}
                 >
-                  Approve
+                  {approvalLabels(call.name, call.input).approve}
                 </Button>
                 <Button
                   size="sm"
@@ -147,7 +142,7 @@ export function ApprovalPopover({
                   disabled={answering !== null}
                   onClick={() => void answer(call, false)}
                 >
-                  Reject
+                  {approvalLabels(call.name, call.input).reject}
                 </Button>
               </div>
             </div>
@@ -159,10 +154,10 @@ export function ApprovalPopover({
                 wants to use {approval.app} ({approval.tool})
               </p>
               {approval.argsJson !== "{}" ? (
-                <CodeBlock
-                  code={approval.argsJson}
-                  lang="json"
-                  className="max-h-40 rounded-xl bg-kumo-tint p-2.5 text-xs"
+                <ArgsView
+                  json={approval.argsJson}
+                  tool={approval.tool}
+                  compact
                 />
               ) : null}
               <div className="flex gap-2">

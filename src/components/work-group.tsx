@@ -16,6 +16,8 @@ import {
   ComputerIcon,
 } from "@/components/icons"
 import type { IconProps } from "@/components/icons"
+import { Outcome, PreviewView, ResultRows } from "@/components/call-preview"
+import { previewOf } from "@/lib/call-preview"
 import { ShimmerText } from "@/components/shimmer-text"
 import {
   describeCall,
@@ -185,13 +187,7 @@ function DetailBox({
   )
 }
 
-function humanize(name: string) {
-  const match = /^tool_[^_]+_(.+)$/.exec(name)
-  const base = (match ? match[1] : name).replace(/_/g, " ")
-  return base.charAt(0).toUpperCase() + base.slice(1)
-}
-
-function StepDetail({ call }: { call: ToolCall }) {
+export function StepDetail({ call }: { call: ToolCall }) {
   const shell = shellResult(call)
   if (shell) {
     const exit =
@@ -218,29 +214,57 @@ function StepDetail({ call }: { call: ToolCall }) {
     )
   }
 
-  const input = JSON.stringify(call.input, null, 2)
-  const output =
-    typeof call.output === "string"
-      ? call.output
-      : call.output === undefined
-        ? ""
-        : JSON.stringify(call.output, null, 2)
+  const preview = previewOf(call.name, call.input)
+  const result = call.errorText ? null : resultOf(call.output)
+  const sentFlag =
+    result?.kind === "fields" && typeof result.fields.sent === "boolean"
+      ? result.fields
+      : null
+  // The outcome sits inside the card as its last row, so a finished step is
+  // one object, not a box around a box.
+  const footer = call.errorText ? (
+    <Outcome tone="warn" compact>
+      {clip(call.errorText)}
+    </Outcome>
+  ) : sentFlag ? (
+    sentFlag.sent ? (
+      <Outcome tone="ok" compact>
+        Sent
+      </Outcome>
+    ) : (
+      <Outcome tone="warn" compact>
+        {typeof sentFlag.error === "string" ? sentFlag.error : "Not sent"}
+      </Outcome>
+    )
+  ) : result ? (
+    <ResultRows
+      data={result.kind === "fields" ? result.fields : clip(result.text)}
+      compact
+    />
+  ) : null
   return (
-    <DetailBox title={humanize(call.name)}>
-      {input !== "{}" ? <p className="line-clamp-6">{input}</p> : null}
-      {call.errorText || output ? (
-        <div
-          className={`max-h-60 overflow-auto ${input !== "{}" ? "mt-3" : ""}`}
-        >
-          {call.errorText ? (
-            <span className="text-kumo-warning">{clip(call.errorText)}</span>
-          ) : (
-            <span className="text-kumo-subtle">{clip(output)}</span>
-          )}
-        </div>
-      ) : null}
-    </DetailBox>
+    <div className="mt-1.5 mb-1">
+      <PreviewView
+        preview={preview}
+        compact
+        heading={preview.kind === "fields" ? describeCall(call) : undefined}
+        footer={footer}
+      />
+    </div>
   )
+}
+
+/** A call's output as text, or as fields when it is an object. */
+function resultOf(output: unknown) {
+  if (output === undefined || output === null || output === "") return null
+  if (typeof output === "string") return { kind: "text" as const, text: output }
+  if (typeof output === "object" && !Array.isArray(output)) {
+    return {
+      kind: "fields" as const,
+      fields: output as Record<string, unknown>,
+    }
+  }
+  return { kind: "text" as const, text: JSON.stringify(output, null, 2) }
 }
 
 function StepRow({ call }: { call: ToolCall }) {

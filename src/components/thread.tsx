@@ -25,6 +25,7 @@ import {
 import { BotAvatar } from "@/components/bot-avatar"
 import { BotMention } from "@/components/bot-mention"
 import { CaptureCard } from "@/components/capture-card"
+import { ArgsView, PreviewView } from "@/components/call-preview"
 import { CodeBlock } from "@/components/code-block"
 import { SkillInstall } from "@/components/skill-install"
 import { ComputerCard } from "@/components/computer-card"
@@ -42,6 +43,7 @@ import {
   toTurn,
 } from "@/lib/message-parts"
 import { useFollowBottom } from "@/lib/follow-bottom"
+import { approvalLabels, isEmptyPreview, previewOf } from "@/lib/call-preview"
 import { botIdFromLink, splitMentions } from "@/lib/bot-links"
 import { NO_UPDATE } from "@/lib/types"
 import type { UIMessage } from "ai"
@@ -237,35 +239,37 @@ function SystemEvent({ children }: { children: React.ReactNode }) {
   return <p className="py-1 text-center text-sm text-kumo-subtle">{children}</p>
 }
 
-function ApprovalCard({
+export function ApprovalCard({
   call,
   onApproval,
 }: {
   call: ToolCall
   onApproval?: OnApproval
 }) {
-  const details = JSON.stringify(call.input, null, 2)
+  const labels = approvalLabels(call.name, call.input)
+  const preview = previewOf(call.name, call.input)
   return (
-    <div className="w-full max-w-[640px] rounded-3xl bg-kumo-tint p-4">
-      <p className="text-[15px] font-semibold text-kumo-default">
-        Approval needed
-      </p>
-      <p className="mt-1 text-[15px] text-kumo-default">{describeCall(call)}</p>
-      {details !== "{}" ? (
-        <CodeBlock
-          code={details}
-          lang="json"
-          className="mt-3 max-h-60 rounded-2xl bg-kumo-base p-3"
-        />
-      ) : null}
+    <div className="w-full max-w-[640px] rounded-3xl bg-kumo-tint p-3">
+      <div className="px-4 pt-1 pb-3">
+        <p className="text-[15px] font-semibold text-kumo-default">
+          Approval needed
+        </p>
+        {/* An email, command or file names itself in its preview. */}
+        {preview.kind === "fields" ? (
+          <p className="mt-0.5 text-[15px] text-pretty text-kumo-default">
+            {describeCall(call)}
+          </p>
+        ) : null}
+      </div>
+      {!isEmptyPreview(preview) ? <PreviewView preview={preview} /> : null}
       {onApproval && call.approvalId ? (
-        <div className="mt-3 flex gap-2">
+        <div className="flex gap-2 pt-3 pb-0.5">
           <Button
             variant="primary"
             className="btn-ink rounded-full"
             onClick={() => onApproval(call.approvalId!, true)}
           >
-            Approve
+            {labels.approve}
           </Button>
           <Button
             variant="outline"
@@ -274,7 +278,7 @@ function ApprovalCard({
               onApproval(call.approvalId!, false, "The user said no.")
             }
           >
-            Reject
+            {labels.reject}
           </Button>
         </div>
       ) : null}
@@ -316,11 +320,9 @@ function ScriptApprovalCard({
         wants to use {approval.app} ({approval.tool})
       </p>
       {approval.argsJson !== "{}" ? (
-        <CodeBlock
-          code={approval.argsJson}
-          lang="json"
-          className="mt-3 max-h-60 rounded-2xl bg-kumo-base p-3"
-        />
+        <div className="mt-3">
+          <ArgsView json={approval.argsJson} tool={approval.tool} />
+        </div>
       ) : null}
       {onScriptApproval ? (
         <div className="mt-3 flex gap-2">

@@ -20,7 +20,7 @@ import {
 } from "@/components/icons"
 import type { IconProps } from "@/components/icons"
 import { BotAvatar } from "@/components/bot-avatar"
-import { CodeBlock } from "@/components/code-block"
+import { ArgsView } from "@/components/call-preview"
 import { Prose } from "@/components/thread"
 import { useHub } from "@/lib/hub-context"
 import type { BotSummary, DeskAction, DeskCard, DeskOrigin } from "@/lib/types"
@@ -155,35 +155,6 @@ function Found({ text }: { text: string }) {
   )
 }
 
-/** Arguments of a waiting call, folded away until asked for. */
-function Details({ code }: { code: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="t-acc mt-3" data-open={open}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1 text-[13px] font-medium text-kumo-subtle outline-none hover:text-kumo-default focus-visible:underline"
-      >
-        {open ? "Hide details" : "Show details"}
-        <span className="t-acc-chevron">
-          <CaretDownIcon size={14} />
-        </span>
-      </button>
-      <div className="t-acc-panel">
-        <div className="t-acc-panel-inner">
-          <CodeBlock
-            code={code}
-            lang="json"
-            className="mt-2 max-h-56 rounded-xl bg-kumo-tint p-3 text-xs"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /** A finding that only repeats the title is not shown twice. */
 function worthShowing(card: DeskCard) {
   const found = card.found.replace(/[`*_#>[\]()]/g, "").trim()
@@ -289,7 +260,11 @@ export function DeskCardView({
       </p>
 
       {card.found && worthShowing(card) ? <Found text={card.found} /> : null}
-      {card.detail ? <Details code={card.detail} /> : null}
+      {card.detail ? (
+        <div className="mt-3">
+          <ArgsView json={card.detail} tool={card.tool} compact />
+        </div>
+      ) : null}
 
       {card.sources.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">

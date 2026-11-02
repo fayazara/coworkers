@@ -367,6 +367,14 @@ export function describeCall(call: ToolCall): string {
       return `Started crawling ${str("url")}`
     case "message_bot":
       return `Messaged ${str("to")}`
+    case "send_email":
+      return `Emailed ${str("to")}`
+    case "reply_email":
+      return "Replied to an email"
+    case "app_tool_call": {
+      const label = mcpLabel(str("tool"))
+      return label.charAt(0).toUpperCase() + label.slice(1)
+    }
     case "delegate_task":
       return `Gave ${str("to")} a task`
     case "attach_result_files":

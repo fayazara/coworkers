@@ -149,6 +149,8 @@ export interface DeskCardInput {
   found: string
   /** Arguments of a call waiting for approval, as pretty-printed JSON. */
   detail?: string
+  /** The tool that call is for, so its arguments can be shown plainly. */
+  tool?: string
   sources: { label: string; url: string }[]
   /** The first is the primary button. */
   actions: DeskAction[]

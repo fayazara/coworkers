@@ -1,3 +1,4 @@
+import { approvalLabels } from "@/lib/call-preview"
 import type {
   DeskCard,
   DeskCardInput,
@@ -304,8 +305,13 @@ export function waitingCard(call: WaitingCall): DeskCardInput {
     title: clip(askTitle(call.name, call.input), MAX_TITLE_CHARS),
     found: "",
     detail: argsOf(call.name, call.input),
+    tool: call.name === "app_tool_call" ? str("tool") || call.name : call.name,
     actions: [
-      { id: "approve", label: "Approve", kind: "approve" },
+      {
+        id: "approve",
+        label: approvalLabels(call.name, call.input).approve,
+        kind: "approve",
+      },
       { id: "reject", label: "Not now", kind: "reject" },
     ],
   }
@@ -326,7 +332,10 @@ export function scriptCard(approval: ScriptApproval): DeskCardInput {
       : "A script is paused for your OK",
     found: "",
     ...(approval.argsJson !== "{}"
-      ? { detail: clip(approval.argsJson, MAX_DETAIL_CHARS) }
+      ? {
+          detail: clip(approval.argsJson, MAX_DETAIL_CHARS),
+          tool: approval.tool,
+        }
       : {}),
     sources: [],
     actions: [
