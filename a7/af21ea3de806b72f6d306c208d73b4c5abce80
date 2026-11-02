@@ -1,0 +1,19 @@
+src/components/icons.tsx
+  s_7255ab46cc6ee4::t_872052b9d233b8 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a7af21ea3de806b72f6d306c208d73b4c5abce80",
+  "prompts": {},
+  "sessions": {
+    "s_7255ab46cc6ee4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eb018d86-da59-46c4-b372-dccddeace3b1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
