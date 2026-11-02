@@ -24,6 +24,7 @@ function parseField(spec: string, min: number, max: number): Field | null {
       to = b === undefined ? (stepText === undefined ? a : max) : b
       if (!Number.isInteger(to)) return null
     }
+    if (from < min || to > max || from > to) return null
     for (let v = from; v <= to; v += step) values.add(v)
   }
   return { any: spec === "*", values }
@@ -45,8 +46,10 @@ export function parseCron(expr: string): Cron | null {
   const hour = parseField(raw[1], 0, 23)
   const dom = parseField(raw[2], 1, 31)
   const month = parseField(raw[3], 1, 12)
-  const dow = parseField(raw[4].replace(/\b7\b/g, "0"), 0, 6)
+  // 7 is Sunday too. Mapped after parsing so ranges like 5-7 still work.
+  const dow = parseField(raw[4], 0, 7)
   if (!minute || !hour || !dom || !month || !dow) return null
+  if (dow.values.delete(7)) dow.values.add(0)
   return { minute, hour, dom, month, dow, raw }
 }
 
@@ -124,7 +127,7 @@ export function describeCron(cron: Cron): string | null {
 
   const days = [...cron.dow.values].sort()
   let when: string
-  if (cron.dow.any) when = "Every day"
+  if (cron.dow.any || days.length === 7) when = "Every day"
   else if (days.join() === "1,2,3,4,5") when = "Weekdays"
   else if (days.join() === "0,6") when = "Weekends"
   else if (days.length === 1) when = `Every ${DAYS[days[0]]}`

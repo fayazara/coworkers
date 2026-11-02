@@ -1,6 +1,13 @@
 import type { ModelMessage } from "ai"
 import { describe, expect, it } from "vitest"
-import { scriptPrompt, withSentTimes } from "./prompt"
+import {
+  routineInstructionsOf,
+  routinePrompt,
+  scriptPrompt,
+  watchChangeNote,
+  watchChangeNoteOf,
+  withSentTimes,
+} from "./prompt"
 
 const AT = Date.UTC(2026, 9, 26, 5, 41)
 
@@ -79,5 +86,55 @@ describe("scriptPrompt", () => {
     expect(text).toContain("did not finish: it stopped responding")
     expect(text).toContain("check their effects")
     expect(text).toContain("background turn")
+  })
+})
+
+const instructions =
+  "Check https://example.com/status.\n\n- Report *only* outages\n- Use `curl -s`"
+
+function trigger(onlyNew: boolean) {
+  return routinePrompt({
+    id: "r1",
+    name: "Status page",
+    prompt: instructions,
+    onlyNew,
+    reported: [{ key: "routine:r1:a", note: "Outage on Monday", at: 0 }],
+    timeZone: "UTC",
+  })
+}
+
+describe("routineInstructionsOf", () => {
+  it("gets the routine's prompt back as written", () => {
+    expect(routineInstructionsOf(trigger(false))).toBe(instructions)
+    expect(routineInstructionsOf(trigger(true))).toBe(instructions)
+  })
+})
+
+describe("watchChangeNoteOf", () => {
+  const note = watchChangeNote(
+    "https://example.com/status",
+    "All systems *operational*",
+    "## Degraded\n> API errors"
+  )
+
+  it("gets the change note back as it was sent", () => {
+    expect(watchChangeNoteOf(trigger(true) + note)).toBe(note)
+    expect(watchChangeNoteOf(trigger(false) + note)).toBe(note)
+  })
+
+  it("is empty for a run that no watch started", () => {
+    expect(watchChangeNoteOf(trigger(true))).toBe("")
+  })
+
+  it("ignores the same words in the user's own prompt", () => {
+    const text = routinePrompt({
+      id: "r1",
+      name: "Odd",
+      prompt: `Say why.${note}`,
+      onlyNew: false,
+      reported: [],
+      timeZone: "UTC",
+    })
+    expect(watchChangeNoteOf(text)).toBe("")
   })
 })
