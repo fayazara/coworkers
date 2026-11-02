@@ -222,7 +222,7 @@ export function emailPrompt(input: {
     input.body || "(empty)",
     "--- end of email ---",
     "",
-    "Decide what it means for the user given your job and open items. Track or update items as needed.",
+    "Decide what it means for the user given your job and open items. Track or update items as needed. To answer it, call reply_email with the saved path; the user's Send email rule decides whether that needs their approval.",
     BACKGROUND_FOOTER
   )
   return lines.join("\n")

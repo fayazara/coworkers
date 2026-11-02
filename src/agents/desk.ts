@@ -227,6 +227,10 @@ export function askTitle(name: string, input: Record<string, unknown>) {
       return `Delete ${str("path")}`
     case "message_bot":
       return `Message ${str("to")}`
+    case "send_email":
+      return `Email ${str("to")}`
+    case "reply_email":
+      return "Reply to an email"
     case "delegate_task":
       return `Give ${str("to")} a task`
     case "schedule_routine":

@@ -229,6 +229,11 @@ export const ACTION_CLASSES = [
     label: "Manage bots",
     hint: "Create, change and pause your other bots",
   },
+  {
+    id: "email",
+    label: "Send email",
+    hint: "Reply to email and write to anyone, from the bot's own address",
+  },
 ] as const
 export type ActionClass = (typeof ACTION_CLASSES)[number]["id"]
 
@@ -241,6 +246,7 @@ export const DEFAULT_RULES: Record<ActionClass, RulePolicy> = {
   bots: "allow",
   routines: "allow",
   manage: "ask",
+  email: "ask",
 }
 
 export interface Routine {

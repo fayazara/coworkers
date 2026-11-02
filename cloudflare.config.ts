@@ -142,6 +142,9 @@ export default defineConfig({
       // on it. Without them, route the domain with a catch-all yourself.
       EMAIL_ZONE_ID: bindings.text(deploy.emailZoneId ?? ""),
       EMAIL_ROUTING_API_TOKEN: bindings.secret(),
+      // Sends the mail bots write (send_email, reply_email) from their own
+      // address. The sending domain must be onboarded for Email Sending.
+      SEND_EMAIL: bindings.sendEmail({}),
       // This Worker's name, the target of those routing rules.
       WORKER_NAME: bindings.text(WORKER_NAME),
       // Web Push. Generate a pair with `npx web-push generate-vapid-keys`
