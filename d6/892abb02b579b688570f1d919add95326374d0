@@ -1,0 +1,33 @@
+cloudflare.config.ts
+  s_4020a6e35a67c2::t_459d26e60c43a0 21,139-146
+src/agents/bot-agent.ts
+  s_4020a6e35a67c2::t_34cc879ce84bd5 41-45,5165-5179,5183-5204
+src/agents/email-routing.ts
+  s_4020a6e35a67c2::t_a15082ebae538b 1-58
+src/agents/guards.test.ts
+  s_4020a6e35a67c2::t_dec9afef51f1ea 33-35,41-42,48-52,55-57,62-63,68-72,77-79,91-93,103-112,115-117
+src/agents/memory.test.ts
+  s_4020a6e35a67c2::t_a00287851632db 6-8,13-15
+src/agents/secrets.test.ts
+  s_4020a6e35a67c2::t_8ee192d1877a81 6-8,16-21,34-40,42-53
+src/agents/user-hub.ts
+  s_4020a6e35a67c2::t_664f2918c55e4d 472-474
+src/components/settings-panel.tsx
+  s_4020a6e35a67c2::t_933382a8405fc5 665,713-714,730-740
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d6892abb02b579b688570f1d919add95326374d0",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
