@@ -11,11 +11,17 @@ describe("vapidKeys", () => {
 })
 
 describe("migrationsFor", () => {
-  const classes = ["UserHub", "BotAgent", "AppLive", "OAuthStore"]
+  const classes = [
+    "UserHub",
+    "BotAgent",
+    "AppLive",
+    "OAuthStore",
+    "EmailDirectory",
+  ]
 
   it("creates every class on a first install", () => {
     expect(migrationsFor(classes, { fresh: true })).toEqual({
-      new_tag: "v2",
+      new_tag: "v3",
       steps: [{ new_sqlite_classes: classes }],
     })
   })
@@ -25,14 +31,17 @@ describe("migrationsFor", () => {
       migrationsFor(classes, { fresh: false, migrationTag: "v1" })
     ).toEqual({
       old_tag: "v1",
-      new_tag: "v2",
-      steps: [{ new_sqlite_classes: ["OAuthStore"] }],
+      new_tag: "v3",
+      steps: [
+        { new_sqlite_classes: ["OAuthStore"] },
+        { new_sqlite_classes: ["EmailDirectory"] },
+      ],
     })
   })
 
   it("sends nothing to an install that is up to date", () => {
     expect(
-      migrationsFor(classes, { fresh: false, migrationTag: "v2" })
+      migrationsFor(classes, { fresh: false, migrationTag: "v3" })
     ).toBeNull()
   })
 

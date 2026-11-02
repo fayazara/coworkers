@@ -54,6 +54,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-decorators": "^8.0.2",
     "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/eslint-config": "^0.4.0",
     "@testing-library/dom": "^10.4.2",

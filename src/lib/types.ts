@@ -556,8 +556,12 @@ export interface PushSubscriptionData {
 
 /** Where a bot can be reached from outside the app. */
 export interface BotInbound {
-  /** Null when no email domain is configured. */
+  /** Null when no email domain is configured or the bot's email is off. */
   email: string | null
+  /** Whether the bot receives email. Off until the user turns it on. */
+  emailEnabled: boolean
+  /** Whether the deployment has an email domain at all. */
+  emailAvailable: boolean
   webhookUrl: string
 }
 

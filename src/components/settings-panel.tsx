@@ -704,18 +704,30 @@ function Reach() {
             icon={<EnvelopeSimpleIcon size={14} />}
             label="Email"
             detail={
-              inbound.email ? (
-                <span className="block truncate">{inbound.email}</span>
-              ) : (
+              !inbound.emailAvailable ? (
                 <>
                   Set <code>EMAIL_DOMAIN</code> and route that domain's mail to
                   this Worker.
                 </>
+              ) : inbound.email ? (
+                <span className="block truncate">{inbound.email}</span>
+              ) : (
+                "Off. Anyone who knows the address could give this bot instructions, so turn it on only if you need it."
               )
             }
           >
             {inbound.email ? (
               <CopyButton text={inbound.email} label="Copy email address" />
+            ) : null}
+            {inbound.emailAvailable ? (
+              <Switch
+                aria-label="Receive email"
+                checked={inbound.emailEnabled}
+                disabled={!agent}
+                onCheckedChange={(next) =>
+                  void agent?.stub.setEmailEnabled(next).then(setInbound)
+                }
+              />
             ) : null}
           </Row>
           <Row

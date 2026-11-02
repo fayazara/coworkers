@@ -37,6 +37,7 @@ import { callable, getAgentByName } from "agents"
 import { CHAT_MESSAGE_TYPES } from "agents/chat"
 import type { ContextConfig } from "agents/context"
 import { isAutoReplyEmail } from "agents/email"
+import { emailDirectory } from "./email-directory"
 import type { AgentEmail } from "agents/email"
 import { jsonSchema, tool } from "ai"
 import type { JSONSchema7, ToolSet, UIMessage } from "ai"
@@ -1063,8 +1064,16 @@ export class BotAgent extends Think<Env, BotState> {
 
   private inbound(): BotInbound {
     const domain = this.env.EMAIL_DOMAIN?.trim()
+    // The short name once it is claimed; the long form until the bot has a
+    // real name (see `ensureEmailName`).
+    const name =
+      this.ctx.storage.kv.get<string>("email_name") ??
+      `${this.userId}.${this.botId}`
+    const enabled = this.emailEnabled()
     return {
-      email: domain ? `${this.userId}.${this.botId}@${domain}` : null,
+      email: domain && enabled ? `${name}@${domain}` : null,
+      emailEnabled: enabled,
+      emailAvailable: Boolean(domain),
       webhookUrl: `/api/hooks/${encodeURIComponent(this.userId)}/${this.botId}/${this.webhookToken()}`,
     }
   }
@@ -1178,6 +1187,7 @@ export class BotAgent extends Think<Env, BotState> {
           hub.modelSettings(),
         ])
       this.#origin = origin ?? ""
+      await this.ensureEmailName()
     } catch (err) {
       console.error("Loading bots or apps failed", err)
     }
@@ -5107,8 +5117,49 @@ export class BotAgent extends Think<Env, BotState> {
       WHERE id = ${id}`
   }
 
+  /**
+   * Claim the bot's short email name from its name, once. Chosen when the
+   * bot is first named and kept after that, so renaming never breaks mail
+   * already sent to it.
+   */
+  private async ensureEmailName() {
+    if (
+      !this.env.EMAIL_DOMAIN?.trim() ||
+      !this.emailEnabled() ||
+      this.ctx.storage.kv.get("email_name") ||
+      this.state.name === NEW_BOT_NAME
+    ) {
+      return
+    }
+    const base = slugify(this.state.name, 32).replace(/^untitled$/, "bot")
+    const name = await emailDirectory(this.env).claim(
+      base,
+      this.userId,
+      this.botId
+    )
+    this.ctx.storage.kv.put("email_name", name)
+  }
+
+  /** Off until the user turns it on: a guessed address must not wake a bot. */
+  private emailEnabled() {
+    return this.ctx.storage.kv.get<boolean>("email_enabled") === true
+  }
+
+  /** Durable Object RPC from the Worker's `email()` handler. */
+  async acceptsEmail() {
+    return this.emailEnabled()
+  }
+
+  @callable()
+  async setEmailEnabled(enabled: boolean): Promise<BotInbound> {
+    this.ctx.storage.kv.put("email_enabled", enabled)
+    await this.ensureEmailName()
+    return this.inbound()
+  }
+
   @callable()
   async getInbound(): Promise<BotInbound> {
+    await this.ensureEmailName()
     return this.inbound()
   }
 

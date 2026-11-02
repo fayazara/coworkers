@@ -64,6 +64,8 @@ export default defineConfig({
       // One for the deployment: the OAuth server's clients, grants and
       // tokens, for outside agents reaching Coworkers over /mcp.
       OAuthStore: exports.durableObject({ storage: "sqlite" }),
+      // One for the deployment: bot email names (research@...) to owners.
+      EmailDirectory: exports.durableObject({ storage: "sqlite" }),
     },
     env: {
       // Workers AI + AI Gateway for all model traffic. Neither this nor

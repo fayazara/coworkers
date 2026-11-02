@@ -6,6 +6,7 @@ import { DEFAULT_MODEL_SETTINGS, isModelId } from "@/lib/models"
 import type { ModelSettings, ModelTestResult } from "@/lib/models"
 import { botIdFromLink } from "@/lib/bot-links"
 import { BOT_AVATARS, NEW_BOT_NAME, botInstanceName } from "@/lib/types"
+import { emailDirectory } from "./email-directory"
 import type {
   AppCatalog,
   AppTool,
@@ -461,6 +462,11 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       this.skills.removeBot(skill.name, botId)
     }
     this.publishSkills()
+    try {
+      await emailDirectory(this.env).release(this.userId, botId)
+    } catch (err) {
+      console.warn(`removeBot ${botId}: email name not released`, err)
+    }
     try {
       const bot = await this.bot(botId)
       await bot.destroy()

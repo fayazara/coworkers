@@ -88,6 +88,8 @@ export const CLASS_HISTORY: readonly (readonly string[])[] = [
   ["UserHub", "BotAgent", "AppLive"],
   // Outside agents over MCP: the OAuth server's storage.
   ["OAuthStore"],
+  // Inbound email: short bot names to their owners.
+  ["EmailDirectory"],
 ]
 
 /**

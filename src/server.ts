@@ -3,7 +3,9 @@ import { getAgentByName, routeAgentEmail, routeAgentRequest } from "agents"
 import { Unauthorized, identify } from "@/lib/auth"
 import { botInstanceName } from "@/lib/types"
 import { handleAppRequest } from "./agents/apps-runtime"
+import { emailDirectory } from "./agents/email-directory"
 import { handleOAuthRequest } from "./mcp/oauth"
+import type { BotAgent } from "./agents/bot-agent"
 import type { UserHub } from "./agents/user-hub"
 
 // Durable Objects and the classes their runtimes load by name.
@@ -13,6 +15,8 @@ export { UserHub } from "./agents/user-hub"
 export { AppBinding, AppLive } from "./agents/apps-runtime"
 // OAuth clients, grants and tokens for outside agents on /mcp.
 export { OAuthStore } from "./mcp/oauth-store"
+// Short email names (research@...) to the bot that owns them.
+export { EmailDirectory } from "./agents/email-directory"
 // Backs `browser_execute`: a durable Code Mode runtime in a DO facet.
 export { CodemodeRuntime } from "agents/browser"
 
@@ -64,24 +68,47 @@ export default {
 
   /**
    * Email Routing delivers mail for EMAIL_DOMAIN here. A bot's address is
-   * `<userId>.<botId>@EMAIL_DOMAIN`; anything else is rejected, and so is
-   * mail for a bot that does not exist (looking it up would create it).
+   * its short name, `research@EMAIL_DOMAIN` (the older
+   * `<userId>.<botId>@EMAIL_DOMAIN` still works); anything else is rejected,
+   * and so is mail for a bot that does not exist (looking it up would
+   * create it).
    */
   async email(message, env) {
     const domain = env.EMAIL_DOMAIN?.trim().toLowerCase()
     const [local, host] = message.to.toLowerCase().split("@")
-    const dot = local?.lastIndexOf(".") ?? -1
-    if (!domain || host !== domain || dot <= 0) {
+    if (!domain || host !== domain || !local) {
       message.setReject("Unknown address")
       return
     }
-    const userId = local.slice(0, dot)
-    const botId = local.slice(dot + 1)
+    let userId: string
+    let botId: string
+    const dot = local.lastIndexOf(".")
+    if (dot > 0) {
+      userId = local.slice(0, dot)
+      botId = local.slice(dot + 1)
+    } else {
+      const owner = await emailDirectory(env).lookup(local)
+      if (!owner) {
+        message.setReject("Unknown address")
+        return
+      }
+      ;({ userId, botId } = owner)
+    }
     const hub = await getAgentByName(
       env.UserHub as unknown as DurableObjectNamespace<UserHub>,
       userId
     )
     if (!(await hub.hasBot(botId))) {
+      message.setReject("Unknown address")
+      return
+    }
+    // Email is off for a bot until its owner turns it on. The reply is the
+    // same as for an address that does not exist.
+    const bot = await getAgentByName(
+      env.BotAgent as unknown as DurableObjectNamespace<BotAgent>,
+      botInstanceName(userId, botId)
+    )
+    if (!(await bot.acceptsEmail())) {
       message.setReject("Unknown address")
       return
     }
