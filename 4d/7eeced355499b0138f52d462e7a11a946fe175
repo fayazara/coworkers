@@ -1,0 +1,37 @@
+src/agents/desk.ts
+  s_4020a6e35a67c2::t_8c287084bd4b45 1,308,310-314,335-338
+src/components/approval-popover.tsx
+  s_4020a6e35a67c2::t_1903990c30a031 6,8,126,136,145,157-160
+src/components/call-preview.tsx
+  s_4020a6e35a67c2::t_e762b23c3d5f11 1-447
+src/components/desk-card.tsx
+  s_4020a6e35a67c2::t_b239c98900e06c 23,263-267
+src/components/thread.tsx
+  s_4020a6e35a67c2::t_9cd5950b027563 28,46,242,249-250,252-264,266,272,281,323-325
+src/components/work-group.tsx
+  s_4020a6e35a67c2::t_791e0802106409 19-20,190,217-244,246-253,257-269
+src/lib/call-preview.test.ts
+  s_4020a6e35a67c2::t_ada8e05b182170 1-113
+src/lib/call-preview.ts
+  s_4020a6e35a67c2::t_97818edc88c68b 1-299
+src/lib/message-parts.ts
+  s_4020a6e35a67c2::t_7be91eed18aa2c 370-377
+src/lib/types.ts
+  s_4020a6e35a67c2::t_0e18ed75bebaa1 152-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4d7eeced355499b0138f52d462e7a11a946fe175",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
