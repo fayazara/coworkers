@@ -17,7 +17,7 @@ import {
 } from "@/components/icons"
 import type { IconProps } from "@/components/icons"
 import { Outcome, PreviewView, ResultRows } from "@/components/call-preview"
-import { previewOf } from "@/lib/call-preview"
+import { editedPreview, previewOf } from "@/lib/call-preview"
 import { ShimmerText } from "@/components/shimmer-text"
 import {
   describeCall,
@@ -214,8 +214,10 @@ export function StepDetail({ call }: { call: ToolCall }) {
     )
   }
 
-  const preview = previewOf(call.name, call.input)
-  const result = call.errorText ? null : resultOf(call.output)
+  // A finished edit shows the patch the tool made, not the request for it.
+  const edited = call.errorText ? null : editedPreview(call.input, call.output)
+  const preview = edited ?? previewOf(call.name, call.input)
+  const result = call.errorText || edited ? null : resultOf(call.output)
   const sentFlag =
     result?.kind === "fields" && typeof result.fields.sent === "boolean"
       ? result.fields

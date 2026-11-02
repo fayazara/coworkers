@@ -10,6 +10,7 @@ import {
   WarningIcon,
 } from "@/components/icons"
 import { CodeBlock } from "@/components/code-block"
+import { EditView, PatchView } from "@/components/diff-view"
 import { genericRows, isEmptyPreview, previewOf } from "@/lib/call-preview"
 import type { CallPreview, PreviewRow } from "@/lib/call-preview"
 
@@ -319,6 +320,31 @@ export function PreviewView({
         <Mono pad={pad} prompt max="max-h-40">
           {preview.command}
         </Mono>
+      </Frame>
+    )
+  }
+
+  if (preview.kind === "edit") {
+    return (
+      <Frame footer={footer}>
+        <Header icon={<FileEditIcon size={14} />} pad={pad}>
+          {preview.patch ? "Edited" : "Edit"} {preview.path}
+        </Header>
+        {preview.patch ? (
+          <div className={DIVIDER}>
+            <PatchView patch={preview.patch} />
+          </div>
+        ) : (
+          preview.edits.map((edit, i) => (
+            <div key={i} className={DIVIDER}>
+              <EditView
+                path={preview.path}
+                oldText={edit.oldText}
+                newText={edit.newText}
+              />
+            </div>
+          ))
+        )}
       </Frame>
     )
   }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { approvalLabels, humanKey, previewOf } from "./call-preview"
+import {
+  approvalLabels,
+  editedPreview,
+  humanKey,
+  previewOf,
+} from "./call-preview"
 
 describe("previewOf", () => {
   it("shows an email as an email", () => {
@@ -90,6 +95,35 @@ describe("previewOf", () => {
       ],
       extra: { lines: [{ item: "A", qty: 1 }] },
     })
+  })
+})
+
+describe("edits", () => {
+  it("shows a proposed edit as old and new text", () => {
+    expect(
+      previewOf("edit", {
+        path: "/workspace/notes/a.md",
+        edits: [{ oldText: "one", newText: "two" }, { nope: 1 }],
+      })
+    ).toEqual({
+      kind: "edit",
+      path: "notes/a.md",
+      edits: [{ oldText: "one", newText: "two" }],
+    })
+  })
+
+  it("shows a finished edit as the patch the tool made", () => {
+    expect(
+      editedPreview(
+        { path: "/workspace/a.md" },
+        { path: "/workspace/a.md", patch: "@@ -1 +1 @@\n-a\n+b\n" }
+      )
+    ).toMatchObject({
+      kind: "edit",
+      path: "a.md",
+      patch: "@@ -1 +1 @@\n-a\n+b\n",
+    })
+    expect(editedPreview({}, { sent: true })).toBeNull()
   })
 })
 

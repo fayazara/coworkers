@@ -30,6 +30,14 @@ export type CallPreview =
       path: string
       content?: string
     }
+  | {
+      kind: "edit"
+      path: string
+      /** What each change replaces, for a change not made yet. */
+      edits: { oldText: string; newText: string }[]
+      /** The unified patch of a change already made. */
+      patch?: string
+    }
   | { kind: "fields"; rows: PreviewRow[]; extra?: unknown }
 
 type Input = Record<string, unknown>
@@ -222,6 +230,21 @@ export function previewOf(name: string, input: Input): CallPreview {
     }
   }
 
+  if (tool === "edit" && text(args.path)) {
+    const edits = (Array.isArray(args.edits) ? args.edits : [args])
+      .filter(isObject)
+      .filter(
+        (e) => typeof e.oldText === "string" && typeof e.newText === "string"
+      )
+      .map((e) => ({
+        oldText: e.oldText as string,
+        newText: e.newText as string,
+      }))
+    if (edits.length) {
+      return { kind: "edit", path: friendlyPath(text(args.path)), edits }
+    }
+  }
+
   if (looksLikeEmail(tool, args)) {
     const body =
       firstText(args, ["body", "text", "content", "message"]) ||
@@ -289,6 +312,25 @@ export function approvalLabels(name: string, input: Input) {
     return { approve: "Delete", reject: "Keep" }
   }
   return { approve: "Approve", reject: "Reject" }
+}
+
+/**
+ * The preview of a finished edit: its patch, from the tool's result. `output`
+ * is what the edit tool returned.
+ */
+export function editedPreview(
+  input: Input,
+  output: unknown
+): CallPreview | null {
+  if (!isObject(output) || typeof output.patch !== "string") return null
+  const path = text(output.path) || text(input.path)
+  if (!path) return null
+  return {
+    kind: "edit",
+    path: friendlyPath(path),
+    edits: [],
+    patch: output.patch,
+  }
 }
 
 /** True when there is nothing worth showing. */

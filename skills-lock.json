@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "diffs": {
+      "source": "pierrecomputer/pierre",
+      "sourceType": "github",
+      "skillPath": "skills/diffs/SKILL.md",
+      "computedHash": "20b638ea5c13445d98bc49826d0e12838f285e30249e79379b909a4cdea08c98"
+    },
     "emil-design-eng": {
       "source": "emilkowalski/skills",
       "sourceType": "github",
