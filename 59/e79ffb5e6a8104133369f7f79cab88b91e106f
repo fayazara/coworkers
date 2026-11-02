@@ -1,0 +1,49 @@
+AGENTS.md
+  s_5bf16e99b8f395::t_a5b556a7f05f7b 59-64
+README.md
+  s_5bf16e99b8f395::t_27d456c5925f84 64-65
+src/agents/bot-agent.ts
+  s_5bf16e99b8f395::t_7cfcec16dfc53d 23,42-43,101,110,237-244,1045,1054-1058,1064,1068,1072-1109,1179-1201,1781-1789,1791-1802,4070-4071,4082-4100,4403-4410,4431
+src/agents/desk.ts
+  s_5bf16e99b8f395::t_ccdacc8ecc3a9b 197-219
+src/agents/prompt.test.ts
+  s_5bf16e99b8f395::t_1be0f79b730997 3-8,12-64
+src/agents/prompt.ts
+  s_5bf16e99b8f395::t_9b97b887976119 51-85,89,99-109
+src/agents/spend.test.ts
+  s_5bf16e99b8f395::t_e16eef705f73da 2-9,12-30
+src/agents/spend.ts
+  s_5bf16e99b8f395::t_1d4493edcfcb8c 116-129
+src/agents/user-hub.ts
+  s_5bf16e99b8f395::t_52a584f0d0a54c 8-13,58,66,340,345-400,1148,1816
+src/components/desk-card.tsx
+  s_5bf16e99b8f395::t_dde3fc099d40ba 72,233-235
+src/components/settings-panel.tsx
+  s_5bf16e99b8f395::t_4fcdec8c5df7b9 247
+src/components/spend-settings.tsx
+  s_5bf16e99b8f395::t_9bbd28f6fd3895 3,7,10-16,78-143,146,149-152,156-179
+src/lib/hub-context.tsx
+  s_5bf16e99b8f395::t_6b4e10531bae2b 73-74,178,268-271
+src/lib/message-parts.test.ts
+  s_5bf16e99b8f395::t_b400aab4d3ae1d 9-25
+src/lib/message-parts.ts
+  s_5bf16e99b8f395::t_ec14b6e002afb8 142-152
+src/lib/types.ts
+  s_5bf16e99b8f395::t_4a1e98ccf855cc 115-119,140,184-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "59e79ffb5e6a8104133369f7f79cab88b91e106f",
+  "prompts": {},
+  "sessions": {
+    "s_5bf16e99b8f395": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "70df46b5-279f-4824-8fe6-0c6c8cfdb17c",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
