@@ -1,0 +1,39 @@
+cloudflare.config.ts
+  s_4020a6e35a67c2::t_25a6cc74dc7af0 67-68
+installer/src/deploy/upload.test.ts
+  s_4020a6e35a67c2::t_59e73bc1df06f7 14-20,24,34-38,44
+installer/src/deploy/upload.ts
+  s_4020a6e35a67c2::t_afc7f89398df3a 91-92
+package.json
+  s_4020a6e35a67c2::t_d1734e52f66813 57
+pnpm-lock.yaml
+  s_4020a6e35a67c2::t_7a5ce1a80a8629 120-122
+src/agents/bot-agent.ts
+  s_4020a6e35a67c2::t_8e2d8745b7ab15 40,1067-1072,1074-1076,1190,5120-5159,5162
+src/agents/email-directory.ts
+  s_4020a6e35a67c2::t_631893ae8cb71c 1-72
+src/agents/user-hub.ts
+  s_4020a6e35a67c2::t_60ce93e2b03245 9,465-469
+src/components/settings-panel.tsx
+  s_4020a6e35a67c2::t_2844ccc0440a92 707,712-715,722-731
+src/lib/types.ts
+  s_4020a6e35a67c2::t_28fd4366c8de0d 559,561-564
+src/server.ts
+  s_4020a6e35a67c2::t_a741116b1a3e76 6,8,18-19,71-74,79,83-96,105-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0e1034a608c6b40e2602f7a240a382c731c2f0d1",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
