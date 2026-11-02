@@ -50,7 +50,7 @@ import {
   Tick02Icon as Tick,
   ViewIcon as View,
   WebhookIcon as Webhook,
-  WorkflowSquare03Icon as Workflow,
+  WorkflowIcon as Workflow,
   PlayIcon as Play,
 } from "@hugeicons/core-free-icons"
 import type { HugeiconsProps, IconSvgElement } from "@hugeicons/react"
