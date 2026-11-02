@@ -1,0 +1,19 @@
+src/components/call-preview.tsx
+  s_4020a6e35a67c2::t_15ded93eaeeab6 65-66,68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "40e1a9fcb923b5182248e907648383ca0273ec53",
+  "prompts": {},
+  "sessions": {
+    "s_4020a6e35a67c2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0773ddf-66ad-49ed-bc44-3fc2eca32b28",
+        "model": "unknown"
+      },
+      "human_author": "Fayaz Ahmed <fayazara@gmail.com>"
+    }
+  }
+}
