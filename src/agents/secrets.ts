@@ -39,16 +39,52 @@ export function authHeader(meta: SecretMeta, value: string): [string, string] {
   }
 }
 
+function base64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+}
+
+function base64url(b64: string): string {
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+/**
+ * The base64 text that always appears when `bytes` sit inside a longer
+ * encoded blob, for each of the three byte offsets the value can start at.
+ * The characters at either end mix in neighbouring bytes, so they are left
+ * out.
+ */
+function embeddedBase64(bytes: Uint8Array): string[] {
+  const out: string[] = []
+  for (let offset = 0; offset < 3; offset++) {
+    const padded = new Uint8Array(offset + bytes.length)
+    padded.set(bytes, offset)
+    const start = Math.ceil((offset * 8) / 6)
+    const end = Math.floor(((offset + bytes.length) * 8) / 6)
+    out.push(base64(padded).slice(start, end))
+  }
+  return out
+}
+
 /** Remove every form of the secret a response could echo back. */
 export function redact(text: string, value: string): string {
   if (value.length < 4) return text
-  const forms = new Set([value, encodeURIComponent(value)])
+  const bytes = new TextEncoder().encode(value)
+  const b64 = base64(bytes)
+  const forms = new Set([value, encodeURIComponent(value), b64])
   try {
     forms.add(btoa(value))
   } catch {
-    // Not Latin-1: it cannot appear base64-encoded by btoa either.
+    // Not Latin-1: btoa cannot encode it, so only the UTF-8 forms apply.
   }
+  for (const form of [b64.replace(/=+$/, ""), base64url(b64)]) forms.add(form)
+  for (const core of embeddedBase64(bytes)) {
+    forms.add(core)
+    forms.add(base64url(core))
+  }
+  // Longest first, so a whole encoded value goes before the shorter core
+  // inside it and no stray characters are left behind.
+  const ordered = [...forms].filter(Boolean).sort((a, b) => b.length - a.length)
   let out = text
-  for (const form of forms) out = out.split(form).join("[redacted]")
+  for (const form of ordered) out = out.split(form).join("[redacted]")
   return out
 }
