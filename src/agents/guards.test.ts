@@ -30,9 +30,9 @@ describe("LoopGuard", () => {
 
   it("resets when any argument changes", () => {
     const guard = new LoopGuard()
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
       expect(
-        guard.check("browser_markdown", { url: `https://x.test/${i % 2}` })
+        guard.check("browser_markdown", { url: `https://x.test/${i}` })
       ).toBeNull()
     }
   })
