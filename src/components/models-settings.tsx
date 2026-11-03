@@ -130,7 +130,11 @@ export function ModelsSettings() {
           />
         </Group>
         {result ? <TestResult result={result} model={chat} /> : null}
-        {provider && provider !== "workers-ai" ? (
+        {provider === "command-code" ? (
+          <p className="px-1.5 text-xs text-pretty text-kumo-subtle">
+            Requests use the Command Code key stored in AI Gateway.
+          </p>
+        ) : provider && provider !== "workers-ai" ? (
           <p className="px-1.5 text-xs text-pretty text-kumo-subtle">
             {PROVIDERS.find((p) => p.id === provider)?.name} models bill through
             AI Gateway credits or your own key.{" "}
