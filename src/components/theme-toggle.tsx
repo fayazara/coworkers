@@ -1,36 +1,60 @@
 import { useEffect, useState } from "react"
+import { DropdownMenu } from "@cloudflare/kumo/components/dropdown"
 import { Tooltip } from "@cloudflare/kumo/components/tooltip"
-import { MoonIcon, SunIcon } from "@/components/icons"
+import { LaptopIcon, MoonIcon, SunIcon } from "@/components/icons"
 import {
+  THEME_PREFERENCES,
   THEME_STORAGE_KEY,
   applyTheme,
-  nextTheme,
-  readStoredTheme,
+  isThemePreference,
+  readThemePreference,
   resolveTheme,
-  storeTheme,
+  storeThemePreference,
   systemPrefersDark,
 } from "@/lib/theme"
-import type { Theme } from "@/lib/theme"
+import type { ThemePreference } from "@/lib/theme"
 
-function preferredTheme(): Theme {
-  return resolveTheme(readStoredTheme(), systemPrefersDark())
+const LABELS: Record<ThemePreference, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
 }
 
-/** Light/dark switch. An untouched install follows the OS as it changes. */
+const ICONS = {
+  system: LaptopIcon,
+  light: SunIcon,
+  dark: MoonIcon,
+} satisfies Record<ThemePreference, unknown>
+
+/** Draws the page for a preference: System asks the OS, now. */
+function show(preference: ThemePreference) {
+  applyTheme(
+    resolveTheme(
+      preference === "system" ? null : preference,
+      systemPrefersDark()
+    )
+  )
+}
+
+/**
+ * System, Light or Dark. System (the default) follows the OS as it changes;
+ * Light and Dark are saved and win over it until System is picked again.
+ */
 export function ThemeToggle() {
-  // Match the server render; the effect below applies the saved/system mode.
-  const [theme, setTheme] = useState<Theme>("light")
+  // Match the server render; the effect below reads the saved choice.
+  const [preference, setPreference] = useState<ThemePreference>("system")
 
   useEffect(() => {
     const sync = () => {
-      const next = preferredTheme()
-      applyTheme(next)
-      setTheme(next)
+      const next = readThemePreference()
+      show(next)
+      setPreference(next)
     }
     const media = window.matchMedia("(prefers-color-scheme: dark)")
     const onSystemChange = () => {
-      if (!readStoredTheme()) sync()
+      if (readThemePreference() === "system") sync()
     }
+    // Another tab changed it.
     const onStorage = (event: StorageEvent) => {
       if (event.key === THEME_STORAGE_KEY || event.key === null) sync()
     }
@@ -44,28 +68,55 @@ export function ThemeToggle() {
     }
   }, [])
 
-  function toggle() {
-    const next = nextTheme(theme)
-    storeTheme(next)
-    applyTheme(next)
-    setTheme(next)
+  function choose(value: unknown) {
+    if (!isThemePreference(value)) return
+    storeThemePreference(value)
+    show(value)
+    setPreference(value)
   }
 
-  const label = theme === "dark" ? "Use light mode" : "Use dark mode"
+  const Icon = ICONS[preference]
+  const label = `Theme: ${LABELS[preference]}`
   return (
-    <Tooltip
-      content={label}
-      render={
-        <button
-          type="button"
-          aria-label="Dark mode"
-          aria-pressed={theme === "dark"}
-          onClick={toggle}
-          className="icon-btn"
-        >
-          {theme === "dark" ? <SunIcon size={19} /> : <MoonIcon size={19} />}
-        </button>
-      }
-    />
+    <DropdownMenu>
+      <DropdownMenu.Trigger
+        render={(props) => (
+          <Tooltip
+            content={label}
+            render={
+              <button
+                {...props}
+                type="button"
+                aria-label={label}
+                className="icon-btn"
+              >
+                <Icon size={18} />
+              </button>
+            }
+          />
+        )}
+      />
+      <DropdownMenu.Content side="top" align="end">
+        <DropdownMenu.Group>
+          <DropdownMenu.Label>Theme</DropdownMenu.Label>
+          <DropdownMenu.RadioGroup value={preference} onValueChange={choose}>
+            {THEME_PREFERENCES.map((value) => {
+              const ItemIcon = ICONS[value]
+              return (
+                <DropdownMenu.RadioItem
+                  key={value}
+                  value={value}
+                  closeOnClick
+                  icon={<ItemIcon />}
+                >
+                  {LABELS[value]}
+                  <DropdownMenu.RadioItemIndicator />
+                </DropdownMenu.RadioItem>
+              )
+            })}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Group>
+      </DropdownMenu.Content>
+    </DropdownMenu>
   )
 }

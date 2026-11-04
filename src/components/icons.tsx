@@ -21,6 +21,7 @@ import {
   Calendar03Icon as Calendar,
   FileEditIcon as FileEdit,
   Message01Icon as Message,
+  LaptopIcon as Laptop,
   MoonIcon as Moon,
   Download04Icon as Download,
   AlignBoxTopLeftIcon as File,
@@ -122,6 +123,7 @@ export const MessageIcon = icon(Message, "MessageIcon")
 export const MagnifyingGlassIcon = icon(Search, "MagnifyingGlassIcon")
 export const SearchListIcon = icon(SearchList, "SearchListIcon")
 export const MoonIcon = icon(Moon, "MoonIcon")
+export const LaptopIcon = icon(Laptop, "LaptopIcon")
 export const ComputerIcon = icon(AiBrowser, "ComputerIcon")
 export const PaperclipIcon = icon(Attachment, "PaperclipIcon")
 export const PlugsConnectedIcon = icon(Plug, "PlugsConnectedIcon")

@@ -6,6 +6,7 @@ import {
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
   applyTheme,
+  storeThemePreference,
 } from "@/lib/theme"
 
 function setSystemDark(dark: boolean) {
@@ -52,6 +53,35 @@ describe("theme document behavior", () => {
     new Function(THEME_INIT_SCRIPT)()
 
     expect(document.documentElement.dataset.mode).toBe("dark")
+  })
+
+  it("lets a saved Light win over a dark OS", () => {
+    storeThemePreference("light")
+    setSystemDark(true)
+    addThemeMeta()
+
+    new Function(THEME_INIT_SCRIPT)()
+
+    expect(document.documentElement.dataset.mode).toBe("light")
+  })
+
+  it("follows the OS again once System is picked", () => {
+    storeThemePreference("light")
+    storeThemePreference("system")
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull()
+
+    setSystemDark(true)
+    addThemeMeta()
+    new Function(THEME_INIT_SCRIPT)()
+    expect(document.documentElement.dataset.mode).toBe("dark")
+
+    setSystemDark(false)
+    new Function(THEME_INIT_SCRIPT)()
+    expect(document.documentElement.dataset.mode).toBe("light")
+    expect(
+      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+        ?.content
+    ).toBe(THEME_COLORS.light)
   })
 
   it("updates the document and browser chrome when toggled", () => {
