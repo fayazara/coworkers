@@ -56,8 +56,9 @@ export const Route = createRootRoute({
         href: "/icons/launch-robot.png",
         media: "(display-mode: standalone) and (max-width: 767.98px)",
       },
-      // One still per OS scheme. iOS shows it before any script runs, so it
-      // follows the OS, not a Light or Dark picked in the app.
+      // One still per OS scheme. iOS picks it when the app is added to the
+      // Home Screen (checked in the iOS 26 simulator), not at each launch, so
+      // it matches the scheme the phone had then.
       ...SPLASH_SCREENS.flatMap(([width, height, ratio]) =>
         (["light", "dark"] as const).map((scheme) => ({
           rel: "apple-touch-startup-image",

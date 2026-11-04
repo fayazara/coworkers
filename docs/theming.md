@@ -93,8 +93,10 @@ offline page and the installed app's launch stills match. The tests in
 `src/theme/tokens.test.ts` and `src/lib/pwa.test.ts` catch the first three.
 
 The iOS launch still (`public/icons/splash-*.png`, `-dark` for dark mode) is
-picked by the OS's scheme, before any script runs, so a phone in dark mode
-with Light picked in the app starts dark and then fades to light.
+chosen by the phone's scheme when the app is added to the Home Screen, and
+iOS keeps that choice: an app added in light mode starts on the light still
+even when the phone is later dark, then fades into the dark app. Before the
+dark stills, every install started on white.
 
 ## Light, dark and system
 
