@@ -117,7 +117,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
 const NODE = 28
 
 const BADGE =
-  "step-done absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full text-white ring-2 ring-kumo-base"
+  "step-done absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full text-on-status ring-2 ring-kumo-base"
 
 /**
  * A step's place on the rail: the bot's face, or a plain circle for
@@ -401,7 +401,7 @@ function StepRow({
               ) : null}
               {step.error && step.status === "failed" ? (
                 <div className="flex gap-2.5 rounded-xl bg-kumo-danger-tint/60 px-3.5 py-2.5">
-                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-kumo-danger text-white">
+                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-kumo-danger text-on-status">
                     <XIcon size={10} />
                   </span>
                   <div className="min-w-0 space-y-0.5">
@@ -533,7 +533,7 @@ function Headline({ run }: { run: PipelineRun }) {
     case "waiting":
       return (
         <>
-          <span className={`${glyph} bg-kumo-warning text-white`}>
+          <span className={`${glyph} bg-kumo-warning text-on-status`}>
             <WarningIcon size={14} />
           </span>
           <span className="text-[15px] font-semibold text-kumo-default">
@@ -551,7 +551,7 @@ function Headline({ run }: { run: PipelineRun }) {
         replies.every((s) => s.output && isNoop(summarize(s.output)))
       return (
         <>
-          <span className={`${glyph} bg-kumo-success text-white`}>
+          <span className={`${glyph} bg-kumo-success text-on-status`}>
             <CheckIcon size={14} />
           </span>
           <span className="text-[15px] font-semibold text-kumo-default tabular-nums">
@@ -572,7 +572,7 @@ function Headline({ run }: { run: PipelineRun }) {
     case "failed":
       return (
         <>
-          <span className={`${glyph} bg-kumo-danger text-white`}>
+          <span className={`${glyph} bg-kumo-danger text-on-status`}>
             <XIcon size={14} />
           </span>
           <span className="text-[15px] font-semibold text-kumo-default">

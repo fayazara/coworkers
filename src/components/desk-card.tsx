@@ -218,7 +218,7 @@ export function DeskCardView({
   const hasChatButton = card.actions.some((a) => a.kind === "open_chat")
 
   return (
-    <article className="rounded-[20px] border border-kumo-line bg-kumo-base p-4 sm:px-5">
+    <article className="rounded-card border border-kumo-line bg-kumo-base p-4 sm:px-5">
       <header className="flex h-8 items-center gap-2">
         <Link
           to="/bots/$botId"

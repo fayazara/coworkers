@@ -101,7 +101,7 @@ export function LiveViewFrame({
   className = "",
 }: LiveViewFrameProps) {
   return (
-    <div className={`relative overflow-hidden bg-white ${className}`}>
+    <div className={`relative overflow-hidden bg-surface-web ${className}`}>
       <iframe
         src={tab.url}
         title={tab.title || tab.pageUrl || "Bot browser"}
@@ -111,7 +111,7 @@ export function LiveViewFrame({
           top: -LIVE_VIEW_TOOLBAR_PX,
           height: `calc(100% + ${LIVE_VIEW_TOOLBAR_PX}px)`,
         }}
-        className={`absolute inset-x-0 w-full border-0 bg-white ${
+        className={`absolute inset-x-0 w-full border-0 bg-surface-web ${
           interactive ? "" : "pointer-events-none"
         }`}
       />
@@ -405,7 +405,7 @@ function FrameImage({
     <img
       src={frame.src}
       alt={`The bot's browser on ${pageLabel({ title: frame.title, pageUrl: frame.url })}`}
-      className={`block w-full bg-white object-cover object-top ${className}`}
+      className={`block w-full bg-surface-web object-cover object-top ${className}`}
     />
   )
 }
@@ -507,7 +507,7 @@ export function ComputerCard({
   const showPlaceholder = live && !preview
 
   return (
-    <div className="w-full max-w-[640px] rounded-[22px] bg-kumo-tint p-1.5">
+    <div className="w-full max-w-[640px] rounded-bubble bg-kumo-tint p-1.5">
       <div className="flex h-9 items-center gap-2 pr-1 pl-3">
         <span className="shrink-0 text-[14px] font-semibold text-kumo-default">
           Computer
@@ -527,7 +527,7 @@ export function ComputerCard({
       ) : null}
 
       {preview || showPlaceholder ? (
-        <div className="relative overflow-hidden rounded-2xl bg-kumo-base shadow-[0_1px_3px_rgba(0,0,0,0.05)] after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-2xl after:outline after:outline-1 after:-outline-offset-1 after:outline-black/[0.08]">
+        <div className="relative overflow-hidden rounded-2xl bg-kumo-base shadow-frame after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-2xl after:outline after:outline-1 after:-outline-offset-1 after:outline-kumo-line">
           {/* The edge is an overlay: the frame below is positioned and would
               paint over a plain outline, leaving it around the toolbar only. */}
           {chrome}
@@ -625,7 +625,7 @@ export function ComputerCard({
                 ? "A live view of the bot's browser. It is view only while the bot works."
                 : "The page the bot's browser was on when it finished."}
           </Dialog.Description>
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-2xl after:outline after:outline-1 after:-outline-offset-1 after:outline-black/[0.08]">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-2xl after:outline after:outline-1 after:-outline-offset-1 after:outline-kumo-line">
             {chrome}
             {tab ? (
               <LiveViewFrame

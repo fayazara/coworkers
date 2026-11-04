@@ -130,7 +130,7 @@ function BrowserPane({ agent }: { agent: BotConnection }) {
           {closing ? <Loader size="sm" /> : <PowerIcon size={16} />}
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.08]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
         <BrowserChrome pageUrl={tab.pageUrl} onNavigate={navigate} />
         <LiveViewFrame tab={tab} interactive className="min-h-0 flex-1" />
       </div>
@@ -231,7 +231,7 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
           e.preventDefault()
           void run()
         }}
-        className="flex items-center gap-2 border-t border-white/15 px-4 py-3"
+        className="flex items-center gap-2 border-t border-[color-mix(in_oklch,currentColor_15%,transparent)] px-4 py-3"
       >
         <span className="opacity-50">$</span>
         <input
@@ -254,7 +254,7 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
 // Kumo tokens use light-dark(); pin the scheme so the tree follows the app
 // rather than the OS setting.
 const TREE_STYLE = {
-  colorScheme: "light",
+  colorScheme: "var(--app-color-scheme, light)",
   "--trees-bg-override": "transparent",
   "--trees-fg-override": "var(--text-color-kumo-default)",
   "--trees-fg-muted-override": "var(--text-color-kumo-subtle)",
@@ -365,7 +365,7 @@ function FilesPane({ agent }: { agent: BotConnection }) {
   }, [refresh])
 
   return (
-    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06] max-md:flex-col">
+    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line max-md:flex-col">
       <div className="flex shrink-0 flex-col border-kumo-line max-md:h-1/2 max-md:border-b md:w-60 md:border-r">
         <div className="flex h-10 items-center justify-between pr-1 pl-4">
           <span className="text-xs font-medium text-kumo-subtle">

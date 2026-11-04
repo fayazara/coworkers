@@ -1,0 +1,255 @@
+/*
+ * The theme contract. docs/theming.md explains it.
+ *
+ * 1. Brand tokens (--brand-*): every color, radius, font and shadow the app
+ *    draws with, once for light and once for dark. A brand overrides these
+ *    and nothing else.
+ * 2. Mappings: Kumo's --color-kumo-* / --text-color-kumo-*, Tailwind's
+ *    radius and font keys, and the app's own variables, all read from the
+ *    brand tokens. Components use these names; they never hold a value.
+ *
+ * The defaults reproduce Kumo's own theme plus the app's adjustments, so the
+ * app looks the same with or without a brand on top. --brand-surface must
+ * equal THEME_COLORS in src/lib/theme.ts (the browser chrome); a test checks.
+ */
+
+/* ---------------------------------------------------------------------------
+ * 1. Brand tokens
+ * ------------------------------------------------------------------------ */
+
+/* Mode-independent: fonts, radii, shadows. */
+:root {
+  --brand-font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Berkeley Mono when it is installed (never downloaded), then the
+     platform's own mono font. */
+  --brand-font-mono:
+    "Berkeley Mono", "TX-02", ui-monospace, "SF Mono", SFMono-Regular, Menlo,
+    Monaco, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  --brand-radius-sm: 0.25rem; /* 4px: small marks */
+  --brand-radius-md: 0.375rem; /* 6px: menu items, small controls */
+  --brand-radius-lg: 0.5rem; /* 8px: controls */
+  --brand-radius-xl: 0.75rem; /* 12px: rows, previews */
+  --brand-radius-2xl: 1rem; /* 16px: cards, groups */
+  --brand-radius-card: 1.25rem; /* 20px: desk cards, sheets, notices */
+  --brand-radius-bubble: 1.375rem; /* 22px: chat bubbles */
+  --brand-radius-3xl: 1.5rem; /* 24px: composer, routine cards */
+  --brand-radius-pill: 9999px;
+
+  --brand-shadow-pill: 0 1px 2px oklch(0% 0 0 / 0.06);
+  --brand-shadow-frame: 0 1px 3px oklch(0% 0 0 / 0.05);
+  --brand-shadow-button: 0 1px 2px oklch(0% 0 0 / 0.12);
+  --brand-shadow-card:
+    0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 8px oklch(0% 0 0 / 0.04);
+  --brand-shadow-card-hover:
+    0 1px 2px oklch(0% 0 0 / 0.06), 0 6px 16px oklch(0% 0 0 / 0.08);
+  --brand-shadow-raised:
+    0 1px 2px oklch(0% 0 0 / 0.04), 0 4px 12px oklch(0% 0 0 / 0.04);
+  --brand-shadow-raised-focus:
+    0 1px 2px oklch(0% 0 0 / 0.04), 0 6px 20px oklch(0% 0 0 / 0.07);
+  --brand-shadow-popover: 0 8px 24px oklch(0% 0 0 / 0.08);
+  --brand-shadow-sheet: 0 0 32px oklch(0% 0 0 / 0.16);
+  --brand-shadow-sheet-up: 0 -8px 32px oklch(0% 0 0 / 0.12);
+  --brand-scrim: oklch(0% 0 0 / 0.32);
+}
+
+/* Light, also the default before the mode is known. */
+:root,
+[data-mode="light"] {
+  /* Accent: primary buttons, links, focus, selection. */
+  --brand-accent: oklch(57.72% 0.2324 260);
+  --brand-accent-hover: oklch(48.8% 0.243 264.376);
+  --brand-on-accent: #ffffff;
+  --brand-link: oklch(42.4% 0.199 265.638);
+  --brand-focus: oklch(15% 0 0);
+  --brand-selection: oklch(57.7% 0.232 260 / 0.2);
+
+  /* Surfaces, from the page back to the most raised. */
+  --brand-canvas: oklch(98.75% 0 0);
+  --brand-surface: #ffffff;
+  --brand-surface-raised: oklch(98% 0 0);
+  --brand-surface-sunken: oklch(96.5% 0 0);
+  --brand-surface-tint: oklch(97% 0 0);
+  --brand-surface-overlay: oklch(98.75% 0 0);
+  --brand-surface-control: #ffffff;
+  --brand-surface-contrast: oklch(12% 0 0);
+  /* What a web page draws on before it paints: previews of the bots'
+     browser and apps. White in both modes, like a browser. */
+  --brand-surface-web: #ffffff;
+
+  /* Fills: translucent, so they read the same on any surface. */
+  --brand-fill: oklch(92.2% 0 0);
+  --brand-fill-subtle: oklch(96.5% 0 0);
+  --brand-fill-hover: oklch(0% 0 0 / 0.045);
+  --brand-fill-active: oklch(0% 0 0 / 0.07);
+  --brand-fill-interact: oklch(87% 0 0);
+
+  /* Text. */
+  --brand-text: oklch(20.5% 0 0);
+  --brand-text-strong: oklch(14.5% 0 0);
+  --brand-text-subtle: oklch(55.6% 0 0);
+  --brand-text-placeholder: oklch(70.8% 0 0);
+  --brand-text-inactive: oklch(87% 0 0);
+  --brand-text-inverse: oklch(97% 0 0);
+
+  /* Lines. */
+  --brand-line: oklch(0% 0 0 / 0.06);
+  --brand-line-strong: oklch(0% 0 0 / 0.12);
+  --brand-line-emphasis: oklch(0% 0 0 / 0.22);
+  --brand-hairline: oklch(93.5% 0 0);
+  --brand-grip: oklch(0% 0 0 / 0.28);
+  --brand-grip-active: oklch(0% 0 0 / 0.5);
+
+  /* Status: a fill, a tint behind it, and text on a surface. */
+  --brand-danger: oklch(63.7% 0.237 25.331);
+  --brand-danger-tint: oklch(93.6% 0.032 17.7 / 0.42);
+  --brand-danger-text: oklch(50.5% 0.213 27.518);
+  --brand-warning: oklch(73.9% 0.177 58.2);
+  --brand-warning-tint: oklch(93.1% 0.107 94.6 / 0.2);
+  --brand-warning-text: oklch(59.7% 0.144 57.5);
+  --brand-success: oklch(59.6% 0.145 163.225);
+  --brand-success-tint: oklch(96.2% 0.043 156.7 / 0.57);
+  --brand-success-text: oklch(43.2% 0.095 166.913);
+  --brand-info: oklch(62.3% 0.214 259.815);
+  --brand-info-tint: oklch(93.2% 0.032 255.6 / 0.45);
+  /* Text and marks on a status fill (badges, step glyphs). */
+  --brand-on-status: #ffffff;
+}
+
+[data-mode="dark"] {
+  --brand-accent: color-mix(in oklch, oklch(57.72% 0.2324 260), black 10%);
+  --brand-accent-hover: oklch(48.8% 0.243 264.376);
+  --brand-on-accent: #ffffff;
+  --brand-link: oklch(70.7% 0.165 254.624);
+  --brand-focus: oklch(93.5% 0 0);
+  --brand-selection: oklch(70.7% 0.165 254.6 / 0.32);
+
+  --brand-canvas: oklch(10% 0 0);
+  --brand-surface: oklch(17% 0 0);
+  --brand-surface-raised: oklch(12% 0 0);
+  --brand-surface-sunken: oklch(15% 0 0);
+  --brand-surface-tint: oklch(26.9% 0 0);
+  --brand-surface-overlay: oklch(26.9% 0 0);
+  --brand-surface-control: oklch(20.5% 0 0);
+  --brand-surface-contrast: oklch(98.5% 0 0);
+  --brand-surface-web: #ffffff;
+
+  --brand-fill: oklch(26.9% 0 0);
+  --brand-fill-subtle: oklch(26.9% 0 0);
+  --brand-fill-hover: oklch(100% 0 0 / 0.07);
+  --brand-fill-active: oklch(100% 0 0 / 0.11);
+  --brand-fill-interact: oklch(37.1% 0 0);
+
+  --brand-text: oklch(97% 0 0);
+  --brand-text-strong: oklch(98.5% 0 0);
+  --brand-text-subtle: oklch(70.8% 0 0);
+  --brand-text-placeholder: oklch(55.6% 0 0);
+  --brand-text-inactive: oklch(43.9% 0 0);
+  --brand-text-inverse: oklch(20.5% 0 0);
+
+  --brand-line: oklch(100% 0 0 / 0.08);
+  --brand-line-strong: oklch(100% 0 0 / 0.16);
+  --brand-line-emphasis: oklch(100% 0 0 / 0.28);
+  --brand-hairline: oklch(26.9% 0 0);
+  --brand-grip: oklch(100% 0 0 / 0.32);
+  --brand-grip-active: oklch(100% 0 0 / 0.55);
+
+  --brand-danger: oklch(57.7% 0.245 27.325);
+  --brand-danger-tint: oklch(42.9% 0.176 28.7 / 0.17);
+  --brand-danger-text: oklch(70.4% 0.191 22.216);
+  --brand-warning: oklch(64.5% 0.168 50);
+  --brand-warning-tint: oklch(35.3% 0.079 65 / 0.37);
+  --brand-warning-text: oklch(75% 0.183 55.934);
+  --brand-success: oklch(76.5% 0.177 163.223);
+  --brand-success-tint: oklch(39.3% 0.096 152.3 / 0.2);
+  --brand-success-text: oklch(90.5% 0.093 164.15);
+  --brand-info: oklch(62.3% 0.214 259.815);
+  --brand-info-tint: oklch(38% 0.145 265.5 / 0.22);
+  --brand-on-status: #ffffff;
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. Mappings. Unlayered, so they win over Kumo's theme and base layers.
+ *    Declared on every [data-mode] element too, so a subtree in the other
+ *    mode reads its own brand values.
+ * ------------------------------------------------------------------------ */
+
+:root,
+[data-mode] {
+  /* Kumo surfaces and fills */
+  --color-kumo-canvas: var(--brand-canvas);
+  --color-kumo-base: var(--brand-surface);
+  --color-kumo-elevated: var(--brand-surface-raised);
+  --color-kumo-recessed: var(--brand-surface-sunken);
+  --color-kumo-tint: var(--brand-surface-tint);
+  --color-kumo-overlay: var(--brand-surface-overlay);
+  --color-kumo-control: var(--brand-surface-control);
+  --color-kumo-contrast: var(--brand-surface-contrast);
+  --color-kumo-fill: var(--brand-fill);
+  --color-kumo-fill-hover: var(--brand-fill-subtle);
+  --color-kumo-interact: var(--brand-fill-interact);
+
+  /* Kumo accent, lines, focus */
+  --color-kumo-brand: var(--brand-accent);
+  --color-kumo-brand-hover: var(--brand-accent-hover);
+  --color-kumo-line: var(--brand-line);
+  --color-kumo-hairline: var(--brand-hairline);
+  --color-kumo-focus: var(--brand-focus);
+
+  /* Kumo status */
+  --color-kumo-danger: var(--brand-danger);
+  --color-kumo-danger-tint: var(--brand-danger-tint);
+  --color-kumo-warning: var(--brand-warning);
+  --color-kumo-warning-tint: var(--brand-warning-tint);
+  --color-kumo-success: var(--brand-success);
+  --color-kumo-success-tint: var(--brand-success-tint);
+  --color-kumo-info: var(--brand-info);
+  --color-kumo-info-tint: var(--brand-info-tint);
+
+  /* Kumo text */
+  --text-color-kumo-default: var(--brand-text);
+  --text-color-kumo-strong: var(--brand-text-strong);
+  --text-color-kumo-subtle: var(--brand-text-subtle);
+  --text-color-kumo-placeholder: var(--brand-text-placeholder);
+  --text-color-kumo-inactive: var(--brand-text-inactive);
+  --text-color-kumo-inverse: var(--brand-text-inverse);
+  --text-color-kumo-link: var(--brand-link);
+  --text-color-kumo-info: var(--brand-link);
+  --text-color-kumo-danger: var(--brand-danger-text);
+  --text-color-kumo-warning: var(--brand-warning-text);
+  --text-color-kumo-success: var(--brand-success-text);
+
+  /* The app's own */
+  --fill-hover: var(--brand-fill-hover);
+  --fill-active: var(--brand-fill-active);
+}
+
+/*
+ * Tailwind keys. `inline` makes the utilities read the brand token directly,
+ * so rounded-2xl, font-mono and friends follow an override. The radius and
+ * font keys keep Tailwind's names and values; card, bubble, the shadow-*
+ * keys and the two colors are new (rounded-card, shadow-card, text-on-status).
+ */
+@theme inline {
+  --font-sans: var(--brand-font-sans);
+  --font-mono: var(--brand-font-mono);
+
+  --radius-sm: var(--brand-radius-sm);
+  --radius-md: var(--brand-radius-md);
+  --radius-lg: var(--brand-radius-lg);
+  --radius-xl: var(--brand-radius-xl);
+  --radius-2xl: var(--brand-radius-2xl);
+  --radius-card: var(--brand-radius-card);
+  --radius-bubble: var(--brand-radius-bubble);
+  --radius-3xl: var(--brand-radius-3xl);
+
+  --shadow-pill: var(--brand-shadow-pill);
+  --shadow-frame: var(--brand-shadow-frame);
+  --shadow-card: var(--brand-shadow-card);
+  --shadow-card-hover: var(--brand-shadow-card-hover);
+  --shadow-popover: var(--brand-shadow-popover);
+
+  --color-on-status: var(--brand-on-status);
+  --color-surface-web: var(--brand-surface-web);
+}

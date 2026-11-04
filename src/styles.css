@@ -1,22 +1,12 @@
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "tailwindcss";
+@import "./theme/tokens.css";
 
 /*
- * `dark:` follows the app's mode (Kumo's data-mode), not the OS. The app is
- * light, so without this a dark-mode Mac gets dark switches on a light page.
+ * `dark:` follows the app's mode (Kumo's data-mode), not the OS.
  */
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
-
-/*
- * Code uses Berkeley Mono when it is installed on the system (never
- * downloaded), then the platform's own mono font.
- */
-@theme {
-  --font-mono:
-    "Berkeley Mono", "TX-02", ui-monospace, "SF Mono", SFMono-Regular, Menlo,
-    Monaco, "Cascadia Code", Consolas, "Liberation Mono", monospace;
-}
 
 @layer base {
   * {
@@ -39,13 +29,7 @@
   }
 
   html {
-    font-family:
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      Roboto,
-      "Helvetica Neue",
-      sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -108,7 +92,9 @@
   height: var(--screen-h);
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  /* The same color as the iOS still (public/icons/splash-*.png) and the
+     main surface it fades into. */
+  background: var(--color-kumo-base);
   transition: opacity 300ms ease-out;
 }
 
@@ -166,16 +152,32 @@
   --color-kumo-brand: var(--color-kumo-contrast);
 }
 
+/* Ink is light in dark mode, and Button forces a white label (!text-white),
+   which left it unreadable. Same layer, higher specificity, so this wins. */
+@layer utilities {
+  [data-mode="dark"] .btn-ink[data-kumo-component="Button"] {
+    color: var(--text-color-kumo-inverse) !important;
+  }
+}
+
 /*
- * Softer lines than Kumo's default (10% ink), so cards, dividers and inputs
- * separate without drawing hard edges. Unlayered, so it wins over the theme.
+ * Colors, radii, fonts and shadows come from theme/tokens.css. Lines there
+ * are softer than Kumo's default (10% ink), and --fill-hover/--fill-active
+ * are translucent so they read the same on the canvas and on white.
  */
 :root {
-  --color-kumo-line: light-dark(oklch(0% 0 0 / 0.06), oklch(100% 0 0 / 0.08));
+  color-scheme: light;
+  --app-color-scheme: light;
+}
 
-  /* Translucent fills that read the same on the canvas and on white. */
-  --fill-hover: light-dark(oklch(0% 0 0 / 0.045), oklch(100% 0 0 / 0.07));
-  --fill-active: light-dark(oklch(0% 0 0 / 0.07), oklch(100% 0 0 / 0.11));
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --app-color-scheme: dark;
+}
+
+::selection {
+  background: var(--brand-selection);
+  color: var(--text-color-kumo-strong);
 }
 
 /*
@@ -248,7 +250,7 @@
     justify-content: center;
     width: var(--control-size);
     height: var(--control-size);
-    border-radius: 9999px;
+    border-radius: var(--brand-radius-pill);
     color: var(--text-color-kumo-subtle);
     outline: none;
     transition:
@@ -415,12 +417,11 @@
    with 4px padding, the rows and their highlight are 12px. */
 .run-steps {
   padding: 4px;
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
   background: var(--color-kumo-base);
   box-shadow:
     0 0 0 1px var(--color-kumo-line),
-    0 1px 2px oklch(0 0 0 / 0.04),
-    0 2px 8px oklch(0 0 0 / 0.04);
+    var(--brand-shadow-card);
 }
 
 .step-row {
@@ -464,7 +465,7 @@
   position: absolute;
   inset-inline: 4px;
   top: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   pointer-events: none;
   background: var(--fill-hover);
   opacity: 0;
@@ -546,7 +547,7 @@
 
 /* A message opened from a pipeline step glows once. */
 [data-flash] {
-  border-radius: 20px;
+  border-radius: var(--radius-card);
   animation: flash 1.6s var(--ease-smooth-out);
 }
 
@@ -647,7 +648,7 @@
   position: fixed;
   inset: 0;
   min-height: var(--screen-h);
-  background: oklch(0 0 0 / 0.32);
+  background: var(--brand-scrim);
   opacity: calc(1 - var(--drawer-swipe-progress));
   transition: opacity var(--panel-open-dur) var(--panel-ease);
 }
@@ -710,8 +711,8 @@
   width: min(84vw, 320px);
   height: 100%;
   padding: var(--top-clear) 0 var(--safe-bottom) var(--safe-left);
-  border-radius: 0 20px 20px 0;
-  box-shadow: 0 0 32px oklch(0 0 0 / 0.16);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  box-shadow: var(--brand-shadow-sheet);
   transform: translateX(var(--drawer-swipe-movement-x));
 }
 
@@ -728,8 +729,8 @@
     0px,
     calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))
   );
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -8px 32px oklch(0 0 0 / 0.12);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: var(--brand-shadow-sheet-up);
   transform: translateY(
     calc(var(--drawer-snap-point-offset) + var(--drawer-swipe-movement-y))
   );
@@ -754,7 +755,7 @@
   content: "";
   width: 36px;
   height: 4px;
-  border-radius: 9999px;
+  border-radius: var(--brand-radius-pill);
   background: var(--fill-active);
 }
 
@@ -848,8 +849,8 @@
   left: 50%;
   width: 4px;
   height: 28px;
-  border-radius: 999px;
-  background: light-dark(oklch(0% 0 0 / 0.28), oklch(100% 0 0 / 0.32));
+  border-radius: var(--brand-radius-pill);
+  background: var(--brand-grip);
   box-shadow: 0 0 0 2px var(--color-kumo-base);
   opacity: 0;
   transform: translate(-50%, -50%) scaleY(0.6);
@@ -871,7 +872,7 @@
 }
 
 .resize-handle[data-separator="active"] .resize-grip {
-  background: light-dark(oklch(0% 0 0 / 0.5), oklch(100% 0 0 / 0.55));
+  background: var(--brand-grip-active);
 }
 
 /*
@@ -885,12 +886,11 @@
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: var(--radius-3xl);
   background: var(--color-kumo-base);
   box-shadow:
     0 0 0 1px var(--color-kumo-line),
-    0 1px 2px oklch(0 0 0 / 0.04),
-    0 4px 12px oklch(0 0 0 / 0.04);
+    var(--brand-shadow-raised);
   transition:
     height var(--duration-fast) var(--ease-smooth-out),
     box-shadow var(--duration-quick) ease;
@@ -899,15 +899,14 @@
 /* Focus: a slightly firmer edge and a softer lift, not a ring. */
 .composer:focus-within {
   box-shadow:
-    0 0 0 1px light-dark(oklch(0 0 0 / 0.12), oklch(1 0 0 / 0.16)),
-    0 1px 2px oklch(0 0 0 / 0.04),
-    0 6px 20px oklch(0 0 0 / 0.07);
+    0 0 0 1px var(--brand-line-strong),
+    var(--brand-shadow-raised-focus);
 }
 
 .composer[data-dragging] {
   box-shadow:
-    0 0 0 1.5px light-dark(oklch(0 0 0 / 0.22), oklch(1 0 0 / 0.28)),
-    0 8px 24px oklch(0 0 0 / 0.08);
+    0 0 0 1.5px var(--brand-line-emphasis),
+    var(--brand-shadow-popover);
 }
 
 /* 36px buttons and a one-line field sit 6px inside a 48px pill. */
@@ -1009,7 +1008,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--radius-2xl);
   background: var(--fill-hover);
   padding: 12px;
   text-align: left;
@@ -1041,7 +1040,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.06);
+  box-shadow: inset 0 0 0 1px var(--color-kumo-line);
   pointer-events: none;
 }
 
@@ -1075,11 +1074,11 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 9999px;
+  border-radius: var(--brand-radius-pill);
   background: color-mix(in oklab, var(--color-kumo-base) 85%, transparent);
   color: var(--text-color-kumo-default);
   backdrop-filter: blur(8px);
-  box-shadow: 0 1px 2px oklch(0 0 0 / 0.12);
+  box-shadow: var(--brand-shadow-button);
   outline: none;
   transition:
     transform 160ms ease-out,
@@ -1182,7 +1181,7 @@
   align-items: center;
   gap: 3px;
   padding: 3px;
-  border-radius: 48px;
+  border-radius: var(--brand-radius-pill);
   background: var(--tabs-bar-bg);
 }
 .t-tab {
@@ -1196,7 +1195,7 @@
   font-weight: 500;
   color: var(--tabs-text-muted);
   cursor: pointer;
-  border-radius: 48px;
+  border-radius: var(--brand-radius-pill);
   outline: none;
   z-index: 1;
   transition: color var(--tabs-dur) var(--tabs-ease);
@@ -1216,8 +1215,8 @@
   height: 30px;
   width: 0;
   background: var(--tabs-pill-bg);
-  border-radius: 48px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  border-radius: var(--brand-radius-pill);
+  box-shadow: var(--brand-shadow-pill);
   transform: translateX(0);
   transition:
     transform var(--tabs-dur) var(--tabs-ease),

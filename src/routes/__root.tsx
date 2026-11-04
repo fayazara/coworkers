@@ -3,11 +3,9 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TooltipProvider } from "@cloudflare/kumo/components/tooltip"
 import { CodeProvider } from "@/components/code-block"
 import { LaunchSplash } from "@/components/launch-splash"
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "@/lib/theme"
 import { followViewport } from "@/lib/viewport"
 import appCss from "../styles.css?url"
-
-// The page background, and theme_color in public/manifest.json.
-const THEME_COLOR = "#ffffff"
 
 // What iOS shows while an installed app starts: width, height, pixel ratio.
 const SPLASH_SCREENS = [
@@ -30,7 +28,7 @@ export const Route = createRootRoute({
         content:
           "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
       },
-      { name: "theme-color", content: THEME_COLOR },
+      { name: "theme-color", content: THEME_COLORS.light },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Coworkers" },
@@ -43,10 +41,12 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      // Without credentials Access would answer with its login page.
+      // The manifest path is on the Access bypass list, but a deployment
+      // that has not re-run setup since it was renamed still guards it, and
+      // without credentials Access answers with its login page.
       {
         rel: "manifest",
-        href: "/manifest.json",
+        href: "/manifest.webmanifest",
         crossOrigin: "use-credentials",
       },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
@@ -56,11 +56,16 @@ export const Route = createRootRoute({
         href: "/icons/launch-robot.png",
         media: "(display-mode: standalone) and (max-width: 767.98px)",
       },
-      ...SPLASH_SCREENS.map(([width, height, ratio]) => ({
-        rel: "apple-touch-startup-image",
-        href: `/icons/splash-${width * ratio}x${height * ratio}.png`,
-        media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
-      })),
+      // One still per OS scheme. iOS picks it when the app is added to the
+      // Home Screen (checked in the iOS 26 simulator), not at each launch, so
+      // it matches the scheme the phone had then.
+      ...SPLASH_SCREENS.flatMap(([width, height, ratio]) =>
+        (["light", "dark"] as const).map((scheme) => ({
+          rel: "apple-touch-startup-image",
+          href: `/icons/splash-${width * ratio}x${height * ratio}${scheme === "dark" ? "-dark" : ""}.png`,
+          media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait) and (prefers-color-scheme: ${scheme})`,
+        }))
+      ),
     ],
   }),
   shellComponent: RootDocument,
@@ -77,9 +82,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     }
   }, [])
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="bg-kumo-canvas text-kumo-default antialiased">
         {/* `isolate` keeps Kumo's portalled popups above the app layout. */}

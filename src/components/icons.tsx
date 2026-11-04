@@ -21,6 +21,8 @@ import {
   Calendar03Icon as Calendar,
   FileEditIcon as FileEdit,
   Message01Icon as Message,
+  LaptopIcon as Laptop,
+  MoonIcon as Moon,
   Download04Icon as Download,
   AlignBoxTopLeftIcon as File,
   FileZipIcon as FileZip,
@@ -46,6 +48,7 @@ import {
   Settings03Icon as Settings,
   PanelLeft as SidebarLeft,
   StopIcon as Stop,
+  Sun01Icon as Sun,
   TeachingIcon as Teaching,
   Tick02Icon as Tick,
   ViewIcon as View,
@@ -119,6 +122,8 @@ export const ListBulletsIcon = icon(ListBullet, "ListBulletsIcon")
 export const MessageIcon = icon(Message, "MessageIcon")
 export const MagnifyingGlassIcon = icon(Search, "MagnifyingGlassIcon")
 export const SearchListIcon = icon(SearchList, "SearchListIcon")
+export const MoonIcon = icon(Moon, "MoonIcon")
+export const LaptopIcon = icon(Laptop, "LaptopIcon")
 export const ComputerIcon = icon(AiBrowser, "ComputerIcon")
 export const PaperclipIcon = icon(Attachment, "PaperclipIcon")
 export const PlugsConnectedIcon = icon(Plug, "PlugsConnectedIcon")
@@ -128,6 +133,7 @@ export const PlusIcon = icon(Add, "PlusIcon")
 export const PowerIcon = icon(Power, "PowerIcon")
 export const SidebarSimpleIcon = icon(SidebarLeft, "SidebarSimpleIcon")
 export const StopIcon = icon(Stop, "StopIcon")
+export const SunIcon = icon(Sun, "SunIcon")
 export const TerminalIcon = icon(Terminal, "TerminalIcon")
 export const TrashIcon = icon(Delete, "TrashIcon")
 export const WarningIcon = icon(Alert, "WarningIcon")

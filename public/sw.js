@@ -12,12 +12,24 @@ const OFFLINE_PAGE = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Coworkers</title>
+<script>
+  // The app's mode (src/lib/theme.ts): a saved Light or Dark, else the OS.
+  try {
+    var t = localStorage.getItem("coworkers-theme")
+    if (t !== "light" && t !== "dark")
+      t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    document.documentElement.dataset.mode = t
+  } catch (e) {}
+</script>
 <style>
+  /* The defaults of src/theme/tokens.css; this page loads no stylesheet. */
+  :root { color-scheme: light; --bg: #ffffff; --text: #111; --subtle: #555; }
+  :root[data-mode="dark"] { color-scheme: dark; --bg: #0f0f0f; --text: #f5f5f5; --subtle: #a3a3a3; }
   body { margin: 0; height: 100dvh; display: grid; place-content: center; gap: 12px;
-    font: 15px system-ui, sans-serif; text-align: center; color: #555; }
-  h1 { margin: 0; font-size: 18px; font-weight: 600; color: #111; }
+    font: 15px system-ui, sans-serif; text-align: center; color: var(--subtle); background: var(--bg); }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
   button { justify-self: center; height: 44px; padding: 0 20px; border: 0;
-    border-radius: 22px; background: #111; color: #fff; font: inherit; }
+    border-radius: 22px; background: var(--text); color: var(--bg); font: inherit; }
 </style>
 <h1>You're offline</h1>
 <p style="margin: 0">Coworkers needs a connection to reach your bots.</p>

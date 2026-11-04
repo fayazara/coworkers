@@ -24,6 +24,7 @@ import { ApprovalPopover } from "@/components/approval-popover"
 import { BotAvatar } from "@/components/bot-avatar"
 import { EmptyState } from "@/components/empty-state"
 import { ShimmerText } from "@/components/shimmer-text"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { plainMentions } from "@/lib/bot-links"
 import { useHub } from "@/lib/hub-context"
 import { usePushNotifications } from "@/lib/push"
@@ -216,7 +217,7 @@ function DeskRow() {
         <InboxIcon size={22} />
         {needs ? (
           <span
-            className="unread-dot absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kumo-warning px-1.5 text-[11px] font-semibold text-white tabular-nums ring-2 ring-kumo-canvas"
+            className="unread-dot absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kumo-warning px-1.5 text-[11px] font-semibold text-on-status tabular-nums ring-2 ring-kumo-canvas"
             aria-hidden="true"
           >
             {needs}
@@ -631,7 +632,7 @@ export function Sidebar({ home = false }: { home?: boolean }) {
               alt=""
               width={28}
               height={28}
-              className="size-7 rounded-full bg-kumo-fill object-cover outline outline-1 -outline-offset-1 outline-black/10"
+              className="size-7 rounded-full bg-kumo-fill object-cover outline outline-1 -outline-offset-1 outline-kumo-line"
             />
           ) : (
             <span className="flex size-7 items-center justify-center rounded-full bg-kumo-fill text-[11px] font-medium text-kumo-subtle">
@@ -643,6 +644,7 @@ export function Sidebar({ home = false }: { home?: boolean }) {
           {hub.viewer.label}
         </span>
         <div className="flex items-center gap-1">
+          <ThemeToggle />
           <NotificationsButton />
           {/* Toggles the sidebar; the icon shows where it goes next. */}
           <Tooltip

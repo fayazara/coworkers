@@ -591,7 +591,7 @@ function AssistantMessage({
             return (
               <div
                 key={block.key}
-                className="w-fit max-w-[85%] rounded-[22px] bg-kumo-tint px-[18px] py-3 text-kumo-default has-[table]:w-full has-[table]:max-w-full"
+                className="w-fit max-w-[85%] rounded-bubble bg-kumo-tint px-[18px] py-3 text-kumo-default has-[table]:w-full has-[table]:max-w-full"
               >
                 <Prose text={block.text} />
               </div>
@@ -691,7 +691,7 @@ function UserMessage({ message }: { message: UIMessage }) {
             {origin.name}
           </span>
         </SystemEvent>
-        <div className="w-fit max-w-[85%] rounded-[20px] border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
+        <div className="w-fit max-w-[85%] rounded-card border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
           <Prose text={stripOriginHeader(text)} />
         </div>
       </>
@@ -712,7 +712,7 @@ function UserMessage({ message }: { message: UIMessage }) {
             </span>
           </span>
         </SystemEvent>
-        <div className="w-fit max-w-[85%] rounded-[20px] border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
+        <div className="w-fit max-w-[85%] rounded-card border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
           <Prose text={stripOriginHeader(text)} />
         </div>
       </>
@@ -727,7 +727,7 @@ function UserMessage({ message }: { message: UIMessage }) {
             <span className="truncate">Pipeline · {origin.name}</span>
           </span>
         </SystemEvent>
-        <div className="w-fit max-w-[85%] rounded-[20px] border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
+        <div className="w-fit max-w-[85%] rounded-card border border-kumo-line px-4 py-2.5 break-words text-kumo-default">
           <Prose text={stripOriginHeader(text)} />
         </div>
       </>
@@ -768,7 +768,7 @@ function UserMessage({ message }: { message: UIMessage }) {
     return <SystemEvent>{origin.name}</SystemEvent>
   }
   return (
-    <div className="ml-auto w-fit max-w-[75%] rounded-[22px] bg-kumo-contrast px-[18px] py-3 text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap text-kumo-inverse">
+    <div className="ml-auto w-fit max-w-[75%] rounded-bubble bg-kumo-contrast px-[18px] py-3 text-[15px] leading-[1.65] text-pretty whitespace-pre-wrap text-kumo-inverse">
       {splitMentions(text).map((segment, i) =>
         segment.kind === "bot" ? (
           <BotMention key={i} botId={segment.botId} label={segment.label} />
