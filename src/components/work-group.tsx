@@ -175,7 +175,7 @@ function DetailBox({
   footer?: ReactNode
 }) {
   return (
-    <div className="mt-1.5 mb-1 rounded-2xl bg-kumo-tint px-4 py-3 outline outline-1 -outline-offset-1 outline-black/[0.06]">
+    <div className="mt-1.5 mb-1 rounded-2xl bg-kumo-tint px-4 py-3 outline outline-1 -outline-offset-1 outline-kumo-line">
       <p className="text-[13px] text-kumo-subtle">{title}</p>
       <div className="mt-2 font-mono text-[13px] leading-[1.6] break-words whitespace-pre-wrap text-kumo-default">
         {children}

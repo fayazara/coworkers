@@ -3,7 +3,7 @@ import { Tooltip } from "@cloudflare/kumo/components/tooltip"
 
 /** The rounded card of a group, for lists that have no title of their own. */
 export const GROUP_LIST =
-  "@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]"
+  "@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line"
 
 /**
  * Grouped list, the shape every settings-like surface uses: a small title, a

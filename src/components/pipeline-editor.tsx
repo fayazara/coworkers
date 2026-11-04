@@ -65,7 +65,7 @@ function StepCard({
     step.kind === "bot" ? bots.find((b) => b.id === step.botId) : undefined
 
   return (
-    <div className="rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+    <div className="rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
       <div className="flex items-center gap-1.5 py-2.5 pr-2 pl-3 md:gap-3 md:pl-4">
         <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-xs font-medium text-kumo-subtle tabular-nums">
           {index + 1}

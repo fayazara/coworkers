@@ -3,11 +3,9 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TooltipProvider } from "@cloudflare/kumo/components/tooltip"
 import { CodeProvider } from "@/components/code-block"
 import { LaunchSplash } from "@/components/launch-splash"
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "@/lib/theme"
 import { followViewport } from "@/lib/viewport"
 import appCss from "../styles.css?url"
-
-// The page background, and theme_color in public/manifest.webmanifest.
-const THEME_COLOR = "#ffffff"
 
 // What iOS shows while an installed app starts: width, height, pixel ratio.
 const SPLASH_SCREENS = [
@@ -30,7 +28,7 @@ export const Route = createRootRoute({
         content:
           "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
       },
-      { name: "theme-color", content: THEME_COLOR },
+      { name: "theme-color", content: THEME_COLORS.light },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Coworkers" },
@@ -72,9 +70,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     }
   }, [])
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="bg-kumo-canvas text-kumo-default antialiased">
         {/* `isolate` keeps Kumo's portalled popups above the app layout. */}
