@@ -41,7 +41,14 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/manifest.webmanifest" },
+      // The manifest path is on the Access bypass list, but a deployment
+      // that has not re-run setup since it was renamed still guards it, and
+      // without credentials Access answers with its login page.
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
+        crossOrigin: "use-credentials",
+      },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       {
         rel: "preload",
@@ -49,11 +56,15 @@ export const Route = createRootRoute({
         href: "/icons/launch-robot.png",
         media: "(display-mode: standalone) and (max-width: 767.98px)",
       },
-      ...SPLASH_SCREENS.map(([width, height, ratio]) => ({
-        rel: "apple-touch-startup-image",
-        href: `/icons/splash-${width * ratio}x${height * ratio}.png`,
-        media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
-      })),
+      // One still per OS scheme. iOS shows it before any script runs, so it
+      // follows the OS, not a Light or Dark picked in the app.
+      ...SPLASH_SCREENS.flatMap(([width, height, ratio]) =>
+        (["light", "dark"] as const).map((scheme) => ({
+          rel: "apple-touch-startup-image",
+          href: `/icons/splash-${width * ratio}x${height * ratio}${scheme === "dark" ? "-dark" : ""}.png`,
+          media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait) and (prefers-color-scheme: ${scheme})`,
+        }))
+      ),
     ],
   }),
   shellComponent: RootDocument,

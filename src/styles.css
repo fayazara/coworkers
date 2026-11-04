@@ -92,7 +92,9 @@
   height: var(--screen-h);
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  /* The same color as the iOS still (public/icons/splash-*.png) and the
+     main surface it fades into. */
+  background: var(--color-kumo-base);
   transition: opacity 300ms ease-out;
 }
 

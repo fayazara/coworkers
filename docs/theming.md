@@ -85,9 +85,16 @@ Load a sheet after the app's, or add the rules at the end of
 ```
 
 Overriding a color in one mode leaves the other mode as it was. If you
-change `--brand-surface`, change `THEME_COLORS` and the manifest's
-`theme_color` / `background_color` with it, so the browser chrome and the
-installed app's splash match.
+change `--brand-surface`, change with it `THEME_COLORS` in
+`src/lib/theme.ts`, the manifest's `theme_color` / `background_color` (light),
+the offline page's colors in `public/sw.js`, and the background in
+`scripts/make-dark-splashes.sh` (then run it), so the browser chrome, the
+offline page and the installed app's launch stills match. The tests in
+`src/theme/tokens.test.ts` and `src/lib/pwa.test.ts` catch the first three.
+
+The iOS launch still (`public/icons/splash-*.png`, `-dark` for dark mode) is
+picked by the OS's scheme, before any script runs, so a phone in dark mode
+with Light picked in the app starts dark and then fades to light.
 
 ## Light, dark and system
 
