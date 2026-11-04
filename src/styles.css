@@ -152,6 +152,14 @@
   --color-kumo-brand: var(--color-kumo-contrast);
 }
 
+/* Ink is light in dark mode, and Button forces a white label (!text-white),
+   which left it unreadable. Same layer, higher specificity, so this wins. */
+@layer utilities {
+  [data-mode="dark"] .btn-ink[data-kumo-component="Button"] {
+    color: var(--text-color-kumo-inverse) !important;
+  }
+}
+
 /*
  * Colors, radii, fonts and shadows come from theme/tokens.css. Lines there
  * are softer than Kumo's default (10% ink), and --fill-hover/--fill-active

@@ -108,6 +108,7 @@ export function ThemeToggle() {
                   value={value}
                   closeOnClick
                   icon={<ItemIcon />}
+                  className="gap-2"
                 >
                   {LABELS[value]}
                   <DropdownMenu.RadioItemIndicator />
