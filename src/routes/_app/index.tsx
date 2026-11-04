@@ -383,7 +383,7 @@ function Desk() {
                   dismiss(lanes.done, `Cleared ${lanes.done.length} done`)
                 }
               />
-              <ul className="overflow-hidden rounded-[20px] border border-kumo-line bg-kumo-base">
+              <ul className="overflow-hidden rounded-card border border-kumo-line bg-kumo-base">
                 {done.map(({ item, exiting }, index) => (
                   <li
                     key={item.id}
@@ -418,7 +418,7 @@ function Desk() {
           ) : null}
 
           {empty ? (
-            <div className="msg-enter flex flex-col items-center gap-3 rounded-[20px] border border-dashed border-kumo-line px-6 py-12 text-center">
+            <div className="msg-enter flex flex-col items-center gap-3 rounded-card border border-dashed border-kumo-line px-6 py-12 text-center">
               <span className="flex size-12 items-center justify-center rounded-2xl bg-(--fill-hover) text-kumo-subtle">
                 <InboxCheckIcon size={24} />
               </span>

@@ -65,8 +65,8 @@ export function ArgsView({
 // The border is an overlay on top of the content: an outline or inset shadow
 // on the frame itself is painted under a diff's own layers and disappears.
 const FRAME =
-  "relative overflow-hidden rounded-xl bg-kumo-base after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]"
-const DIVIDER = "border-t border-black/[0.06]"
+  "relative overflow-hidden rounded-xl bg-kumo-base after:pointer-events-none after:absolute after:inset-0 after:z-10 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_var(--color-kumo-line)]"
+const DIVIDER = "border-t border-kumo-line"
 
 /** The small heading every preview opens with: what kind of thing this is. */
 function Header({

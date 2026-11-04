@@ -1,12 +1,13 @@
 export const THEME_STORAGE_KEY = "coworkers-theme"
 
 /**
- * The browser chrome (theme-color) for each mode. Must equal
- * --brand-canvas in src/theme/tokens.css; a test checks it.
+ * The browser chrome (theme-color) for each mode: the main surface, so the
+ * status bar runs into the page. Must equal --brand-surface in
+ * src/theme/tokens.css (a test checks), and the manifest's colors.
  */
 export const THEME_COLORS = {
   light: "#ffffff",
-  dark: "#1a1a1a",
+  dark: "#0f0f0f",
 } as const
 
 /** The mode the page is drawn in. */

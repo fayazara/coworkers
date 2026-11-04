@@ -144,7 +144,7 @@ function BotHeader({
       {/* The bot's name floats in the middle, like a window title. On a
           phone it sits beside the back button instead. */}
       {bot ? (
-        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 md:absolute md:left-1/2 md:max-w-[50%] md:flex-none md:-translate-x-1/2 md:rounded-full md:bg-kumo-base md:pr-4 md:pl-1.5 md:shadow-[0_0_0_1px_var(--color-kumo-line),0_1px_2px_oklch(0_0_0/0.04),0_2px_8px_oklch(0_0_0/0.04)]">
+        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 md:absolute md:left-1/2 md:max-w-[50%] md:flex-none md:-translate-x-1/2 md:rounded-full md:bg-kumo-base md:pr-4 md:pl-1.5 md:shadow-[0_0_0_1px_var(--color-kumo-line),var(--brand-shadow-card)]">
           <BotAvatar avatar={bot.avatar} status={bot.status} size={30} />
           <h1 className="truncate text-[15px] font-medium text-kumo-default">
             {bot.name}

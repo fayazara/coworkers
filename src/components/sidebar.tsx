@@ -217,7 +217,7 @@ function DeskRow() {
         <InboxIcon size={22} />
         {needs ? (
           <span
-            className="unread-dot absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kumo-warning px-1.5 text-[11px] font-semibold text-white tabular-nums ring-2 ring-kumo-canvas"
+            className="unread-dot absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-kumo-warning px-1.5 text-[11px] font-semibold text-on-status tabular-nums ring-2 ring-kumo-canvas"
             aria-hidden="true"
           >
             {needs}

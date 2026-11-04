@@ -231,7 +231,7 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
           e.preventDefault()
           void run()
         }}
-        className="flex items-center gap-2 border-t border-white/15 px-4 py-3"
+        className="flex items-center gap-2 border-t border-[color-mix(in_oklch,currentColor_15%,transparent)] px-4 py-3"
       >
         <span className="opacity-50">$</span>
         <input

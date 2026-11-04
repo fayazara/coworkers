@@ -414,7 +414,7 @@ export function Composer({
           id="composer-mentions"
           role="listbox"
           aria-label="Bots"
-          className="absolute bottom-full left-4 z-10 mb-2 w-64 md:left-6 rounded-2xl bg-kumo-base p-1 shadow-[0_0_0_1px_var(--color-kumo-line),0_8px_24px_oklch(0_0_0/0.08)]"
+          className="absolute bottom-full left-4 z-10 mb-2 w-64 rounded-2xl bg-kumo-base p-1 shadow-[0_0_0_1px_var(--color-kumo-line),var(--brand-shadow-popover)] md:left-6"
         >
           {options.map((bot, i) => (
             <li
