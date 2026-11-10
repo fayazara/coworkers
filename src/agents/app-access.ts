@@ -150,6 +150,16 @@ export const SUBMIT_LIMITS: SubmitLimits = {
   perLink: { limit: 100, windowMs: 60 * 60_000 },
 }
 
+/**
+ * Writes an app's server.js makes for someone other than the user. Looser
+ * than the page's own submissions, since one request may write a few
+ * items, but a public route still cannot fill the app's data.
+ */
+export const SERVER_WRITE_LIMITS: SubmitLimits = {
+  perVisitor: { limit: 30, windowMs: 10 * 60_000 },
+  perLink: { limit: 500, windowMs: 60 * 60_000 },
+}
+
 /** Most visitors one link remembers; the oldest are forgotten first. */
 export const MAX_TRACKED_VISITORS = 500
 

@@ -16,12 +16,8 @@ import { CopyButton } from "@/components/copy-button"
 import { EmptyState } from "@/components/empty-state"
 import { useBot } from "@/lib/bot-context"
 import type { BotConnection } from "@/lib/bot-context"
+import { approvalKey } from "@/lib/types"
 import type { AppLink, AppToolGrant, BotAppDetail } from "@/lib/types"
-
-/** Same as approvalKey in src/agents/app-tools.ts (server-only module). */
-function approvalKey(grant: Pick<AppToolGrant, "name" | "readOnly">) {
-  return `${grant.name}:${grant.readOnly ? "read" : "write"}`
-}
 
 const MODE_LABELS: Record<AppLink["mode"], string> = {
   edit: "Can edit",
@@ -395,6 +391,16 @@ function AppDetail({
   )
 }
 
+/** How a second limit reads, e.g. "Only in one account". */
+function scopeNote(scope: { at: string; allow: unknown[] }) {
+  const key = scope.at.split(".").at(-1)?.replace("[]", "") ?? ""
+  const n = scope.allow.length
+  if (/account/i.test(key)) {
+    return n === 1 ? "Only in one account" : `Only in these ${n} accounts`
+  }
+  return `Only with these ${key} values`
+}
+
 /** Tools on the user's apps that the app's server code may call live. */
 function AppToolsSection({
   agent,
@@ -409,7 +415,11 @@ function AppToolsSection({
   const allowed = (g: AppToolGrant) =>
     app.approvedTools.includes(approvalKey(g))
   const pending = app.tools.filter((g) => !allowed(g))
-  const writes = app.tools.some((g) => !g.readOnly)
+  const writes = app.tools.some(
+    (g) =>
+      !g.readOnly &&
+      (!g.only || g.only.some((o) => o.allow.some((a) => !a.reads)))
+  )
 
   async function run(action: "approve" | "revoke") {
     setBusy(true)
@@ -425,7 +435,7 @@ function AppToolsSection({
   return (
     <div className="space-y-2 px-4 pt-6">
       <h4 className="px-1.5 text-sm font-medium text-kumo-default">
-        Access to your apps
+        What this app can do in your accounts
       </h4>
       <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
         {app.tools.map((g) => (
@@ -438,12 +448,53 @@ function AppToolsSection({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm text-kumo-default">
-                {g.app} · <span className="font-mono text-xs">{g.tool}</span>
+                {g.app}
+                {g.only?.length ? null : (
+                  <>
+                    {" · "}
+                    <span className="font-mono text-xs">{g.tool}</span>
+                  </>
+                )}
               </span>
-              <span className="mt-0.5 block text-xs text-pretty text-kumo-subtle">
-                {g.readOnly ? "Reads" : "Can change things"}
-                {g.description ? ` · ${g.description}` : ""}
-              </span>
+              {g.only?.length ? (
+                <span className="mt-1.5 block space-y-1.5 text-xs">
+                  {g.only[0]!.allow.map((a) => (
+                    <span key={a.value} className="block" title={a.value}>
+                      <span className="text-kumo-default">
+                        {a.label ?? a.value}
+                      </span>
+                      <span className="text-kumo-subtle">
+                        {" · "}
+                        {g.readOnly || a.reads ? "reads" : "changes things"}
+                      </span>
+                      {a.label ? (
+                        <span className="block truncate font-mono text-[11px] text-kumo-subtle">
+                          {a.value}
+                        </span>
+                      ) : null}
+                    </span>
+                  ))}
+                  {g.only.slice(1).map((scope) => (
+                    <span
+                      key={scope.at}
+                      className="block truncate text-kumo-subtle"
+                    >
+                      {scopeNote(scope)}{" "}
+                      <span className="font-mono text-[11px]">
+                        ({scope.allow.map((a) => a.label ?? a.value).join(", ")}
+                        )
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <span className="mt-0.5 block text-xs text-pretty text-kumo-subtle">
+                  {g.readOnly
+                    ? "Reads"
+                    : "Can change things, with any arguments"}
+                  {g.description ? ` · ${g.description}` : ""}
+                </span>
+              )}
             </span>
             <span
               className={`shrink-0 text-xs ${allowed(g) ? "text-kumo-default" : "text-kumo-subtle"}`}
@@ -456,7 +507,7 @@ function AppToolsSection({
       <div className="flex items-start gap-3 px-1.5">
         <p className="flex-1 text-xs text-pretty text-kumo-subtle">
           {writes
-            ? "Anyone who can open this app can make it use these, through the code the bot wrote. Allow only if you trust what it does."
+            ? "Anyone who can open this app can make it use these, through the code the bot wrote. Allow only if you trust what it does. What it did shows in Activity."
             : "Anyone who can open this app can make it read these, through the code the bot wrote. The page shows only what that code returns."}
         </p>
         {pending.length > 0 ? (
@@ -481,25 +532,6 @@ function AppToolsSection({
           </Button>
         )}
       </div>
-      {app.toolLog.length > 0 ? (
-        <div className="px-1.5 pt-2">
-          <h5 className="text-xs font-medium text-kumo-default">
-            Recent changes and failures
-          </h5>
-          <ul className="mt-1 space-y-0.5">
-            {app.toolLog.slice(0, 8).map((e) => (
-              <li
-                key={`${e.at}-${e.name}`}
-                className="truncate text-xs text-kumo-subtle tabular-nums"
-                title={e.error}
-              >
-                {formatAgo(e.at)} · {e.by} · {e.app} {e.tool}
-                {e.ok ? "" : ` · failed: ${e.error ?? "error"}`}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   )
 }

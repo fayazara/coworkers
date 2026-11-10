@@ -96,6 +96,7 @@ import {
 import type { AppItem } from "./app-store"
 import {
   EMPTY_WINDOW,
+  SERVER_WRITE_LIMITS,
   authorize,
   hideReceipts,
   isReceiptId,
@@ -109,11 +110,13 @@ import {
   approvalKey,
   approvedGrants,
   decideToolCall,
-  pushToolLog,
+  describeCall,
   resolveGrants,
   toolResultError,
 } from "./app-tools"
+import type { AppToolRequest } from "./app-tools"
 import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
+import { plainReason } from "@/lib/app-tool-log"
 import type {
   AppCaller,
   AppDataOp,
@@ -2659,12 +2662,51 @@ export class BotAgent extends Think<Env, BotState> {
               "Make this app a public form (survey, sign-up, booking page) that strangers can submit to through a link the user makes. Omit to keep what the app has; null removes it."
             ),
           appTools: z
-            .array(z.string())
+            .array(
+              z.union([
+                z.string(),
+                z.object({
+                  name: z.string(),
+                  only: z
+                    .array(
+                      z.object({
+                        at: z
+                          .string()
+                          .describe(
+                            "Argument path: dots for keys, [] for each item of a list, e.g. 'calls[].path'"
+                          ),
+                        allow: z
+                          .array(
+                            z.object({
+                              value: z.string(),
+                              label: z
+                                .string()
+                                .max(40)
+                                .optional()
+                                .describe(
+                                  "What it does in the user's words, e.g. 'Check free/busy', 'Create event'"
+                                ),
+                              reads: z
+                                .boolean()
+                                .describe(
+                                  "true if calling with this value only reads"
+                                ),
+                            })
+                          )
+                          .min(1)
+                          .max(20),
+                      })
+                    )
+                    .max(4)
+                    .optional(),
+                }),
+              ])
+            )
             .max(10)
             .nullable()
             .optional()
             .describe(
-              "Tools from the user's connected apps that server.js may call live with env.BOT.tool(name, args), e.g. a calendar's free/busy and create-event tools. Exact tool names as you see them. Ask only for what the app needs. They run once the user allows them in the Apps tab. Omit to keep what the app has; null or [] removes them."
+              "Tools from the user's connected apps that server.js may call live with env.BOT.tool(name, args), e.g. a calendar's free/busy and create-event tools. Exact tool names as you see them. Ask only for what the app needs. Limit a general tool with only: Executor's call as { name, only: [{ at: 'calls[].path', allow: [{ value: <exact path>, label: 'Create event', reads: true|false }] }, { at: 'calls[].input.accountId', allow: [{ value: <account id>, reads: true }] }] }. They run once the user allows them in the Apps tab. Omit to keep what the app has; null or [] removes them."
             ),
         }),
         execute: async ({
@@ -2767,9 +2809,6 @@ export class BotAgent extends Think<Env, BotState> {
       access: this.apps.get(app.slug)?.access ?? NO_ACCESS,
       tools: this.apps.get(app.slug)?.tools ?? [],
       approvedTools: this.apps.get(app.slug)?.approvedTools ?? [],
-      toolLog:
-        this.ctx.storage.kv.get<AppToolCallLog[]>(`app_tool_log:${app.slug}`) ??
-        [],
       links: this.apps.links(app.slug),
       collections: this.apps.collections(app.slug),
     }))
@@ -2800,7 +2839,7 @@ export class BotAgent extends Think<Env, BotState> {
     description: string
     files?: Record<string, string>
     publicForm?: { submit: string[]; read?: string[]; wake?: boolean } | null
-    appTools?: string[] | null
+    appTools?: AppToolRequest[] | null
   }) {
     const slug = input.slug.trim().toLowerCase()
     if (!isAppSlug(slug)) {
@@ -3026,7 +3065,11 @@ export class BotAgent extends Think<Env, BotState> {
     value: T
   ): T {
     const access = this.apps.get(slug)?.access
-    if (caller.mode !== "submit" || !access?.read.includes(collection)) {
+    if (
+      caller.server ||
+      caller.mode !== "submit" ||
+      !access?.read.includes(collection)
+    ) {
       return value
     }
     const receipts = new Set<string>()
@@ -3094,11 +3137,38 @@ export class BotAgent extends Think<Env, BotState> {
       catalog: catalog.tools,
       nameOf: (t) => appToolName(t.connectionId, t.name),
     })
-    if (!decision.ok) return { error: decision.error, status: decision.status }
-    const { grant, tool } = decision
+    if (!decision.ok) {
+      const grant = app.tools.find((g) => g.name === name)
+      // An approved tool used outside its limits: worth the user seeing.
+      if (grant && decision.status === 403 && grant.only?.length) {
+        this.logToolCall(slug, {
+          at: Date.now(),
+          name,
+          app: grant.app,
+          tool: grant.tool,
+          readOnly: false,
+          by: caller.label,
+          ok: false,
+          error: clip(decision.error, 200),
+          action: describeCall(grant, args),
+        })
+      }
+      return { error: decision.error, status: decision.status }
+    }
+    const { grant, tool, reads } = decision
+    const entry: AppToolCallLog = {
+      at: Date.now(),
+      name: grant.name,
+      app: grant.app,
+      tool: tool.name,
+      readOnly: reads,
+      by: caller.label,
+      ok: true,
+      action: describeCall(grant, args),
+    }
     // The user's own link is not limited; everyone else is, edit links too.
     if (!caller.owner) {
-      const limited = tool.readOnly
+      const limited = reads
         ? this.takeSubmitSlot(
             slug,
             caller,
@@ -3113,16 +3183,10 @@ export class BotAgent extends Think<Env, BotState> {
             TOOL_LIMITS.write,
             "requests"
           )
-      if (limited) return limited
-    }
-    const entry: AppToolCallLog = {
-      at: Date.now(),
-      name: grant.name,
-      app: grant.app,
-      tool: tool.name,
-      readOnly: tool.readOnly,
-      by: caller.label,
-      ok: true,
+      if (limited) {
+        this.logToolCall(slug, { ...entry, ok: false, error: limited.error })
+        return limited
+      }
     }
     try {
       const value = await hub.callAppTool(
@@ -3132,7 +3196,7 @@ export class BotAgent extends Think<Env, BotState> {
       )
       const failed = toolResultError(value)
       if (failed) throw new Error(failed)
-      if (!tool.readOnly) this.logToolCall(slug, entry)
+      if (!reads) this.logToolCall(slug, entry)
       return { value }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -3142,10 +3206,61 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   /** Writes and failures, so the user can see what a form did. */
+  /**
+   * An app's call into the user's accounts, as a row in Activity. The same
+   * thing again within 10 minutes bumps that row's count instead of adding
+   * one, so a busy public page cannot flood the log.
+   */
   private logToolCall(slug: string, entry: AppToolCallLog) {
-    const key = `app_tool_log:${slug}`
-    const log = this.ctx.storage.kv.get<AppToolCallLog[]>(key) ?? []
-    this.ctx.storage.kv.put(key, pushToolLog(log, entry))
+    const name = this.apps.get(slug)?.name ?? slug
+    const tool = `${clip(name, 60)} (app)`
+    const what = entry.action ?? `${entry.app} ${entry.tool}`
+    const who = entry.by === "You" ? "your link" : `${entry.by} link`
+    const summary = clip(
+      `${what} · ${who}${entry.ok ? "" : ` · ${plainReason(entry.error)}`}`,
+      200
+    )
+    const detail = JSON.stringify(
+      {
+        app: entry.app,
+        tool: entry.tool,
+        ...(entry.action ? { action: entry.action } : {}),
+        link: entry.by,
+        ...(entry.error ? { error: entry.error } : {}),
+      },
+      null,
+      2
+    )
+    const key = `app_tool_last:${slug}`
+    const last = this.ctx.storage.kv.get<{
+      id: number
+      summary: string
+      at: number
+      count: number
+    }>(key)
+    if (last && last.summary === summary && entry.at - last.at < 10 * 60_000) {
+      const count = last.count + 1
+      const updated = this.sql`UPDATE activity
+        SET at = ${entry.at}, summary = ${`${summary} ×${count}`}
+        WHERE id = ${last.id} RETURNING id`
+      if (updated.length > 0) {
+        this.ctx.storage.kv.put(key, { ...last, at: entry.at, count })
+        return
+      }
+    }
+    const [row] = this.sql<{ id: number }>`INSERT INTO activity
+        (at, tool, summary, detail, ok, duration_ms)
+      VALUES (${entry.at}, ${tool}, ${summary}, ${detail},
+              ${entry.ok ? 1 : 0}, ${0})
+      RETURNING id`
+    if (row) {
+      this.ctx.storage.kv.put(key, {
+        id: row.id,
+        summary,
+        at: entry.at,
+        count: 1,
+      })
+    }
   }
 
   /** Durable Object RPC from `env.BOT.tools()`: what server.js may call. */
@@ -3160,6 +3275,7 @@ export class BotAgent extends Think<Env, BotState> {
       app: g.app,
       tool: g.tool,
       readOnly: g.readOnly,
+      ...(g.only ? { only: g.only } : {}),
       allowed: allowed.has(g.name),
     }))
   }
@@ -3378,14 +3494,32 @@ export class BotAgent extends Think<Env, BotState> {
   ): Promise<{ value: unknown } | { error: string; status: number }> {
     const app = this.apps.get(slug)
     if (!app) return { error: "Not found", status: 404 }
-    const decision = authorize(caller.mode, app.access, op)
+    // server.js is the app's backend: it gets the app's data in full.
+    const decision = authorize(
+      caller.server ? "edit" : caller.mode,
+      app.access,
+      op
+    )
     if (!decision.ok) {
       return { error: decision.error, status: decision.status }
     }
     op = decision.op
-    const submitting = caller.mode === "submit" && op.op === "put"
+    const submitting =
+      caller.mode === "submit" && op.op === "put" && !caller.server
     if (submitting) {
       const limited = this.takeSubmitSlot(slug, caller)
+      if (limited) return limited
+    }
+    const serverWrite =
+      caller.server && !caller.owner && (op.op === "put" || op.op === "remove")
+    if (serverWrite) {
+      const limited = this.takeSubmitSlot(
+        slug,
+        caller,
+        "server_writes",
+        SERVER_WRITE_LIMITS,
+        "changes"
+      )
       if (limited) return limited
     }
     // Ids in submit collections are receipts: never send them to viewers.
@@ -3398,7 +3532,7 @@ export class BotAgent extends Think<Env, BotState> {
             value: {
               app: { name: app.name, description: app.description },
               collections: visibleCollections(
-                caller.mode,
+                caller.server ? "edit" : caller.mode,
                 app.access,
                 this.apps.collections(slug)
               ),
@@ -3438,8 +3572,10 @@ export class BotAgent extends Think<Env, BotState> {
             ...(privateIds.includes(op.collection) ? {} : { id: item.id }),
           })
           // A survey with 500 answers should not mean 500 bot turns.
-          if (!submitting || app.access.wake) {
-            const who = submitting
+          // From a public link, directly or through server.js.
+          const fromPublic = caller.mode === "submit"
+          if (!fromPublic || app.access.wake) {
+            const who = fromPublic
               ? `A stranger on the public link "${caller.label}"`
               : caller.label
             await this.queueAppEvent(

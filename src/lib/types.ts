@@ -434,6 +434,17 @@ export interface AppAccess {
 }
 
 /**
+ * A limit on a granted tool: the value at `at` in its arguments (dots for
+ * keys, [] for each item of a list) must be one of `allow`. Each allowed
+ * value says whether calling with it only reads.
+ */
+export interface AppToolScope {
+  at: string
+  /** `label` is what the user reads, e.g. "Create event". */
+  allow: { value: string; reads: boolean; label?: string }[]
+}
+
+/**
  * A tool on one of the user's connections that an app's server.js may
  * call live. The bot asks for it; it runs only once the user approves.
  */
@@ -447,6 +458,19 @@ export interface AppToolGrant {
   app: string
   readOnly: boolean
   description: string
+  /** Limits on its arguments, e.g. which Executor paths it may run. */
+  only?: AppToolScope[]
+}
+
+/**
+ * What the user approves: one tool, as reading or writing, with its limits.
+ * Shared by the bot (to check) and the Apps tab (to show what is allowed).
+ */
+export function approvalKey(
+  grant: Pick<AppToolGrant, "name" | "readOnly" | "only">
+) {
+  const base = `${grant.name}:${grant.readOnly ? "read" : "write"}`
+  return grant.only?.length ? `${base}:${JSON.stringify(grant.only)}` : base
 }
 
 /** One call in an app's recent tool log, shown to the user. */
@@ -460,6 +484,8 @@ export interface AppToolCallLog {
   by: string
   ok: boolean
   error?: string
+  /** What the call did, in the user's words, e.g. "Create event". */
+  action?: string
 }
 
 export interface BotAppDetail extends BotAppSummary {
@@ -469,8 +495,7 @@ export interface BotAppDetail extends BotAppSummary {
   tools: AppToolGrant[]
   /** Approval keys the user gave (see approvalKey in app-tools.ts). */
   approvedTools: string[]
-  /** Latest tool calls, newest first. */
-  toolLog: AppToolCallLog[]
+
   links: AppLink[]
   collections: { name: string; count: number }[]
 }

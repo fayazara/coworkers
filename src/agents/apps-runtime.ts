@@ -58,6 +58,13 @@ export interface AppCaller {
   ip?: string
   /** The user's own link: not rate limited. Never shown to the app. */
   owner?: boolean
+  /**
+   * Set when the call comes from the app's own server.js, not the page.
+   * That code is the app's backend: it reads and writes the app's data in
+   * full and decides itself what the visitor may see, like it does for
+   * app tools. The visitor's link still limits what the page can do.
+   */
+  server?: boolean
 }
 
 /** The part of a caller an app may see. */
@@ -250,8 +257,11 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
     const { userId, botId, slug, caller } = this.ctx.props
     const bot = await botStub(this.env, userId, botId)
     // RPC typing turns `unknown` into `never`; this is the method's real shape.
-    const result = (await bot.appData(slug, caller, op)) as
-      { value: unknown } | { error: string }
+    const result = (await bot.appData(
+      slug,
+      { ...caller, server: true },
+      op
+    )) as { value: unknown } | { error: string }
     if ("error" in result) throw new Error(result.error)
     return result.value
   }
