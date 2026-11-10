@@ -14,6 +14,7 @@ import {
 } from "@/components/icons"
 import { CopyButton } from "@/components/copy-button"
 import { EmptyState } from "@/components/empty-state"
+import { Group, Row } from "@/components/group"
 import { useBot } from "@/lib/bot-context"
 import type { BotConnection } from "@/lib/bot-context"
 import { approvalKey } from "@/lib/types"
@@ -391,14 +392,41 @@ function AppDetail({
   )
 }
 
-/** How a second limit reads, e.g. "Only in one account". */
-function scopeNote(scope: { at: string; allow: unknown[] }) {
-  const key = scope.at.split(".").at(-1)?.replace("[]", "") ?? ""
-  const n = scope.allow.length
-  if (/account/i.test(key)) {
-    return n === 1 ? "Only in one account" : `Only in these ${n} accounts`
-  }
-  return `Only with these ${key} values`
+/** Where a limited tool may act, from its other limits, e.g. "Primary calendar account only". */
+function whereNote(g: AppToolGrant) {
+  const names = (g.only ?? [])
+    .slice(1)
+    .map((scope) => scope.allow.map((a) => a.label ?? a.value).join(", "))
+  return names.length ? `${names.join(" · ")} only` : ""
+}
+
+/** One action an app may take, as a row: what it does, whether it changes things. */
+function ToolActionRow({
+  label,
+  title,
+  reads,
+  where,
+  allowed,
+}: {
+  label: string
+  title?: string
+  reads: boolean
+  where: string
+  allowed: boolean
+}) {
+  return (
+    <Row
+      icon={<PlugsConnectedIcon size={14} />}
+      label={<span title={title}>{label}</span>}
+      detail={[reads ? "Reads" : "Changes things", where]
+        .filter(Boolean)
+        .join(" · ")}
+    >
+      {allowed ? null : (
+        <span className="shrink-0 text-xs text-kumo-subtle">Not allowed</span>
+      )}
+    </Row>
+  )
 }
 
 /** Tools on the user's apps that the app's server code may call live. */
@@ -432,106 +460,65 @@ function AppToolsSection({
     }
   }
 
+  const apps = [...new Set(app.tools.map((g) => g.app))].join(" and ")
+
   return (
-    <div className="space-y-2 px-4 pt-6">
-      <h4 className="px-1.5 text-sm font-medium text-kumo-default">
-        What this app can do in your accounts
-      </h4>
-      <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
-        {app.tools.map((g) => (
-          <li
-            key={g.name}
-            className="flex min-h-14 items-center gap-3 border-t border-kumo-line py-3 pr-4 pl-4 first:border-t-0"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle">
-              <PlugsConnectedIcon size={14} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm text-kumo-default">
-                {g.app}
-                {g.only?.length ? null : (
-                  <>
-                    {" · "}
-                    <span className="font-mono text-xs">{g.tool}</span>
-                  </>
-                )}
-              </span>
-              {g.only?.length ? (
-                <span className="mt-1.5 block space-y-1.5 text-xs">
-                  {g.only[0]!.allow.map((a) => (
-                    <span key={a.value} className="block" title={a.value}>
-                      <span className="text-kumo-default">
-                        {a.label ?? a.value}
-                      </span>
-                      <span className="text-kumo-subtle">
-                        {" · "}
-                        {g.readOnly || a.reads ? "reads" : "changes things"}
-                      </span>
-                      {a.label ? (
-                        <span className="block truncate font-mono text-[11px] text-kumo-subtle">
-                          {a.value}
-                        </span>
-                      ) : null}
-                    </span>
-                  ))}
-                  {g.only.slice(1).map((scope) => (
-                    <span
-                      key={scope.at}
-                      className="block truncate text-kumo-subtle"
-                    >
-                      {scopeNote(scope)}{" "}
-                      <span className="font-mono text-[11px]">
-                        ({scope.allow.map((a) => a.label ?? a.value).join(", ")}
-                        )
-                      </span>
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                <span className="mt-0.5 block text-xs text-pretty text-kumo-subtle">
-                  {g.readOnly
-                    ? "Reads"
-                    : "Can change things, with any arguments"}
-                  {g.description ? ` · ${g.description}` : ""}
-                </span>
-              )}
-            </span>
-            <span
-              className={`shrink-0 text-xs ${allowed(g) ? "text-kumo-default" : "text-kumo-subtle"}`}
+    <div className="px-4 pt-6">
+      <Group
+        title={`Uses your ${apps}`}
+        action={
+          pending.length > 0 ? (
+            <Button
+              size="sm"
+              variant="primary"
+              className="btn-ink rounded-full"
+              loading={busy}
+              onClick={() => void run("approve")}
             >
-              {allowed(g) ? "Allowed" : "Not allowed"}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-start gap-3 px-1.5">
-        <p className="flex-1 text-xs text-pretty text-kumo-subtle">
-          {writes
-            ? "Anyone who can open this app can make it use these, through the code the bot wrote. Allow only if you trust what it does. What it did shows in Activity."
-            : "Anyone who can open this app can make it read these, through the code the bot wrote. The page shows only what that code returns."}
-        </p>
-        {pending.length > 0 ? (
-          <Button
-            size="sm"
-            variant="primary"
-            className="btn-ink shrink-0 rounded-full"
-            loading={busy}
-            onClick={() => void run("approve")}
-          >
-            Allow
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="shrink-0 rounded-full"
-            loading={busy}
-            onClick={() => void run("revoke")}
-          >
-            Turn off
-          </Button>
+              Allow
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full"
+              loading={busy}
+              onClick={() => void run("revoke")}
+            >
+              Turn off
+            </Button>
+          )
+        }
+        hint={
+          writes
+            ? "Anyone who opens this app can trigger these. Each change shows in Activity."
+            : "Anyone who opens this app can trigger these. The page shows only what the bot's code returns."
+        }
+      >
+        {app.tools.flatMap((g) =>
+          g.only?.length
+            ? g.only[0]!.allow.map((a) => (
+                <ToolActionRow
+                  key={`${g.name}:${a.value}`}
+                  label={a.label ?? a.value}
+                  title={a.value}
+                  reads={g.readOnly || a.reads}
+                  where={whereNote(g)}
+                  allowed={allowed(g)}
+                />
+              ))
+            : [
+                <ToolActionRow
+                  key={g.name}
+                  label={g.description || g.tool}
+                  title={g.tool}
+                  reads={g.readOnly}
+                  where={g.readOnly ? "" : "with anything it asks"}
+                  allowed={allowed(g)}
+                />,
+              ]
         )}
-      </div>
+      </Group>
     </div>
   )
 }

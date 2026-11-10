@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { PlugsConnectedIcon } from "@/components/icons"
+import { integrationFor } from "@/lib/integrations"
 
 /** An app's own icon, from its site (mcp.linear.app is Linear's). */
 export function AppIcon({
@@ -51,5 +52,21 @@ export function AppIcon({
         <PlugsConnectedIcon size={size === "lg" ? 24 : 18} />
       )}
     </span>
+  )
+}
+
+/** A connection's logo for a group row: its known integration's, else its site's favicon. */
+export function ConnectionIcon({ url }: { url: string }) {
+  const integration = integrationFor(url)
+  let host: string | null = null
+  try {
+    host = new URL(url).host
+  } catch {}
+  return (
+    <AppIcon
+      size="sm"
+      host={integration?.site ?? host}
+      src={integration?.icon}
+    />
   )
 }

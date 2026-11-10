@@ -6,6 +6,7 @@ import { LayerDialog } from "@cloudflare/kumo/components/layer-dialog"
 import { Loader } from "@cloudflare/kumo/components/loader"
 import { Select } from "@cloudflare/kumo/components/select"
 import { Switch } from "@cloudflare/kumo/components/switch"
+import { ConnectionIcon } from "@/components/app-icon"
 import { CopyButton } from "@/components/copy-button"
 import { ModelPicker } from "@/components/model-picker"
 import { RoutineCard } from "@/components/routine-card"
@@ -27,7 +28,6 @@ import {
   CheckIcon,
   EnvelopeSimpleIcon,
   EyeIcon,
-  PlugsConnectedIcon,
   PlusIcon,
   TrashIcon,
   WebhooksLogoIcon,
@@ -480,7 +480,7 @@ function Toolkit() {
       {hub.state.connections.map((connection) => (
         <Row
           key={connection.id}
-          icon={<PlugsConnectedIcon size={14} />}
+          icon={<ConnectionIcon url={connection.url} />}
           label={connection.name}
         >
           <span
