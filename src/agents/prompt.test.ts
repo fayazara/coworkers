@@ -30,6 +30,15 @@ describe("withSentTimes", () => {
     )
   })
 
+  it("adds a message's note before its time", () => {
+    const messages: ModelMessage[] = [{ role: "user", content: "buy this" }]
+    expect(
+      withSentTimes(messages, [AT], "UTC", ["[Picked: variant 1]"])[0].content
+    ).toBe(
+      "buy this\n\n[Picked: variant 1]\n[Sent Monday, 26 October 2026 at 05:41]"
+    )
+  })
+
   it("leaves a message without a timestamp alone", () => {
     const messages: ModelMessage[] = [{ role: "user", content: "hi" }]
     expect(withSentTimes(messages, [undefined], "UTC")[0].content).toBe("hi")

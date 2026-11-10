@@ -1,0 +1,185 @@
+{
+  "ucp": {
+    "version": "2026-08-25",
+    "payment_handlers": {
+      "dev.shopify.card": [
+        {
+          "id": "shopify.card",
+          "version": "2026-01-15",
+          "spec": "https://shopify.dev/ucp/card-payment-handler/2026-01-15/spec.md",
+          "schema": "https://shopify.dev/ucp/card-payment-handler/2026-01-15/schema.json",
+          "config": {
+            "payment_methods": [
+              {
+                "type": "card",
+                "enabled_card_brands": [
+                  "visa",
+                  "master",
+                  "american_express",
+                  "jcb",
+                  "diners_club",
+                  "discover"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "dev.shopify.shop_pay": [
+        {
+          "id": "shop_pay",
+          "version": "2026-01-23",
+          "spec": "https://shopify.dev/ucp/shop-pay-handler/2026-04-08/spec.md",
+          "schema": "https://shopify.dev/ucp/shop-pay-handler/2026-04-08/schema.json",
+          "config": {
+            "shop_id": "22040084552"
+          }
+        }
+      ]
+    }
+  },
+  "id": "gid://shopify/Checkout/hWNIlZ855SjOjujc1Mn8n0k5?key=2e86e07fdfc1bce8aa2cc04df72347e0",
+  "currency": "INR",
+  "buyer": {
+    "consent": {
+      "dev.ucp.consent.analytics": {
+        "granted": true,
+        "source": "business",
+        "description": "Analytics and performance measurement"
+      },
+      "dev.ucp.consent.preferences": {
+        "granted": true,
+        "source": "business",
+        "description": "Remember preferences and personalize your shopping experience"
+      },
+      "dev.ucp.consent.sale_or_sharing": {
+        "granted": true,
+        "source": "business",
+        "description": "Sale or sharing of personal data with third parties"
+      },
+      "dev.ucp.consent.marketing": {
+        "granted": false,
+        "source": "business",
+        "description": "Marketing communications",
+        "segments": {
+          "dev.ucp.consent.marketing.email": {
+            "granted": true,
+            "source": "business",
+            "description": "Promotional emails"
+          },
+          "dev.ucp.consent.marketing.sms": {
+            "granted": false,
+            "source": "business",
+            "description": "Marketing text messages"
+          }
+        }
+      }
+    }
+  },
+  "line_items": [
+    {
+      "id": "gid://shopify/CartLine/8adf8462-e457-4961-9e8c-82442c0a2913?cart=hWNIlZ855SjOjujc1Mn8n0k5",
+      "item": {
+        "id": "gid://shopify/ProductVariant/29275989082184",
+        "title": "Black Classic Crew Neck - M",
+        "price": 365000,
+        "image_url": "https://cdn.shopify.com/s/files/1/0220/4008/4552/files/TCT_4000_Short-Sleeve-Classic-Crew_BLACK_Large_Ecomm_2025_JUN_2.jpg?v=1762269520"
+      },
+      "quantity": 1,
+      "totals": [
+        {
+          "type": "subtotal",
+          "amount": 365000,
+          "display_text": "Subtotal"
+        },
+        {
+          "type": "total",
+          "amount": 365000,
+          "display_text": "Total"
+        }
+      ]
+    }
+  ],
+  "discounts": {
+    "codes": [],
+    "applied": []
+  },
+  "totals": [
+    {
+      "type": "subtotal",
+      "amount": 365000,
+      "display_text": "Subtotal"
+    },
+    {
+      "type": "total",
+      "amount": 365000,
+      "display_text": "Total"
+    }
+  ],
+  "fulfillment": {
+    "methods": []
+  },
+  "expires_at": "2026-12-04T17:46:19Z",
+  "links": [
+    {
+      "type": "refund_policy",
+      "title": "Refund Policy",
+      "url": "https://checkout.shopify.com/22040084552/policies/11702992968.html?locale=en"
+    },
+    {
+      "type": "privacy_policy",
+      "title": "Privacy Policy",
+      "url": "https://checkout.shopify.com/22040084552/policies/11703025736.html?locale=en"
+    },
+    {
+      "type": "terms_of_service",
+      "title": "Terms of Service",
+      "url": "https://checkout.shopify.com/22040084552/policies/11703058504.html?locale=en"
+    },
+    {
+      "type": "shipping_policy",
+      "title": "Shipping Policy",
+      "url": "https://checkout.shopify.com/22040084552/policies/11703091272.html?locale=en"
+    }
+  ],
+  "payment": {
+    "instruments": []
+  },
+  "messages": [
+    {
+      "type": "error",
+      "content_type": "plain",
+      "code": "buyer_identity_contact_method_required",
+      "content": "Missing a valid contact method.",
+      "severity": "recoverable"
+    },
+    {
+      "type": "error",
+      "content_type": "plain",
+      "code": "extension_interaction_required",
+      "content": "An extension interaction is required to complete the checkout.",
+      "severity": "requires_buyer_input"
+    },
+    {
+      "type": "error",
+      "content_type": "plain",
+      "code": "delivery_address_required",
+      "content": "A destination address is required in order to continue.",
+      "severity": "recoverable"
+    },
+    {
+      "type": "error",
+      "content_type": "plain",
+      "code": "delivery_no_delivery_available",
+      "content": "Your cart has been updated and the items you added can’t be shipped to your address. Remove the items to complete your order.",
+      "severity": "recoverable"
+    }
+  ],
+  "status": "requires_escalation",
+  "continue_url": "https://shop.app/checkouts/r/bhGn97RQ2gzn8mysjl7BVmJ2pCC6xZICvsDE2swuTcGvm39SiaJ9StKaxOXFnAdAVP1W4FD0MSuWjiQjuqv4sr0u8icZiDL126gCiXcvWYTueEJVii6D3fV3jlLg217lixFNCgcFu4Y2353cu5pvYDOztmElrxvKSmj2PvUrEPV?experience=finalizer",
+  "next": [
+    "Show every warning; it may change price, availability, terms or required disclosures. Keep disclosures with their target, image and link; never hide or auto-dismiss them. Show info when useful. If unable, explain the limitation.",
+    "Hand off first: give the user continue_url to finish the merchant's required step; nothing is purchased yet. Update only for a recoverable error the user wants fixed. If continue_url is absent or unusable, explain; never retry blindly or claim purchase.",
+    "Present totals in merchant order with labels, nested lines and signed response-currency minor units. Do not recompute or double-count; absent shipping/tax is unknown. Codes don't prove savings; show only returned applied/provisional discounts."
+  ]
+}

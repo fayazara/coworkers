@@ -1,3 +1,4 @@
+import { choiceOptions } from "@/lib/choices"
 import { approvalLabels } from "@/lib/call-preview"
 import type {
   DeskCard,
@@ -266,9 +267,9 @@ export function waitingCard(call: WaitingCall): DeskCardInput {
   const str = (key: string) =>
     typeof call.input[key] === "string" ? (call.input[key] as string) : ""
   if (call.name === "ask_user") {
-    const options = Array.isArray(call.input.options)
-      ? (call.input.options as unknown[]).map(String)
-      : []
+    const options = choiceOptions(call.input.options).map((o) =>
+      o.detail ? `${o.label}: ${o.detail}` : o.label
+    )
     return {
       ...base,
       title: clip(str("question") || "A question for you", MAX_TITLE_CHARS),
@@ -282,6 +283,14 @@ export function waitingCard(call: WaitingCall): DeskCardInput {
       title: `Needs ${str("name") || "a credential"}`,
       found: str("origin") ? `Only ever sent to ${str("origin")}.` : "",
       actions: [{ id: "open", label: "Add it", kind: "open_chat" }],
+    }
+  }
+  if (call.name === "connect_app") {
+    return {
+      ...base,
+      title: `Connect ${str("name") || "an app"}`,
+      found: str("why"),
+      actions: [{ id: "open", label: "Connect", kind: "open_chat" }],
     }
   }
   if (call.name === "install_skill") {

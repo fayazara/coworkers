@@ -183,10 +183,13 @@ describe("waitingCard", () => {
     const card = waitingCard({
       ...call,
       name: "ask_user",
-      input: { question: "Which week?", options: ["This", "Next"] },
+      input: {
+        question: "Which week?",
+        options: ["This", { label: "Next", detail: "Zeke is back" }],
+      },
     })
     expect(card.title).toBe("Which week?")
-    expect(card.found).toBe("- This\n- Next")
+    expect(card.found).toBe("- This\n- Next: Zeke is back")
     expect(card.actions).toEqual([
       { id: "open", label: "Answer", kind: "open_chat" },
     ])

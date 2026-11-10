@@ -1443,3 +1443,35 @@
     animation: none;
   }
 }
+
+/* Shopping: placeholders while stores are searched. */
+.shop-skeleton {
+  background: var(--fill-hover);
+  animation: shop-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes shop-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* A checkout that just went through. */
+.shop-paid {
+  animation: shop-paid-in var(--duration-medium) var(--ease-bounce);
+}
+
+@keyframes shop-paid-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(var(--blur-small));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-skeleton,
+  .shop-paid {
+    animation: none;
+  }
+}

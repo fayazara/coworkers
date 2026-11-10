@@ -5,6 +5,7 @@
 
 import type { RobotHeadShape } from "robot-heads"
 import type { DeploymentModels, ModelSettings } from "./models"
+import type { ShopPick } from "./shop"
 
 export type BotStatus = "idle" | "thinking" | "working" | "action_needed"
 
@@ -236,6 +237,11 @@ export const ACTION_CLASSES = [
     label: "Send email",
     hint: "Reply to email and write to anyone, from the bot's own address",
   },
+  {
+    id: "shop",
+    label: "Shop",
+    hint: "Find products in online stores and set up checkouts you pay for",
+  },
 ] as const
 export type ActionClass = (typeof ACTION_CLASSES)[number]["id"]
 
@@ -249,6 +255,7 @@ export const DEFAULT_RULES: Record<ActionClass, RulePolicy> = {
   routines: "allow",
   manage: "ask",
   email: "ask",
+  shop: "allow",
 }
 
 export interface Routine {
@@ -507,6 +514,8 @@ export interface MessageMeta {
   task?: BotTask
   /** On a message carrying another bot's result for a task this bot handed out. */
   taskResult?: { taskId: string }
+  /** On a "Buy" message from the product panel: exactly what was picked. */
+  pick?: ShopPick
 }
 
 /** Where a task's result goes when the bot working on it finishes. */

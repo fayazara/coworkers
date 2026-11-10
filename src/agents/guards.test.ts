@@ -5,6 +5,10 @@ import {
   KEEP_PAGE_RESULTS,
   LoopGuard,
   MAX_IDENTICAL_CALLS,
+  STOP_AFTER_MS,
+  TurnBudget,
+  UPDATE_AFTER_MS,
+  WRAP_UP_AFTER_MS,
   MAX_TOOL_RESULT_CHARS,
   shapeToolResults,
   stableJson,
@@ -126,5 +130,31 @@ describe("shapeToolResults", () => {
   it("leaves non-tool messages untouched", () => {
     const user: ModelMessage = { role: "user", content: "x".repeat(50_000) }
     expect(shapeToolResults([user])).toBeNull()
+  })
+})
+
+describe("TurnBudget", () => {
+  it("asks for an update after a quiet minute, again after the next one", () => {
+    const budget = new TurnBudget()
+    budget.start(0)
+    expect(budget.check(UPDATE_AFTER_MS - 1)).toBeNull()
+    expect(budget.check(UPDATE_AFTER_MS)?.kind).toBe("update")
+    expect(budget.check(UPDATE_AFTER_MS + 1)).toBeNull()
+    budget.spoke(70_000)
+    expect(budget.check(70_000 + UPDATE_AFTER_MS)?.kind).toBe("update")
+  })
+
+  it("winds the turn down, then switches tools off, once each", () => {
+    const budget = new TurnBudget()
+    budget.start(0)
+    budget.spoke(WRAP_UP_AFTER_MS)
+    expect(budget.check(WRAP_UP_AFTER_MS)?.kind).toBe("wrap_up")
+    budget.spoke(STOP_AFTER_MS)
+    expect(budget.check(STOP_AFTER_MS)?.kind).toBe("stop")
+    expect(budget.check(STOP_AFTER_MS + 1)).toBeNull()
+  })
+
+  it("does nothing before a turn starts", () => {
+    expect(new TurnBudget().check(STOP_AFTER_MS * 2)).toBeNull()
   })
 })

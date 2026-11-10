@@ -24,3 +24,7 @@ installer/public/release
 # Your deployment's values, written by pnpm run setup
 coworkers.deploy.json
 bdots.deploy.json
+
+# Cloudflare dashboard agents demo (faux data, local only)
+src/demo/
+src/routes/demo.tsx

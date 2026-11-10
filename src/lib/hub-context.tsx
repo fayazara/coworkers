@@ -17,6 +17,12 @@ import type {
   SkillPreview,
 } from "@/lib/types"
 import type { ModelSettings, ModelTestResult } from "@/lib/models"
+import type {
+  ShopCheckout,
+  ShopProduct,
+  ShopQuery,
+  ShopSearchResult,
+} from "@/lib/shop"
 import type { Viewer } from "@/lib/server-fns"
 import type { UserHub } from "@/agents/user-hub"
 
@@ -72,6 +78,24 @@ interface HubContextValue {
   refreshSpend: (() => Promise<void>) | null
   /** The Desk's cards. Null until the hub WebSocket is up. */
   desk: DeskApi | null
+  /**
+   * Shop, for cards that fetch on their own. Null until the hub WebSocket
+   * is up; stable while it stays up, so effects can depend on it.
+   */
+  shop: ShopApi | null
+}
+
+export interface ShopApi {
+  /** The next page of a search, with the same query. */
+  more: (query: ShopQuery, cursor: string) => Promise<ShopSearchResult>
+  /** A product, with the variant for the chosen options. */
+  product: (
+    productId: string,
+    selected: { name: string; label: string }[],
+    country?: string
+  ) => Promise<ShopProduct>
+  /** A checkout as Shop has it now, to see whether it was paid. */
+  checkout: (shop: string, id: string, store: string) => Promise<ShopCheckout>
 }
 
 export interface DeskApi {
@@ -174,6 +198,7 @@ export function StaticHubProvider({
       pipelines: null,
       refreshSpend: null,
       desk: null,
+      shop: null,
     }),
     [viewer, initial]
   )
@@ -191,6 +216,21 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
   useEffect(() => {
     syncBotSummaries(state.bots)
   }, [state.bots])
+
+  const live = agent.state !== undefined
+  const shop = useMemo<ShopApi | null>(
+    () =>
+      live
+        ? {
+            more: (query, cursor) => agent.stub.moreShopResults(query, cursor),
+            product: (productId, selected, country) =>
+              agent.stub.viewProduct(productId, selected, country),
+            checkout: (shopDomain, id, store) =>
+              agent.stub.refreshCheckout(shopDomain, id, store),
+          }
+        : null,
+    [agent, live]
+  )
 
   const value = useMemo<HubContextValue>(
     () => ({
@@ -271,8 +311,9 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
               markSeen: () => void agent.stub.markDeskSeen(),
             }
           : null,
+      shop,
     }),
-    [viewer, state, agent]
+    [viewer, state, agent, shop]
   )
   return <HubContext.Provider value={value}>{children}</HubContext.Provider>
 }

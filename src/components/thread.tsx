@@ -1,5 +1,6 @@
 import {
   Fragment,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -14,6 +15,7 @@ import { Button } from "@cloudflare/kumo/components/button"
 import { Loader } from "@cloudflare/kumo/components/loader"
 import {
   AppWindowIcon,
+  CheckIcon,
   ClockIcon,
   CrawlIcon,
   EnvelopeSimpleIcon,
@@ -21,6 +23,7 @@ import {
   PlugsConnectedIcon,
   TerminalIcon,
   WebhooksLogoIcon,
+  XIcon,
 } from "@/components/icons"
 import { BotAvatar } from "@/components/bot-avatar"
 import { BotMention } from "@/components/bot-mention"
@@ -30,6 +33,9 @@ import { CodeBlock } from "@/components/code-block"
 import { SkillInstall } from "@/components/skill-install"
 import { ComputerCard } from "@/components/computer-card"
 import { ShimmerText } from "@/components/shimmer-text"
+import { ShowActions, ShowBlocks } from "@/components/show-blocks"
+import { ShopCheckoutCard } from "@/components/shop-checkout"
+import { ShopResults } from "@/components/shop-results"
 import { WorkGroup } from "@/components/work-group"
 import { RoutineSummary } from "@/components/routine-summary"
 import {
@@ -45,6 +51,10 @@ import {
 import { useFollowBottom } from "@/lib/follow-bottom"
 import { approvalLabels, isEmptyPreview, previewOf } from "@/lib/call-preview"
 import { botIdFromLink, splitMentions } from "@/lib/bot-links"
+import { choiceKey, choiceOptions, sameEndpoint } from "@/lib/choices"
+import { connectionStatus } from "@/lib/connection-status"
+import { BotContext } from "@/lib/bot-context"
+import { useHub } from "@/lib/hub-context"
 import { NO_UPDATE } from "@/lib/types"
 import type { UIMessage } from "ai"
 import type { ReadFileData } from "@/components/capture-card"
@@ -372,7 +382,10 @@ function ScriptApprovalCard({
   )
 }
 
-/** ask_user: a question with tappable answers. Typing a reply also answers it. */
+/**
+ * ask_user: a question with lettered answers, each with the reason it is
+ * there. Typing a reply also answers it.
+ */
 function ChoiceCard({
   call,
   onApproval,
@@ -384,9 +397,7 @@ function ChoiceCard({
 }) {
   const [picking, setPicking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const options = Array.isArray(call.input.options)
-    ? call.input.options.map(String)
-    : []
+  const options = choiceOptions(call.input.options)
   const ready = Boolean(onApproval && onAnswerChoice && call.approvalId)
 
   async function pick(option: string) {
@@ -403,25 +414,234 @@ function ChoiceCard({
   }
 
   return (
-    <div className="w-full max-w-[640px] rounded-3xl bg-kumo-tint p-4">
-      <p className="text-[15px] text-kumo-default">
-        {String(call.input.question ?? "")}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {options.map((option) => (
-          <Button
-            key={option}
-            variant="outline"
-            className="rounded-full"
-            loading={picking === option}
-            disabled={!ready || picking !== null}
-            onClick={() => void pick(option)}
-          >
-            {option}
-          </Button>
-        ))}
+    <div className="w-full max-w-[640px] rounded-3xl bg-kumo-tint p-2">
+      <div className="flex items-start gap-2 pt-1.5 pr-1 pb-1 pl-3">
+        <p className="min-w-0 flex-1 py-1.5 text-[15px] font-semibold text-pretty text-kumo-default">
+          {String(call.input.question ?? "")}
+        </p>
+        <button
+          type="button"
+          aria-label="Dismiss"
+          className="icon-btn"
+          disabled={!ready || picking !== null}
+          onClick={() =>
+            onApproval?.(
+              call.approvalId!,
+              false,
+              "The user dismissed the question without answering."
+            )
+          }
+        >
+          <XIcon size={16} />
+        </button>
       </div>
-      {error ? <p className="mt-2 text-sm text-kumo-danger">{error}</p> : null}
+      <ul>
+        {options.map((option, index) => (
+          <li key={option.label}>
+            <button
+              type="button"
+              disabled={!ready || picking !== null}
+              onClick={() => void pick(option.label)}
+              className="pressable flex w-full items-start gap-3 rounded-2xl px-3 py-2.5 text-left outline-none hover:bg-(--fill-hover) focus-visible:ring-2 focus-visible:ring-kumo-focus disabled:pointer-events-none"
+            >
+              <span
+                aria-hidden="true"
+                className="mt-px flex size-6 shrink-0 items-center justify-center rounded-lg bg-kumo-base text-xs font-medium text-kumo-subtle ring-1 ring-kumo-line"
+              >
+                {picking === option.label ? (
+                  <Loader size="sm" />
+                ) : (
+                  choiceKey(index)
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[15px] text-pretty text-kumo-default">
+                  {option.label}
+                </span>
+                {option.detail ? (
+                  <span className="mt-0.5 block text-[13px] text-pretty text-kumo-subtle">
+                    {option.detail}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error ? (
+        <p role="alert" className="px-3 pt-1 pb-2 text-sm text-kumo-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** The app's own icon, from its site (mcp.linear.app is Linear's). */
+function AppIcon({ host }: { host: string | null }) {
+  const [failed, setFailed] = useState(false)
+  const site = host?.replace(/^(mcp|api)\./, "")
+  return (
+    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-kumo-base text-kumo-subtle ring-1 ring-kumo-line">
+      {site && !failed ? (
+        <img
+          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(site)}&sz=64`}
+          alt=""
+          aria-hidden="true"
+          onError={() => setFailed(true)}
+          className="size-6 rounded-[5px]"
+        />
+      ) : (
+        <PlugsConnectedIcon size={18} />
+      )}
+    </span>
+  )
+}
+
+/**
+ * connect_app: the bot offers an app, the user connects and signs in right
+ * here. The connection is made over the user's own socket to the hub; the
+ * approval only tells the bot the card is done with.
+ */
+function ConnectCard({
+  call,
+  onApproval,
+}: {
+  call: ToolCall
+  onApproval?: OnApproval
+}) {
+  const hub = useHub()
+  const { refreshConnections } = hub
+  const name = String(call.input.name ?? "App")
+  const url = String(call.input.url ?? "")
+  const host = linkHost(url)
+  const connection = hub.state.connections.find((c) => sameEndpoint(c.url, url))
+  const done = call.state === "done"
+  const connected = done || connection?.status === "ready"
+  const [adding, setAdding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Once it is connected the bot carries on by itself.
+  const { approvalId } = call
+  const answered = useRef(false)
+  useEffect(() => {
+    if (done || !connected || !onApproval || !approvalId) return
+    if (answered.current) return
+    answered.current = true
+    onApproval(approvalId, true)
+  }, [done, connected, onApproval, approvalId])
+
+  // The sign-in happens in another tab: look again when this one is back.
+  const pending = !done && connection !== undefined && !connected
+  useEffect(() => {
+    if (!pending) return
+    const check = () => {
+      if (document.visibilityState === "visible") refreshConnections()
+    }
+    document.addEventListener("visibilitychange", check)
+    window.addEventListener("focus", check)
+    return () => {
+      document.removeEventListener("visibilitychange", check)
+      window.removeEventListener("focus", check)
+    }
+  }, [pending, refreshConnections])
+
+  async function run(action: () => Promise<unknown>) {
+    setAdding(true)
+    setError(null)
+    try {
+      await action()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not connect it.")
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const connecting =
+    connection?.status === "connecting" || connection?.status === "discovering"
+  const needsSignIn =
+    connection?.status === "authenticating" && connection.authUrl
+  const failed = pending && !connecting && !needsSignIn
+
+  return (
+    <div className="w-full max-w-[640px]">
+      <div className="flex items-center gap-3 rounded-3xl bg-kumo-tint py-3 pr-3 pl-4">
+        <AppIcon host={host} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-kumo-default">
+            {name}
+          </p>
+          <p className="text-sm text-pretty text-kumo-subtle">
+            {failed && connection
+              ? connectionStatus(connection)
+              : String(call.input.why ?? "")}
+          </p>
+        </div>
+        {connected ? (
+          <span className="flex shrink-0 items-center gap-1 pr-1 text-sm font-medium text-kumo-success">
+            <CheckIcon size={16} />
+            Connected
+          </span>
+        ) : needsSignIn ? (
+          <a
+            href={connection.authUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="pressable inline-flex h-9 shrink-0 items-center rounded-full bg-kumo-contrast px-4 text-sm font-medium text-kumo-inverse outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
+          >
+            Sign in
+          </a>
+        ) : connecting ? (
+          <span className="shrink-0 pr-1">
+            <ShimmerText text="Connecting" className="text-sm" />
+          </span>
+        ) : (
+          <Button
+            variant="primary"
+            className="btn-ink shrink-0 rounded-full"
+            loading={adding}
+            disabled={!hub.live || !onApproval || !approvalId}
+            onClick={() =>
+              void run(() =>
+                connection
+                  ? hub.reconnect(connection.id)
+                  : hub.addConnection({ name, url })
+              )
+            }
+          >
+            {connection ? "Try again" : "Connect"}
+          </Button>
+        )}
+      </div>
+      {error ? (
+        <p role="alert" className="px-4 pt-2 text-sm text-kumo-danger">
+          {error}
+        </p>
+      ) : null}
+      {done ? null : (
+        <p className="flex flex-wrap items-center gap-x-1.5 px-4 pt-2 text-xs text-kumo-subtle">
+          <span>
+            You sign in at {host ?? "the app"}. Your bots never see the
+            password.
+          </span>
+          {onApproval && approvalId ? (
+            <button
+              type="button"
+              className="rounded underline decoration-kumo-line underline-offset-2 outline-none hover:text-kumo-default focus-visible:ring-2 focus-visible:ring-kumo-focus"
+              onClick={() =>
+                onApproval(
+                  approvalId,
+                  false,
+                  "The user chose not to connect it."
+                )
+              }
+            >
+              Not now
+            </button>
+          ) : null}
+        </p>
+      )}
     </div>
   )
 }
@@ -553,10 +773,13 @@ function AssistantMessage({
   onApproval,
   onProvideSecret,
   onAnswerChoice,
+  onPick,
 }: {
   blocks: Block[]
   /** This reply is still being written. */
   live: boolean
+  /** Sends a shown action as the user's next message. Newest reply only. */
+  onPick?: (text: string) => void
   startedAt?: number
   durationMs?: number
   botId?: string
@@ -569,106 +792,129 @@ function AssistantMessage({
   onProvideSecret?: OnProvideSecret
   onAnswerChoice?: OnAnswerChoice
 }) {
-  const { work, shown } = toTurn(blocks)
+  const { work, shown, replyKey } = toTurn(blocks)
+  // While the bot works, the status line trails the turn and steps aside
+  // whenever it is writing. Once the reply is in, the steps sit above it.
+  const writing = live && replyKey !== undefined
+  const group =
+    work.length && !writing ? (
+      <WorkGroup
+        calls={work}
+        live={live}
+        startedAt={startedAt}
+        durationMs={durationMs}
+      />
+    ) : null
+  const groupAt =
+    live || !replyKey
+      ? shown.length
+      : shown.findIndex((b) => b.key === replyKey)
   return (
     <>
-      {work.length ? (
-        <WorkGroup
-          work={work}
-          live={live}
-          startedAt={startedAt}
-          durationMs={durationMs}
-          renderNote={(text) => (
-            <div className="[&_.bubble-prose_p]:my-1.5">
-              <Prose text={text} />
-            </div>
-          )}
-        />
-      ) : null}
-      {shown.map((block, index) => {
-        switch (block.kind) {
-          case "text":
-            return (
-              <div
-                key={block.key}
-                className="w-fit max-w-[85%] rounded-[22px] bg-kumo-tint px-[18px] py-3 text-kumo-default has-[table]:w-full has-[table]:max-w-full"
-              >
-                <Prose text={block.text} />
-              </div>
-            )
-          case "routine":
-            return (
-              <RoutineSummary
-                key={block.key}
-                routine={block.routine}
-                updated={block.updated}
-                botId={botId}
-              />
-            )
-          case "event":
-            return <SystemEvent key={block.key}>{block.label}</SystemEvent>
-          case "computer":
-            return (
-              <ComputerCard
-                key={block.key}
-                calls={block.calls}
-                latest={block.key === latestComputerKey}
-                carriedOn={index < shown.length - 1}
-                getLiveView={getLiveView}
-                getBrowserFrame={getBrowserFrame}
-                navigateBrowser={navigateBrowser}
-                onApproval={onApproval}
-              />
-            )
-          case "steps":
-            return null
-          case "capture":
-            return (
-              <CaptureCard
-                key={block.key}
-                capture={block.capture}
-                readFile={readFile}
-              />
-            )
-          case "approval":
-            return (
-              <ApprovalCard
-                key={block.key}
-                call={block.call}
-                onApproval={onApproval}
-              />
-            )
-          case "choice":
-            return (
-              <ChoiceCard
-                key={block.key}
-                call={block.call}
-                onApproval={onApproval}
-                onAnswerChoice={onAnswerChoice}
-              />
-            )
-          case "secret":
-            return (
-              <SecretCard
-                key={block.key}
-                call={block.call}
-                onApproval={onApproval}
-                onProvideSecret={onProvideSecret}
-              />
-            )
-          case "skill":
-            return (
-              <SkillCard
-                key={block.key}
-                call={block.call}
-                botId={botId}
-                onApproval={onApproval}
-              />
-            )
-        }
-      })}
+      {shown.map((block, index) => (
+        <Fragment key={block.key}>
+          {index === groupAt ? group : null}
+          {renderBlock(block, index)}
+        </Fragment>
+      ))}
+      {groupAt >= shown.length ? group : null}
+      <ShowActions
+        calls={shown.flatMap((b) => (b.kind === "show" ? [b.call] : []))}
+        onPick={live ? undefined : onPick}
+      />
     </>
   )
+
+  function renderBlock(block: Block, index: number) {
+    switch (block.kind) {
+      case "text":
+        return (
+          <div
+            key={block.key}
+            className="w-fit max-w-[85%] rounded-[22px] bg-kumo-tint px-[18px] py-3 text-kumo-default has-[table]:w-full has-[table]:max-w-full"
+          >
+            <Prose text={block.text} />
+          </div>
+        )
+      case "routine":
+        return (
+          <RoutineSummary
+            key={block.key}
+            routine={block.routine}
+            updated={block.updated}
+            botId={botId}
+          />
+        )
+      case "event":
+        return <SystemEvent key={block.key}>{block.label}</SystemEvent>
+      case "computer":
+        return (
+          <ComputerCard
+            key={block.key}
+            calls={block.calls}
+            latest={block.key === latestComputerKey}
+            carriedOn={index < shown.length - 1}
+            getLiveView={getLiveView}
+            getBrowserFrame={getBrowserFrame}
+            navigateBrowser={navigateBrowser}
+            onApproval={onApproval}
+          />
+        )
+      case "steps":
+        return null
+      case "capture":
+        return (
+          <CaptureCard
+            key={block.key}
+            capture={block.capture}
+            readFile={readFile}
+          />
+        )
+      case "approval":
+        return (
+          <ApprovalCard
+            key={block.key}
+            call={block.call}
+            onApproval={onApproval}
+          />
+        )
+      case "choice":
+        return (
+          <ChoiceCard
+            key={block.key}
+            call={block.call}
+            onApproval={onApproval}
+            onAnswerChoice={onAnswerChoice}
+          />
+        )
+      case "secret":
+        return (
+          <SecretCard
+            key={block.key}
+            call={block.call}
+            onApproval={onApproval}
+            onProvideSecret={onProvideSecret}
+          />
+        )
+      case "shop-results":
+        return <ShopResults key={block.key} call={block.call} botId={botId} />
+      case "shop-checkout":
+        return <ShopCheckoutCard key={block.key} call={block.call} />
+      case "connect":
+        return <ConnectCard call={block.call} onApproval={onApproval} />
+      case "show":
+        return <ShowBlocks call={block.call} />
+      case "skill":
+        return (
+          <SkillCard
+            key={block.key}
+            call={block.call}
+            botId={botId}
+            onApproval={onApproval}
+          />
+        )
+    }
+  }
 }
 
 function UserMessage({ message }: { message: UIMessage }) {
@@ -855,6 +1101,8 @@ export function Thread({
   const isNew = (id: string) => !history.current?.has(id)
 
   const hydrated = useHydrated()
+  // Absent on the server render and until the chat is live.
+  const pick = useContext(BotContext)?.send
   const rendered = useMemo(() => {
     const rows: Row[] = []
     let background = false
@@ -925,12 +1173,17 @@ export function Thread({
   const lastRow = rendered.at(-1)
   const lastBlocks = lastRow?.blocks ?? []
   const replying = busy && lastRow?.message.role === "assistant"
-  // Once the reply has text or work to show, it carries its own progress.
+  // The turn shows its own progress while the bot is writing, while its
+  // status line is up (steps, and no reply yet), or while it is in the
+  // browser. In the gaps between, the indicator below fills in.
+  const lastPart = lastRow?.message.parts.at(-1)
+  const lastTurn = toTurn(lastBlocks)
   const showsProgress =
     replying &&
-    lastBlocks.some(
-      (b) => b.kind === "text" || b.kind === "steps" || b.kind === "computer"
-    )
+    ((lastPart?.type === "text" && lastPart.state === "streaming") ||
+      (lastTurn.work.length > 0 && lastTurn.replyKey === undefined) ||
+      lastBlocks.at(-1)?.kind === "computer" ||
+      lastBlocks.at(-1)?.kind === "show")
   const waitingOnUser = bot.status === "action_needed"
 
   return (
@@ -974,6 +1227,9 @@ export function Thread({
                 <AssistantMessage
                   blocks={blocks}
                   live={replying && index === rendered.length - 1}
+                  onPick={
+                    !busy && index === rendered.length - 1 ? pick : undefined
+                  }
                   startedAt={at}
                   durationMs={durationMs}
                   botId={botId}

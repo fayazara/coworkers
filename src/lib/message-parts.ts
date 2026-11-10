@@ -24,49 +24,48 @@ export type Block =
   | { kind: "approval"; key: string; call: ToolCall }
   | { kind: "choice"; key: string; call: ToolCall }
   | { kind: "secret"; key: string; call: ToolCall }
+  | { kind: "connect"; key: string; call: ToolCall }
+  | { kind: "show"; key: string; call: ToolCall }
   | { kind: "skill"; key: string; call: ToolCall }
   | { kind: "capture"; key: string; call: ToolCall; capture: Capture }
   | { kind: "routine"; key: string; routine: Routine; updated: boolean }
+  | { kind: "shop-results"; key: string; call: ToolCall }
+  | { kind: "shop-checkout"; key: string; call: ToolCall }
 
-/** Something the bot did on the way to its reply: folded under "Worked for". */
-export type WorkItem =
-  | { kind: "note"; key: string; text: string }
-  | { kind: "step"; key: string; call: ToolCall }
-
-/** A reply split into the work behind it and what the user should see. */
+/** A reply split into the steps behind it and what the user should see. */
 export interface TurnView {
-  work: WorkItem[]
-  /** The reply, cards and events, in order. */
+  /** Tool steps, folded behind one status line. */
+  work: ToolCall[]
+  /** Updates, cards, events and the reply, in order. */
   shown: Block[]
+  /**
+   * Key of the block the reply starts at: the first text or `show` block
+   * with no tool call after it. Text before it is an update the bot wrote
+   * along the way.
+   */
+  replyKey?: string
 }
 
 /**
- * The last text block, when nothing but events follows it, is the reply.
- * Any other text is narration ("Let me check…") and joins the steps in the
- * work group. Hidden bookkeeping calls (mark_reported) leave no block, so
- * narration before them still counts as narration.
+ * Everything the bot says is shown, in order: its updates between tool calls
+ * are messages of their own. Only the plain tool steps fold away.
  */
 export function toTurn(blocks: Block[]): TurnView {
-  const lastText = blocks.findLastIndex((b) => b.kind === "text")
-  const lastTool = blocks.findLastIndex(
-    (b) => b.kind !== "text" && b.kind !== "event"
-  )
-  const reply = lastText > lastTool ? lastText : -1
-  const hasWork = lastTool !== -1
-  const work: WorkItem[] = []
+  // Blocks the bot shows are part of what it says, like its text.
+  const says = (b: Block) => b.kind === "text" || b.kind === "show"
+  const lastTool = blocks.findLastIndex((b) => !says(b) && b.kind !== "event")
+  const reply = blocks.findIndex((b, i) => i > lastTool && says(b))
+  const work: ToolCall[] = []
   const shown: Block[] = []
-  blocks.forEach((block, index) => {
-    if (block.kind === "text" && hasWork && index !== reply) {
-      work.push({ kind: "note", key: block.key, text: block.text })
-    } else if (block.kind === "steps") {
-      for (const call of block.calls) {
-        work.push({ kind: "step", key: call.id, call })
-      }
-    } else {
-      shown.push(block)
-    }
-  })
-  return { work, shown }
+  for (const block of blocks) {
+    if (block.kind === "steps") work.push(...block.calls)
+    else shown.push(block)
+  }
+  return {
+    work,
+    shown,
+    replyKey: reply === -1 ? undefined : blocks[reply].key,
+  }
 }
 
 function routineOf(call: ToolCall): Routine | null {
@@ -228,6 +227,18 @@ export function toBlocks(message: UIMessage): Block[] {
       }
       return
     }
+    if (call.name === "connect_app") {
+      const name = String(call.input.name ?? "the app")
+      const connected =
+        (call.output as { connected?: boolean } | null)?.connected === true
+      // The card stays in the chat once connected, as the record of it.
+      if (call.state === "waiting" || (call.state === "done" && connected)) {
+        blocks.push({ kind: "connect", key, call })
+      } else if (call.state !== "running") {
+        blocks.push({ kind: "event", key, label: `${name} not connected` })
+      }
+      return
+    }
     if (call.name === "ask_user") {
       const question = String(call.input.question ?? "")
       if (call.state === "waiting") {
@@ -249,8 +260,48 @@ export function toBlocks(message: UIMessage): Block[] {
       }
       return
     }
+    // What the bot shows instead of prose. It draws while it streams in; a
+    // call that failed falls through to the steps.
+    if (call.name === "show") {
+      if (call.state === "running" || call.state === "done") {
+        blocks.push({ kind: "show", key, call })
+        return
+      }
+    }
     // Bookkeeping the user does not need to see.
     if (call.name === "mark_reported" || call.name === "was_reported") return
+
+    // Search results and checkouts are what the user came for: cards, shown
+    // while they load too. Failed calls fall through to the steps.
+    if (
+      call.name === "shop_search" &&
+      (call.state === "running" || call.state === "done")
+    ) {
+      blocks.push({ kind: "shop-results", key, call })
+      return
+    }
+    if (
+      call.name === "shop_checkout" &&
+      (call.state === "running" || call.state === "done")
+    ) {
+      blocks.push({ kind: "shop-checkout", key, call })
+      return
+    }
+    if (call.name === "shop_order_status" && call.state === "done") {
+      const out = call.output as {
+        status?: string
+        store?: string
+        order?: { label?: string }
+      } | null
+      if (out?.status === "completed") {
+        blocks.push({
+          kind: "event",
+          key,
+          label: `Order placed${out.store ? ` at ${out.store}` : ""}${out.order?.label ? ` · ${out.order.label}` : ""}`,
+        })
+        return
+      }
+    }
 
     if (
       (call.name === "schedule_routine" || call.name === "update_routine") &&
@@ -413,9 +464,132 @@ export function describeCall(call: ToolCall): string {
       return `Updated ${str("slug")}/${str("collection")}`
     case "app_data_delete":
       return `Removed from ${str("slug")}/${str("collection")}`
+    case "shop_search":
+      return str("query")
+        ? `Searched stores for "${str("query")}"`
+        : "Searched stores for similar items"
+    case "shop_product": {
+      const title = (call.output as { title?: unknown } | null)?.title
+      return typeof title === "string" && title
+        ? `Checked ${title}`
+        : "Looked up a product"
+    }
+    case "shop_checkout":
+      return `Set up a checkout${str("store") ? ` at ${str("store")}` : ""}`
+    case "shop_order_status":
+      return "Checked an order"
     default:
       return mcpLabel(call.name)
   }
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "")
+  } catch {
+    return ""
+  }
+}
+
+function baseName(path: string) {
+  return path.split("/").filter(Boolean).at(-1) ?? ""
+}
+
+/** What the bot is doing right now, for the live status line. */
+export function describeActivity(call: ToolCall): string {
+  const { input } = call
+  const str = (key: string) =>
+    typeof input[key] === "string" ? (input[key] as string) : ""
+  const on = (verb: string, fallback: string) => {
+    const host = hostOf(str("url"))
+    return host ? `${verb} ${host}` : fallback
+  }
+  switch (call.name) {
+    case "read":
+      return baseName(str("path"))
+        ? `Reading ${baseName(str("path"))}`
+        : "Reading a file"
+    case "ls":
+    case "find":
+    case "grep":
+      return "Looking through files"
+    case "write":
+    case "edit":
+      return baseName(str("path"))
+        ? `Writing ${baseName(str("path"))}`
+        : "Writing a file"
+    case "delete":
+      return "Tidying up files"
+    case "exec":
+      return "Running a command"
+    case "shell_job":
+      return "Waiting on a command"
+    case "run_js":
+      return str("purpose") || "Running a script"
+    case "script_wait":
+      return "Waiting on a script"
+    case "browser_markdown":
+      return on("Reading", "Reading a page")
+    case "browser_extract":
+    case "browser_scrape":
+      return on("Pulling data from", "Pulling data from a page")
+    case "browser_links":
+      return on("Scanning", "Scanning a page")
+    case "browser_screenshot":
+      return on("Capturing", "Taking a screenshot")
+    case "browser_pdf":
+      return "Saving a PDF"
+    case "browser_crawl":
+      return on("Crawling", "Starting a crawl")
+    case "message_bot":
+      return "Messaging another bot"
+    case "delegate_task":
+      return "Handing off a task"
+    case "send_email":
+    case "reply_email":
+      return "Writing an email"
+    case "search_history":
+    case "read_history":
+      return "Looking back through our chat"
+    case "search_context":
+    case "remember":
+    case "remember_for_all_bots":
+      return "Checking memory"
+    case "schedule_routine":
+    case "update_routine":
+      return "Setting up a routine"
+    case "list_routines":
+    case "cancel_routine":
+      return "Checking routines"
+    case "save_app":
+      return str("name") ? `Building ${str("name")}` : "Building an app"
+    case "app_data_list":
+    case "app_data_put":
+    case "app_data_delete":
+    case "list_apps":
+      return "Updating an app"
+    case "shop_search":
+      return "Searching stores"
+    case "shop_product":
+      return "Checking a product"
+    case "shop_checkout":
+      return "Setting up a checkout"
+    case "shop_order_status":
+      return "Checking an order"
+    case "app_tools_search":
+      return "Finding the right tool"
+    case "secret_request":
+      return on("Calling", "Calling an API")
+    case "track_item":
+    case "update_item":
+    case "resolve_item":
+      return "Updating open items"
+  }
+  if (call.name === "app_tool_call" || call.name.startsWith("tool_")) {
+    const label = describeCall(call)
+    return label.charAt(0).toUpperCase() + label.slice(1)
+  }
+  return "Working"
 }
 
 /** What a step touched, for its icon and for grouping runs of steps. */
@@ -429,6 +603,7 @@ export type StepKind =
   | "routine"
   | "bot"
   | "app"
+  | "shop"
   | "other"
 
 export function stepKind(call: ToolCall): StepKind {
@@ -466,6 +641,7 @@ export function stepKind(call: ToolCall): StepKind {
     case "app_data_delete":
       return "app"
   }
+  if (call.name.startsWith("shop_")) return "shop"
   if (call.name.startsWith("browser_")) return "web"
   if (call.name.startsWith("tool_")) return "app"
   return "other"

@@ -1,4 +1,9 @@
+import { sameEndpoint } from "@/lib/choices"
 import { Agent, callable, getAgentByName } from "agents"
+import {
+  Client as McpClient,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client"
 import type { Connection as AgentConnection, ConnectionContext } from "agents"
 import { generateText } from "ai"
 import webpush from "web-push"
@@ -7,6 +12,13 @@ import type { ModelSettings, ModelTestResult } from "@/lib/models"
 import { botIdFromLink } from "@/lib/bot-links"
 import { BOT_AVATARS, NEW_BOT_NAME, botInstanceName } from "@/lib/types"
 import { emailDirectory } from "./email-directory"
+import { SHOP_MCP_URL } from "@/lib/shop"
+import type {
+  ShopCheckout,
+  ShopProduct,
+  ShopQuery,
+  ShopSearchResult,
+} from "@/lib/shop"
 import type {
   AppCatalog,
   AppTool,
@@ -52,6 +64,13 @@ import {
 import { resourceKind } from "./skill-sources"
 import { SkillStore } from "./skill-store"
 import { visibleCards } from "./desk"
+import {
+  SHOP_PAGE_SIZE,
+  searchArgs,
+  toCheckout,
+  toProduct,
+  toSearchResult,
+} from "./shop"
 import { MAX_MEMORY_CHARS, appendFact } from "./memory"
 import { deploymentModels, gatewayId, languageModel } from "./models"
 import {
@@ -111,6 +130,9 @@ function serverId(connectionId: string) {
   return `c${connectionId}`
 }
 
+/** A checkout's status is read from Shop at most this often. */
+const CHECKOUT_RECHECK_MS = 15_000
+
 /** How often new AI Gateway logs are read for the Spend page. */
 const SPEND_SYNC_S = 30 * 60
 /** Pages of 50 logs one sync reads before leaving the rest for the next. */
@@ -138,6 +160,8 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   }
 
   #skills?: SkillStore
+  /** Shop's MCP client, connected on first use. */
+  #shop?: Promise<McpClient>
 
   private get skills() {
     this.#skills ??= new SkillStore(this.ctx.storage.sql)
@@ -217,6 +241,12 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       data TEXT NOT NULL
+    )`
+    // Checkouts bots set up, as last read from Shop, so a paid one stays paid.
+    this.sql`CREATE TABLE IF NOT EXISTS shop_checkouts (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      checked_at INTEGER NOT NULL
     )`
     this.refreshDesk()
     await this.startSpend()
@@ -383,9 +413,19 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     await this.syncSpend()
   }
 
-  /** Remember the app's origin to build MCP OAuth callback URLs. */
+  /**
+   * Remember the app's origin to build MCP OAuth callback URLs, and the
+   * user's country so shopping shows prices and stock for where they are.
+   */
   onConnect(_connection: AgentConnection, ctx: ConnectionContext) {
     this.ctx.storage.kv.put("origin", new URL(ctx.request.url).origin)
+    const country = (ctx.request as { cf?: { country?: unknown } }).cf?.country
+    // XX and T1 are Cloudflare's "unknown" and Tor.
+    if (typeof country === "string" && /^[A-Z]{2}$/.test(country)) {
+      if (country !== "XX" && country !== "T1") {
+        this.ctx.storage.kv.put("country", country)
+      }
+    }
     this.syncConnectionStatus()
   }
 
@@ -1359,6 +1399,23 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     }
   }
 
+  /** The connection to one MCP endpoint, for a bot's connect_app card. */
+  async connectionByUrl(
+    url: string
+  ): Promise<Pick<Connection, "name" | "status" | "tools" | "error"> | null> {
+    await this.mcp.waitForConnections({ timeout: 5000 })
+    this.syncConnectionStatus()
+    const c = this.state.connections.find((c) => sameEndpoint(c.url, url))
+    return c
+      ? {
+          name: c.name,
+          status: c.status,
+          tools: c.tools,
+          ...(c.error ? { error: c.error } : {}),
+        }
+      : null
+  }
+
   /** Run a connection's tool on behalf of a bot. Credentials stay here. */
   async callAppTool(
     connectionId: string,
@@ -1414,6 +1471,190 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
         return failure ? { ...rest, lastFailure: failure } : rest
       }),
     })
+  }
+
+  // ── Shop (Shop MCP: search and checkout across Shopify stores) ──────
+
+  /** Where results should ship to, unless the user said otherwise. */
+  private get shopCountry() {
+    return this.ctx.storage.kv.get<string>("country")
+  }
+
+  /**
+   * Call a Shop tool. Search and checkout need no sign-in. Shop speaks only
+   * the stateless MCP protocol (2026-07-28), and the agents MCP client fails
+   * on its discovery (resources/templates/list lacks ttlMs), so the hub calls
+   * tools with a bare client and never lists anything.
+   */
+  private async shopCall(name: string, args: Record<string, unknown>) {
+    let result: {
+      content?: { type: string; text?: string }[]
+      structuredContent?: unknown
+      isError?: boolean
+    }
+    try {
+      this.#shop ??= this.connectShop()
+      const client = await this.#shop
+      result = (await client.callTool({
+        name,
+        arguments: args,
+      })) as typeof result
+    } catch (err) {
+      // A dropped client is rebuilt on the next call.
+      this.#shop = undefined
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`Shop ${name} failed`, message)
+      throw new Error(
+        `Shop could not be reached (${message.slice(0, 120)}). Try once more, then tell the user.`
+      )
+    }
+    if (result.isError) {
+      const detail = result.content?.map((c) => c.text ?? "").join("\n")
+      throw new Error(detail?.trim() || `Shop's ${name} failed.`)
+    }
+    return result.structuredContent ?? {}
+  }
+
+  private async connectShop() {
+    const client = new McpClient(
+      { name: "coworkers", version: "1.0.0" },
+      { capabilities: {}, versionNegotiation: { mode: "auto" } }
+    )
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(SHOP_MCP_URL))
+    )
+    return client
+  }
+
+  /** Bot-facing: search every Shopify store. */
+  async shopSearch(
+    query: ShopQuery,
+    limit = SHOP_PAGE_SIZE,
+    cursor?: string
+  ): Promise<ShopSearchResult> {
+    const scoped: ShopQuery = {
+      ...query,
+      ...(query.country || !this.shopCountry
+        ? {}
+        : { country: this.shopCountry }),
+    }
+    const raw = await this.shopCall(
+      "search_catalog",
+      searchArgs(scoped, limit, cursor)
+    )
+    return toSearchResult(raw, scoped)
+  }
+
+  /** Bot-facing: one product, with the variant for the chosen options. */
+  async shopProduct(
+    productId: string,
+    selected: { name: string; label: string }[] = [],
+    country?: string
+  ): Promise<ShopProduct> {
+    const where = country ?? this.shopCountry
+    const raw = await this.shopCall("get_product", {
+      catalog: {
+        id: productId,
+        ...(selected.length ? { selected } : {}),
+        ...(where ? { context: { address_country: where } } : {}),
+      },
+    })
+    const product = toProduct(raw)
+    if (!product) throw new Error("Shop has no buyable offer for that product.")
+    return product
+  }
+
+  /**
+   * Bot-facing: prepare a checkout at one store. It creates no order: the
+   * user reviews and pays on Shop.
+   */
+  async shopCreateCheckout(input: {
+    shop: string
+    store: string
+    items: { variantId: string; quantity: number }[]
+    country?: string
+  }): Promise<ShopCheckout> {
+    const where = input.country ?? this.shopCountry
+    const raw = await this.shopCall("create_checkout", {
+      shop: input.shop,
+      checkout: {
+        line_items: input.items.map((i) => ({
+          item: { id: i.variantId },
+          quantity: i.quantity,
+        })),
+        ...(where ? { context: { address_country: where } } : {}),
+      },
+      meta: { "idempotency-key": crypto.randomUUID() },
+    })
+    const checkout = toCheckout(raw, input.shop, input.store)
+    if (!checkout) throw new Error("Shop did not return a checkout.")
+    this.saveCheckout(checkout)
+    return checkout
+  }
+
+  /** Bot-facing: a checkout as Shop has it now (paid, still open, gone). */
+  async shopCheckoutStatus(
+    shop: string,
+    id: string,
+    store = ""
+  ): Promise<ShopCheckout> {
+    const cached = this.cachedCheckout(id)
+    // A paid or canceled checkout does not change again.
+    if (
+      cached &&
+      (cached.checkout.status === "completed" ||
+        cached.checkout.status === "canceled" ||
+        Date.now() - cached.checkedAt < CHECKOUT_RECHECK_MS)
+    ) {
+      return cached.checkout
+    }
+    const raw = await this.shopCall("get_checkout", { shop, id })
+    const checkout = toCheckout(
+      raw,
+      shop,
+      store || cached?.checkout.store || ""
+    )
+    if (!checkout) throw new Error("Shop did not return that checkout.")
+    this.saveCheckout(checkout)
+    return checkout
+  }
+
+  private cachedCheckout(id: string) {
+    const row = this.sql<{ data: string; checked_at: number }>`
+      SELECT data, checked_at FROM shop_checkouts WHERE id = ${id}`[0]
+    return row
+      ? {
+          checkout: JSON.parse(row.data) as ShopCheckout,
+          checkedAt: row.checked_at,
+        }
+      : null
+  }
+
+  private saveCheckout(checkout: ShopCheckout) {
+    this.sql`INSERT OR REPLACE INTO shop_checkouts (id, data, checked_at)
+      VALUES (${checkout.id}, ${JSON.stringify(checkout)}, ${Date.now()})`
+  }
+
+  /** The next page of a search card, fetched by the card itself. */
+  @callable()
+  async moreShopResults(query: ShopQuery, cursor: string) {
+    return this.shopSearch(query, SHOP_PAGE_SIZE, cursor)
+  }
+
+  /** The product panel: details, and the variant for the chosen options. */
+  @callable()
+  async viewProduct(
+    productId: string,
+    selected: { name: string; label: string }[],
+    country?: string
+  ) {
+    return this.shopProduct(productId, selected, country)
+  }
+
+  /** A checkout card asking whether its order went through. */
+  @callable()
+  async refreshCheckout(shop: string, id: string, store: string) {
+    return this.shopCheckoutStatus(shop, id, store)
   }
 
   /** Where the user opens Coworkers, so bots can hand out full app links. */

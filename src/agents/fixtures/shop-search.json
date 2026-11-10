@@ -1,0 +1,535 @@
+{
+  "ucp": {
+    "version": "2026-08-25"
+  },
+  "products": [
+    {
+      "id": "gid://shopify/p/7qzMhKA38aqyJdEkkDM9LA",
+      "title": "Black Classic Crew Neck",
+      "description": {
+        "plain": "PRODUCT NAME: True Classic Black Classic Crew Neck T-Shirt\n\nPRODUCT SPECIFICATIONS:\n  - Type: Short Sleeve Crew Neck T-Shirt\n\n  - Brand: True Classic\n\n  - Cut: Fitted, Contemporary/Athletic\n\n  - Material Composition: 60% Combed Ringspun Cotton / 40% Polyester Jersey Blend\n\n  - Shrinkage Factor: Mini"
+      },
+      "handle": "black-crew-neck-tee",
+      "rating": {
+        "value": 4.5,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 71000
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0220/4008/4552/files/TCT_4000_Short-Sleeve-Classic-Crew_BLACK_Large_Ecomm_2025_JUN_2.jpg",
+          "alt_text": "Man modeling CombinedListingTest Classic Crew Neck and gray pants.",
+          "preview": {
+            "url": "https://cdn.shopify.com/s/files/1/0220/4008/4552/files/TCT_4000_Short-Sleeve-Classic-Crew_BLACK_Large_Ecomm_2025_JUN_2.jpg",
+            "width": 2160,
+            "height": 2700
+          },
+          "width": 2160,
+          "height": 2700
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "S"
+            },
+            {
+              "label": "M"
+            },
+            {
+              "label": "L"
+            },
+            {
+              "label": "XL"
+            },
+            {
+              "label": "2XL"
+            },
+            {
+              "label": "3XL"
+            },
+            {
+              "label": "4XL"
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "unique_selling_points": [
+          "Combines a contemporary athletic fit with a soft, screen-printed tag for maximum comfort."
+        ],
+        "top_features": [
+          "Premium fitted crew neck design offers a modern, athletic silhouette for versatile styling",
+          "60% combed ringspun cotton and 40% polyester jersey fabric provides a soft, comfortable feel",
+          "Minimal shrinkage on low heat drying ensures long-lasting shape and fit",
+          "Classic side seam detail delivers a timeless, professional look",
+          "Soft screen-printed tag enhances comfort and prevents irritation"
+        ],
+        "tech_specs": [
+          "Material: 60% combed ringspun cotton, 40% polyester jersey",
+          "Fit: Contemporary athletic cut",
+          "Neckline: Crew neck",
+          "Care: Shrink minimally on low heat in dryer",
+          "Tag placement: Screen printed on tee"
+        ]
+      },
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/29275989049416",
+          "title": "Black Classic Crew Neck",
+          "description": {
+            "plain": "PRODUCT NAME: True Classic Black Classic Crew Neck T-Shirt\n\nPRODUCT SPECIFICATIONS:\n  - Type: Short "
+          },
+          "handle": "black-crew-neck-tee",
+          "url": "https://www.trueclassictees.com/products/black-crew-neck-tee?variant=29275989049416&_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2999,
+            "currency": "USD"
+          },
+          "list_price": {
+            "amount": 3499,
+            "currency": "USD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Size",
+              "label": "S"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0220/4008/4552/files/TCT_4000_Short-Sleeve-Classic-Crew_BLACK_Large_Ecomm_2025_JUN_2.jpg",
+              "alt_text": "Man modeling CombinedListingTest Classic Crew Neck and gray pants.",
+              "preview": {
+                "url": "https://cdn.shopify.com/s/files/1/0220/4008/4552/files/TCT_4000_Short-Sleeve-Classic-Crew_BLACK_Large_Ecomm_2025_JUN_2.jpg",
+                "width": 2160,
+                "height": 2700
+              },
+              "width": 2160,
+              "height": 2700
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/22040084552",
+            "name": "True Classic",
+            "url": "https://www.trueclassictees.com",
+            "domain": "trueclassictees-com.myshopify.com"
+          },
+          "checkout_url": "https://www.trueclassictees.com/cart/29275989049416:1?_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.6,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 4071
+          },
+          "condition": ["new"],
+          "source": "shopify"
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2999,
+          "currency": "USD"
+        },
+        "max": {
+          "amount": 2999,
+          "currency": "USD"
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/p/7DZ0SnDvxBJBChY0SkCruE",
+      "title": "Black Crew Neck",
+      "description": {
+        "plain": "<p>If you love the timelessly cool look of a fitted black tee, then look no further, because our Black Crew Neck is here to help you live your best life. This black t-shirt is a true classic. It was the very item that inspired us to launch our company from the beginning. </p>\n<ul>\n<li>Features Strat"
+      },
+      "handle": "black-crew-neck",
+      "rating": {
+        "value": 4.6,
+        "scale_min": 1,
+        "scale_max": 5,
+        "count": 1554012
+      },
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/2988/4106/files/CREW-NECK-Black-ghost.jpg",
+          "alt_text": "Black Crew Neck T-Shirt for Men | Now in 18 Sizes + 3 Lengths (Short, Reg, Tall)",
+          "preview": {
+            "url": "https://cdn.shopify.com/s/files/1/2988/4106/files/CREW-NECK-Black-ghost.jpg",
+            "width": 1500,
+            "height": 2000
+          },
+          "width": 1500,
+          "height": 2000
+        },
+        {
+          "type": "video",
+          "url": "https://cdn.shopify.com/videos/c/vp/e437494b96f8419f81fcef724c0b43c7/e437494b96f8419f81fcef724c0b43c7.m3u8",
+          "alt_text": "Black Crew Neck",
+          "preview": {
+            "url": "https://cdn.shopify.com/s/files/1/2988/4106/files/preview_images/e437494b96f8419f81fcef724c0b43c7.thumbnail.0000000000.jpg",
+            "width": 1500,
+            "height": 2000
+          },
+          "duration": 8,
+          "sources": [
+            {
+              "url": "https://cdn.shopify.com/videos/c/vp/e437494b96f8419f81fcef724c0b43c7/e437494b96f8419f81fcef724c0b43c7.m3u8",
+              "mime_type": "application/x-mpegURL",
+              "format": "m3u8",
+              "width": 810,
+              "height": 1080
+            },
+            {
+              "url": "https://cdn.shopify.com/videos/c/vp/e437494b96f8419f81fcef724c0b43c7/e437494b96f8419f81fcef724c0b43c7.HD-1080p-3.3Mbps-92698578.mp4",
+              "mime_type": "video/mp4",
+              "format": "mp4",
+              "width": 810,
+              "height": 1080
+            },
+            {
+              "url": "https://cdn.shopify.com/videos/c/vp/e437494b96f8419f81fcef724c0b43c7/e437494b96f8419f81fcef724c0b43c7.HD-720p-2.1Mbps-92698578.mp4",
+              "mime_type": "video/mp4",
+              "format": "mp4",
+              "width": 540,
+              "height": 720
+            },
+            {
+              "url": "https://cdn.shopify.com/videos/c/vp/e437494b96f8419f81fcef724c0b43c7/e437494b96f8419f81fcef724c0b43c7.SD-480p-1.0Mbps-92698578.mp4",
+              "mime_type": "video/mp4",
+              "format": "mp4",
+              "width": 360,
+              "height": 480
+            }
+          ]
+        }
+      ],
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Apple"
+            },
+            {
+              "label": "Army"
+            },
+            {
+              "label": "Ash"
+            },
+            {
+              "label": "Black"
+            },
+            {
+              "label": "Burgundy"
+            },
+            {
+              "label": "Carbon Grey"
+            },
+            {
+              "label": "Chalk Pink"
+            },
+            {
+              "label": "Charcoal"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "Small"
+            },
+            {
+              "label": "Medium"
+            },
+            {
+              "label": "Large"
+            },
+            {
+              "label": "XLarge"
+            },
+            {
+              "label": "2XLarge"
+            },
+            {
+              "label": "3XLarge"
+            },
+            {
+              "label": "4XLarge"
+            }
+          ]
+        },
+        {
+          "name": "Length",
+          "values": [
+            {
+              "label": "Regular"
+            },
+            {
+              "label": "Short"
+            },
+            {
+              "label": "Tall"
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "unique_selling_points": [
+          "Features Stratusoft proprietary cotton-poly fabric for unmatched softness and durability."
+        ],
+        "top_features": [
+          "Stratusoft proprietary cotton-poly fabric: Delivers exceptional softness and comfort for all-day wear",
+          "Fitted crew neck design: Offers a flattering silhouette and versatile styling",
+          "Side seam construction: Enhances durability and a clean, tailored look",
+          "Available in multiple colors: Easily matches a variety of outfits and occasions",
+          "Free exchanges and no hassle returns: Ensures a stress-free shopping experience"
+        ],
+        "tech_specs": [
+          "Fabric: Cotton, Polyester",
+          "Neckline: Crew neck",
+          "Pattern: Solid",
+          "Sleeve Length: Short",
+          "Available Sizes: S, M, L, XL, XXL, XXXL, 4XL",
+          "Color Options: Black, White, Charcoal, Navy, Heather Grey, Dark Navy, Sea Blue, Burgundy, Nightfall, Mercury Green"
+        ]
+      },
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/8075961139244",
+          "title": "Black Crew Neck",
+          "description": {
+            "plain": "<p>If you love the timelessly cool look of a fitted black tee, then look no further, because our Bla"
+          },
+          "handle": "black-crew-neck",
+          "url": "https://freshcleantees.com/products/black-crew-neck?variant=8075961139244&_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2300,
+            "currency": "USD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Length",
+              "label": "Regular"
+            },
+            {
+              "name": "Color",
+              "label": "Black"
+            },
+            {
+              "name": "Size",
+              "label": "Small"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/2988/4106/files/CREW-NECK-Black-ghost.jpg",
+              "alt_text": "Black Crew Neck T-Shirt for Men | Now in 18 Sizes + 3 Lengths (Short, Reg, Tall)",
+              "preview": {
+                "url": "https://cdn.shopify.com/s/files/1/2988/4106/files/CREW-NECK-Black-ghost.jpg",
+                "width": 1500,
+                "height": 2000
+              },
+              "width": 1500,
+              "height": 2000
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/29884106",
+            "name": "Fresh Clean Tees",
+            "url": "https://freshcleantees.com",
+            "domain": "fresh-clean-tees.myshopify.com"
+          },
+          "checkout_url": "https://freshcleantees.com/cart/8075961139244:1?_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.5,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 4062
+          },
+          "condition": ["new"],
+          "source": "shopify"
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2300,
+          "currency": "USD"
+        },
+        "max": {
+          "amount": 2300,
+          "currency": "USD"
+        }
+      }
+    },
+    {
+      "id": "gid://shopify/p/60kmSTs7HawVlKZ0THIN1i",
+      "title": "Gymshark Crest T-Shirt - Black",
+      "description": {
+        "plain": "<p><b>CONSISTENTLY COMFORTABLE, CASUALLY STYLISH</b></p><p>Versatile designs made from soft, durable fabrics mean you can wear Crest anywhere and pair it with anything. So if comfort’s your goal, Crest’s your new go-to.</p><ul>\n<li>Comfortable, soft cotton</li>\n<li>Versatile design &amp; colours mak"
+      },
+      "handle": "gymshark-crest-t-shirt-black-aw21",
+      "media": [
+        {
+          "type": "image",
+          "url": "https://cdn.shopify.com/s/files/1/0156/6146/files/images-CrestT_ShirtBlackA1A3J_BBBB_0989_0461.jpg",
+          "alt_text": "Gymshark Crest T-Shirt - Black",
+          "preview": {
+            "url": "https://cdn.shopify.com/s/files/1/0156/6146/files/images-CrestT_ShirtBlackA1A3J_BBBB_0989_0461.jpg",
+            "width": 1692,
+            "height": 2018
+          },
+          "width": 1692,
+          "height": 2018
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "Extra Small"
+            },
+            {
+              "label": "Small"
+            },
+            {
+              "label": "Medium"
+            },
+            {
+              "label": "Large"
+            },
+            {
+              "label": "Extra Large"
+            },
+            {
+              "label": "Extra Extra Extra Large"
+            },
+            {
+              "label": "Extra Extra Large"
+            }
+          ]
+        },
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Black"
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "unique_selling_points": [
+          "Durable embroidered Gymshark Crest logo that withstands frequent washing and daily use."
+        ],
+        "top_features": [
+          "Soft 100% cotton fabric ensures all-day comfort",
+          "Durable embroidered logo maintains appearance through repeated washes",
+          "Versatile design suitable for gym or casual occasions",
+          "Regular fit provides a balanced, comfortable silhouette"
+        ],
+        "tech_specs": [
+          "Material: 100% cotton",
+          "Fabric Weight: 180 g/m²",
+          "Fit: Regular",
+          "Neckline: Crew",
+          "Sleeve Length: Short",
+          "Decoration: Embroidery"
+        ]
+      },
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/39246051246282",
+          "title": "Gymshark Crest T-Shirt - Black",
+          "description": {
+            "plain": "<p><b>CONSISTENTLY COMFORTABLE, CASUALLY STYLISH</b></p><p>Versatile designs made from soft, durable"
+          },
+          "handle": "gymshark-crest-t-shirt-black-aw21",
+          "url": "https://us.checkout.gymshark.com/products/gymshark-crest-t-shirt-black-aw21?variant=39246051246282&_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog",
+          "price": {
+            "amount": 2200,
+            "currency": "USD"
+          },
+          "availability": {
+            "available": true
+          },
+          "options": [
+            {
+              "name": "Color",
+              "label": "Black"
+            },
+            {
+              "name": "Size",
+              "label": "Extra Small"
+            }
+          ],
+          "media": [
+            {
+              "type": "image",
+              "url": "https://cdn.shopify.com/s/files/1/0156/6146/files/images-CrestT_ShirtBlackA1A3J_BBBB_0989_0461.jpg",
+              "alt_text": "Gymshark Crest T-Shirt - Black",
+              "preview": {
+                "url": "https://cdn.shopify.com/s/files/1/0156/6146/files/images-CrestT_ShirtBlackA1A3J_BBBB_0989_0461.jpg",
+                "width": 1692,
+                "height": 2018
+              },
+              "width": 1692,
+              "height": 2018
+            }
+          ],
+          "seller": {
+            "id": "gid://shopify/Shop/1566146",
+            "name": "Gymshark US",
+            "url": "https://us.checkout.gymshark.com",
+            "domain": "gymsharkusa.myshopify.com"
+          },
+          "checkout_url": "https://us.checkout.gymshark.com/cart/39246051246282:1?_gsid=WYogRbwV1ftP&utm_source=shopify&utm_medium=catalog&payment=shop_pay",
+          "rating": {
+            "value": 4.8,
+            "scale_min": 1,
+            "scale_max": 5,
+            "count": 869
+          },
+          "condition": ["new"],
+          "source": "shopify"
+        }
+      ],
+      "price_range": {
+        "min": {
+          "amount": 2200,
+          "currency": "USD"
+        },
+        "max": {
+          "amount": 2200,
+          "currency": "USD"
+        }
+      }
+    }
+  ],
+  "messages": [],
+  "pagination": {
+    "has_next_page": true,
+    "total_count": 424,
+    "cursor": "eyJvZmZzZXQiOjMsInRvdGFsX2NvdW50Ijo0MjQsInJldHVybmVkIjozfQ"
+  },
+  "next": [
+    "A featured variant may already answer the user's needs; use get_product only for other options or a concrete missing fact. Preserve the exact variant and seller. Create a basket or checkout only for user-directed basket, quote or review intent.",
+    "For useful adjacent alternatives, use search_catalog with one returned product or variant ID in `like`. Keep hard requirements in supported filters; preserve and verify the rest. Never substitute without user approval.",
+    "Paginate only if current results fit the task but are insufficient; carry the opaque cursor and search scope forward. If they miss the user's intent, refine instead."
+  ]
+}

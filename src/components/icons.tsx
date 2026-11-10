@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon as Add,
   Alert02Icon as Alert,
+  InformationCircleIcon as Information,
   AppWindowIcon as AppWindow,
   ArrowDown01Icon as ChevronDown,
   ArrowLeft02Icon as ArrowLeft,
@@ -52,6 +53,11 @@ import {
   WebhookIcon as Webhook,
   WorkflowIcon as Workflow,
   PlayIcon as Play,
+  ArrowLeft01Icon as ChevronLeft,
+  CheckmarkCircle02Icon as CheckCircle,
+  MinusSignIcon as Minus,
+  ShoppingBag01Icon as ShoppingBag,
+  StarIcon as Star,
 } from "@hugeicons/core-free-icons"
 import type { HugeiconsProps, IconSvgElement } from "@hugeicons/react"
 
@@ -96,9 +102,11 @@ export const CalendarIcon = icon(Calendar, "CalendarIcon")
 export const BotIcon = icon(Bot, "BotIcon")
 export const BookOpenTextIcon = icon(BookOpen, "BookOpenTextIcon")
 export const CaretDownIcon = icon(ChevronDown, "CaretDownIcon")
+export const CaretLeftIcon = icon(ChevronLeft, "CaretLeftIcon")
 export const CaretRightIcon = icon(ChevronRight, "CaretRightIcon")
 export const ChalkboardTeacherIcon = icon(Teaching, "ChalkboardTeacherIcon")
 export const CheckIcon = icon(Tick, "CheckIcon")
+export const CheckCircleIcon = icon(CheckCircle, "CheckCircleIcon")
 export const ClockIcon = icon(Clock, "ClockIcon")
 export const CopyIcon = icon(Copy, "CopyIcon")
 export const DownloadIcon = icon(Download, "DownloadIcon")
@@ -117,6 +125,7 @@ export const InboxCheckIcon = icon(InboxCheck, "InboxCheckIcon")
 export const LockIcon = icon(Lock, "LockIcon")
 export const ListBulletsIcon = icon(ListBullet, "ListBulletsIcon")
 export const MessageIcon = icon(Message, "MessageIcon")
+export const MinusIcon = icon(Minus, "MinusIcon")
 export const MagnifyingGlassIcon = icon(Search, "MagnifyingGlassIcon")
 export const SearchListIcon = icon(SearchList, "SearchListIcon")
 export const ComputerIcon = icon(AiBrowser, "ComputerIcon")
@@ -126,10 +135,13 @@ export const PipelineIcon = icon(Workflow, "PipelineIcon")
 export const PlayIcon = icon(Play, "PlayIcon")
 export const PlusIcon = icon(Add, "PlusIcon")
 export const PowerIcon = icon(Power, "PowerIcon")
+export const ShoppingBagIcon = icon(ShoppingBag, "ShoppingBagIcon")
 export const SidebarSimpleIcon = icon(SidebarLeft, "SidebarSimpleIcon")
+export const StarIcon = icon(Star, "StarIcon")
 export const StopIcon = icon(Stop, "StopIcon")
 export const TerminalIcon = icon(Terminal, "TerminalIcon")
 export const TrashIcon = icon(Delete, "TrashIcon")
 export const WarningIcon = icon(Alert, "WarningIcon")
+export const InfoIcon = icon(Information, "InfoIcon")
 export const WebhooksLogoIcon = icon(Webhook, "WebhooksLogoIcon")
 export const XIcon = icon(Cancel, "XIcon")

@@ -10,22 +10,25 @@ import {
   MagnifyingGlassIcon,
   MessageIcon,
   PlugsConnectedIcon,
+  ShoppingBagIcon,
   SearchListIcon,
   TerminalIcon,
   WarningIcon,
   ComputerIcon,
 } from "@/components/icons"
 import type { IconProps } from "@/components/icons"
+import { Loader } from "@cloudflare/kumo/components/loader"
 import { Outcome, PreviewView, ResultRows } from "@/components/call-preview"
 import { editedPreview, previewOf } from "@/lib/call-preview"
 import { ShimmerText } from "@/components/shimmer-text"
 import {
+  describeActivity,
   describeCall,
   describeGroup,
   shellResult,
   stepKind,
 } from "@/lib/message-parts"
-import type { StepKind, ToolCall, WorkItem } from "@/lib/message-parts"
+import type { StepKind, ToolCall } from "@/lib/message-parts"
 
 const KIND_ICON: Record<StepKind, (props: IconProps) => ReactNode> = {
   shell: TerminalIcon,
@@ -37,6 +40,7 @@ const KIND_ICON: Record<StepKind, (props: IconProps) => ReactNode> = {
   routine: CalendarIcon,
   bot: MessageIcon,
   app: PlugsConnectedIcon,
+  shop: ShoppingBagIcon,
   other: ComputerIcon,
 }
 
@@ -69,12 +73,11 @@ function useElapsed(from: number | undefined, on: boolean) {
 }
 
 type Entry =
-  | { kind: "note"; key: string; text: string }
   | { kind: "step"; key: string; call: ToolCall }
   | { kind: "group"; key: string; stepKind: StepKind; calls: ToolCall[] }
 
 /** Runs of two or more same-kind steps fold into one "Ran 4 commands" row. */
-function toEntries(work: WorkItem[]): Entry[] {
+function toEntries(calls: ToolCall[]): Entry[] {
   const entries: Entry[] = []
   let run: ToolCall[] = []
   const flush = () => {
@@ -90,14 +93,9 @@ function toEntries(work: WorkItem[]): Entry[] {
     }
     run = []
   }
-  for (const item of work) {
-    if (item.kind === "note") {
-      flush()
-      entries.push(item)
-    } else {
-      if (run.length && stepKind(run[0]) !== stepKind(item.call)) flush()
-      run.push(item.call)
-    }
+  for (const call of calls) {
+    if (run.length && stepKind(run[0]) !== stepKind(call)) flush()
+    run.push(call)
   }
   flush()
   return entries
@@ -322,40 +320,88 @@ function StepGroup({
 }
 
 /**
- * Everything the bot did on the way to its reply, folded into one line:
- * "Working for 12s" with the current step while it runs, then "Worked for
- * 37s" that opens into its narration and steps. Runs of the same kind of
- * step group into one row ("Ran 4 commands"), and every step opens to show
- * what went in and what came back.
+ * The tool steps behind a reply, folded into one line. While the bot works
+ * it is the status line: what it is doing right now, and for how long. Once
+ * the reply is in it becomes "Worked for 37s". Either way it opens into the
+ * steps, where runs of the same kind group into one row ("Ran 4 commands")
+ * and every step shows what went in and what came back.
  */
 export function WorkGroup({
-  work,
+  calls,
   live,
   startedAt,
   durationMs,
-  renderNote,
 }: {
-  work: WorkItem[]
+  calls: ToolCall[]
   live: boolean
   startedAt?: number
   durationMs?: number
-  /** Narration renders as Markdown, like the reply. */
-  renderNote: (text: string) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const hydrated = useHydrated()
   const elapsed = useElapsed(startedAt, live && hydrated)
-  const steps = work.flatMap((w) => (w.kind === "step" ? [w.call] : []))
-  const current = steps.findLast((c) => c.state === "running") ?? steps.at(-1)
-  const failed = steps.filter(failedState).length
+  const running = calls.findLast((c) => c.state === "running")
+  const failed = calls.filter(failedState).length
 
-  const label = live
-    ? elapsed !== undefined && elapsed >= 1000
-      ? `Working for ${formatDuration(elapsed)}`
-      : "Working"
-    : durationMs
-      ? `Worked for ${formatDuration(durationMs)}`
-      : `${steps.length} ${steps.length === 1 ? "step" : "steps"}`
+  const steps = (
+    <ul className="mt-2 space-y-1.5 border-t border-kumo-line pt-3 pb-1">
+      {toEntries(calls).map((entry) =>
+        entry.kind === "step" ? (
+          <StepRow key={entry.key} call={entry.call} />
+        ) : (
+          <StepGroup
+            key={entry.key}
+            kind={entry.stepKind}
+            calls={entry.calls}
+            live={live}
+          />
+        )
+      )}
+    </ul>
+  )
+
+  if (live) {
+    // Between steps the bot is reading what came back and deciding.
+    const activity = running ? describeActivity(running) : "Thinking"
+    return (
+      <div className="w-full max-w-[640px] text-sm text-kumo-subtle">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="group flex max-w-full items-center gap-2.5 rounded-lg pl-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-(--fill-hover) text-kumo-default">
+            <Loader size="sm" />
+          </span>
+          <span role="status" aria-live="polite" className="min-w-0 truncate">
+            <ShimmerText text={activity} className="text-[15px]" />
+          </span>
+          {elapsed !== undefined && elapsed >= 5000 ? (
+            // The time is the whole turn's, not this step's: the count
+            // keeps a long run from reading as one stuck command.
+            <span className="shrink-0 text-[13px] tabular-nums">
+              {calls.length > 1 ? `${calls.length} steps · ` : ""}
+              {formatDuration(elapsed)}
+            </span>
+          ) : null}
+          <CaretDownIcon
+            size={14}
+            className={`shrink-0 transition-[transform,opacity] duration-150 ${
+              open
+                ? "opacity-100"
+                : "-rotate-90 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+            }`}
+          />
+        </button>
+        {open ? steps : null}
+      </div>
+    )
+  }
+
+  const label = durationMs
+    ? `Worked for ${formatDuration(durationMs)}`
+    : `${calls.length} ${calls.length === 1 ? "step" : "steps"}`
 
   return (
     <div className="w-full max-w-[640px] text-sm text-kumo-subtle">
@@ -365,8 +411,8 @@ export function WorkGroup({
         aria-expanded={open}
         className="group flex max-w-full items-center gap-1 rounded-lg py-0.5 outline-none hover:text-kumo-default focus-visible:ring-2 focus-visible:ring-kumo-focus"
       >
-        {live ? <ShimmerText text={label} /> : <span>{label}</span>}
-        {!live && failed ? (
+        <span>{label}</span>
+        {failed ? (
           <span className="text-kumo-warning"> · {failed} failed</span>
         ) : null}
         <CaretDownIcon
@@ -374,43 +420,7 @@ export function WorkGroup({
           className={`shrink-0 transition-transform duration-150 ${open ? "" : "-rotate-90"}`}
         />
       </button>
-
-      {live && !open && current ? (
-        <div className="mt-1.5">
-          <Row
-            kind={stepKind(current)}
-            label={describeCall(current)}
-            running={current.state === "running"}
-            failed={failedState(current)}
-          />
-        </div>
-      ) : null}
-
-      {open ? (
-        <ul className="mt-2 space-y-1.5 border-t border-kumo-line pt-3 pb-1">
-          {toEntries(work).map((entry) => {
-            switch (entry.kind) {
-              case "note":
-                return (
-                  <li key={entry.key} className="text-kumo-default">
-                    {renderNote(entry.text.trim())}
-                  </li>
-                )
-              case "step":
-                return <StepRow key={entry.key} call={entry.call} />
-              case "group":
-                return (
-                  <StepGroup
-                    key={entry.key}
-                    kind={entry.stepKind}
-                    calls={entry.calls}
-                    live={live}
-                  />
-                )
-            }
-          })}
-        </ul>
-      ) : null}
+      {open ? steps : null}
     </div>
   )
 }

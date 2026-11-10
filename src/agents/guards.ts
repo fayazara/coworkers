@@ -44,6 +44,76 @@ export class LoopGuard {
   }
 }
 
+// ── Time budget for a turn the user is watching ───────────────────────
+
+/** Work this long without a word to the user and the bot is told to post one. */
+export const UPDATE_AFTER_MS = 60_000
+/** Past this, the bot is told to stop exploring and report what it has. */
+export const WRAP_UP_AFTER_MS = 3 * 60_000
+/** Past this, tools are switched off for the step: it has to answer. */
+export const STOP_AFTER_MS = 5 * 60_000
+
+export type BudgetAction =
+  | { kind: "update"; note: string }
+  | { kind: "wrap_up"; note: string }
+  | { kind: "stop"; note: string }
+
+/**
+ * Keeps a watched turn from going quiet or grinding on. A person waiting on
+ * a chat expects word within a minute and an answer within a few, even a
+ * partial one; one that has tried three sites without luck should say so
+ * rather than try a fourth. Each nudge is given once per turn.
+ */
+export class TurnBudget {
+  #startedAt: number | null = null
+  #lastUpdateAt = 0
+  #given = new Set<BudgetAction["kind"]>()
+
+  start(now: number) {
+    this.#startedAt = now
+    this.#lastUpdateAt = now
+    this.#given.clear()
+  }
+
+  /** The bot wrote something the user can see. */
+  spoke(now: number) {
+    this.#lastUpdateAt = now
+    // Another minute of silence after this deserves another nudge.
+    this.#given.delete("update")
+  }
+
+  check(now: number): BudgetAction | null {
+    if (this.#startedAt === null) return null
+    const worked = now - this.#startedAt
+    const minutes = Math.max(1, Math.round(worked / 60_000))
+    if (worked >= STOP_AFTER_MS && !this.#given.has("stop")) {
+      this.#given.add("stop")
+      return {
+        kind: "stop",
+        note: `[From the app, not the user] You have worked ${minutes} minutes on this and tools are now off. Reply now with what you have: the answer so far (even partial, with its sources), what blocked you, and one line offering the next step you would take if they want you to keep going.`,
+      }
+    }
+    if (worked >= WRAP_UP_AFTER_MS && !this.#given.has("wrap_up")) {
+      this.#given.add("wrap_up")
+      return {
+        kind: "wrap_up",
+        note: `[From the app, not the user] You have worked ${minutes} minutes and the user is waiting. Do not start on new sources or approaches. Finish with at most one or two more calls, then give the result with what you have, say plainly what blocked you, and offer to keep going.`,
+      }
+    }
+    if (
+      now - this.#lastUpdateAt >= UPDATE_AFTER_MS &&
+      !this.#given.has("update")
+    ) {
+      this.#given.add("update")
+      return {
+        kind: "update",
+        note: "[From the app, not the user] The user has seen nothing from you for over a minute. In this step, before any tool call, write one or two sentences: what you have found so far (or what is blocking you) and what you are trying next.",
+      }
+    }
+    return null
+  }
+}
+
 // ── Context shaping within a turn ─────────────────────────────────────
 
 /** Longest tool result the model sees, in characters. */
