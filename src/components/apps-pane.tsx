@@ -7,6 +7,7 @@ import {
   AppWindowIcon,
   ArrowLeftIcon,
   ArrowSquareOutIcon,
+  PlugsConnectedIcon,
   PlusIcon,
   TrashIcon,
   XIcon,
@@ -15,7 +16,12 @@ import { CopyButton } from "@/components/copy-button"
 import { EmptyState } from "@/components/empty-state"
 import { useBot } from "@/lib/bot-context"
 import type { BotConnection } from "@/lib/bot-context"
-import type { AppLink, BotAppDetail } from "@/lib/types"
+import type { AppLink, AppToolGrant, BotAppDetail } from "@/lib/types"
+
+/** Same as approvalKey in src/agents/app-tools.ts (server-only module). */
+function approvalKey(grant: Pick<AppToolGrant, "name" | "readOnly">) {
+  return `${grant.name}:${grant.readOnly ? "read" : "write"}`
+}
 
 const MODE_LABELS: Record<AppLink["mode"], string> = {
   edit: "Can edit",
@@ -158,7 +164,7 @@ function AppThumbnail({ app, path }: { app: BotAppDetail; path?: string }) {
       </span>
       {path && scale > 0 ? (
         <iframe
-          key={app.version}
+          key={`${app.version}:${app.approvedTools.join(",")}`}
           src={path}
           title=""
           aria-hidden
@@ -260,7 +266,7 @@ function AppDetail({
       {owner ? (
         <div className="mx-4 aspect-[16/10] shrink-0 overflow-hidden rounded-2xl bg-white outline outline-1 -outline-offset-1 outline-black/[0.06]">
           <iframe
-            key={app.version}
+            key={`${app.version}:${app.approvedTools.join(",")}`}
             title={`${app.name} preview`}
             src={owner.path}
             sandbox="allow-scripts allow-forms allow-popups allow-modals"
@@ -273,6 +279,10 @@ function AppDetail({
         Updated {formatAgo(app.updatedAt)}
         {app.collections.map((c) => ` · ${c.count} ${c.name}`).join("")}
       </p>
+
+      {app.tools.length > 0 ? (
+        <AppToolsSection agent={agent} app={app} onChanged={onChanged} />
+      ) : null}
 
       <div className="space-y-2 px-4 pt-6 pb-4">
         <h4 className="px-1.5 text-sm font-medium text-kumo-default">
@@ -381,6 +391,115 @@ function AppDetail({
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Tools on the user's apps that the app's server code may call live. */
+function AppToolsSection({
+  agent,
+  app,
+  onChanged,
+}: {
+  agent: BotConnection
+  app: BotAppDetail
+  onChanged: () => Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const allowed = (g: AppToolGrant) =>
+    app.approvedTools.includes(approvalKey(g))
+  const pending = app.tools.filter((g) => !allowed(g))
+  const writes = app.tools.some((g) => !g.readOnly)
+
+  async function run(action: "approve" | "revoke") {
+    setBusy(true)
+    try {
+      if (action === "approve") await agent.stub.approveAppTools(app.slug)
+      else await agent.stub.revokeAppTools(app.slug)
+      await onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2 px-4 pt-6">
+      <h4 className="px-1.5 text-sm font-medium text-kumo-default">
+        Access to your apps
+      </h4>
+      <ul className="overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]">
+        {app.tools.map((g) => (
+          <li
+            key={g.name}
+            className="flex min-h-14 items-center gap-3 border-t border-kumo-line py-3 pr-4 pl-4 first:border-t-0"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle">
+              <PlugsConnectedIcon size={14} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm text-kumo-default">
+                {g.app} · <span className="font-mono text-xs">{g.tool}</span>
+              </span>
+              <span className="mt-0.5 block text-xs text-pretty text-kumo-subtle">
+                {g.readOnly ? "Reads" : "Can change things"}
+                {g.description ? ` · ${g.description}` : ""}
+              </span>
+            </span>
+            <span
+              className={`shrink-0 text-xs ${allowed(g) ? "text-kumo-default" : "text-kumo-subtle"}`}
+            >
+              {allowed(g) ? "Allowed" : "Not allowed"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-start gap-3 px-1.5">
+        <p className="flex-1 text-xs text-pretty text-kumo-subtle">
+          {writes
+            ? "Anyone who can open this app can make it use these, through the code the bot wrote. Allow only if you trust what it does."
+            : "Anyone who can open this app can make it read these, through the code the bot wrote. The page shows only what that code returns."}
+        </p>
+        {pending.length > 0 ? (
+          <Button
+            size="sm"
+            variant="primary"
+            className="btn-ink shrink-0 rounded-full"
+            loading={busy}
+            onClick={() => void run("approve")}
+          >
+            Allow
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 rounded-full"
+            loading={busy}
+            onClick={() => void run("revoke")}
+          >
+            Turn off
+          </Button>
+        )}
+      </div>
+      {app.toolLog.length > 0 ? (
+        <div className="px-1.5 pt-2">
+          <h5 className="text-xs font-medium text-kumo-default">
+            Recent changes and failures
+          </h5>
+          <ul className="mt-1 space-y-0.5">
+            {app.toolLog.slice(0, 8).map((e) => (
+              <li
+                key={`${e.at}-${e.name}`}
+                className="truncate text-xs text-kumo-subtle tabular-nums"
+                title={e.error}
+              >
+                {formatAgo(e.at)} · {e.by} · {e.app} {e.tool}
+                {e.ok ? "" : ` · failed: ${e.error ?? "error"}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }

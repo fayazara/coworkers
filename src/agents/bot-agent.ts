@@ -62,6 +62,8 @@ import type {
   AppLink,
   ActivityEntry,
   AppAccess,
+  AppToolCallLog,
+  AppToolGrant,
   BotAppDetail,
   BotAttachment,
   BotAvatarKind,
@@ -101,7 +103,15 @@ import {
   validateAccess,
   visibleCollections,
 } from "./app-access"
-import type { SubmitWindow } from "./app-access"
+import type { SubmitLimits, SubmitWindow } from "./app-access"
+import {
+  TOOL_LIMITS,
+  approvalKey,
+  approvedGrants,
+  decideToolCall,
+  pushToolLog,
+  resolveGrants,
+} from "./app-tools"
 import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
 import type {
   AppCaller,
@@ -2647,9 +2657,31 @@ export class BotAgent extends Think<Env, BotState> {
             .describe(
               "Make this app a public form (survey, sign-up, booking page) that strangers can submit to through a link the user makes. Omit to keep what the app has; null removes it."
             ),
+          appTools: z
+            .array(z.string())
+            .max(10)
+            .nullable()
+            .optional()
+            .describe(
+              "Tools from the user's connected apps that server.js may call live with env.BOT.tool(name, args), e.g. a calendar's free/busy and create-event tools. Exact tool names as you see them. Ask only for what the app needs. They run once the user allows them in the Apps tab. Omit to keep what the app has; null or [] removes them."
+            ),
         }),
-        execute: async ({ slug, name, description, files, publicForm }) =>
-          this.publishApp({ slug, name, description, files, publicForm }),
+        execute: async ({
+          slug,
+          name,
+          description,
+          files,
+          publicForm,
+          appTools,
+        }) =>
+          this.publishApp({
+            slug,
+            name,
+            description,
+            files,
+            publicForm,
+            appTools,
+          }),
       }),
 
       list_apps: tool({
@@ -2732,6 +2764,11 @@ export class BotAgent extends Think<Env, BotState> {
       ...app,
       hasServer: this.apps.get(app.slug)?.hasServer ?? false,
       access: this.apps.get(app.slug)?.access ?? NO_ACCESS,
+      tools: this.apps.get(app.slug)?.tools ?? [],
+      approvedTools: this.apps.get(app.slug)?.approvedTools ?? [],
+      toolLog:
+        this.ctx.storage.kv.get<AppToolCallLog[]>(`app_tool_log:${app.slug}`) ??
+        [],
       links: this.apps.links(app.slug),
       collections: this.apps.collections(app.slug),
     }))
@@ -2762,6 +2799,7 @@ export class BotAgent extends Think<Env, BotState> {
     description: string
     files?: Record<string, string>
     publicForm?: { submit: string[]; read?: string[]; wake?: boolean } | null
+    appTools?: string[] | null
   }) {
     const slug = input.slug.trim().toLowerCase()
     if (!isAppSlug(slug)) {
@@ -2777,6 +2815,18 @@ export class BotAgent extends Think<Env, BotState> {
     } catch (err) {
       if (err instanceof AppDataError) return { error: err.message }
       throw err
+    }
+    let tools: AppToolGrant[] | null | undefined =
+      input.appTools === null ? null : undefined
+    if (input.appTools) {
+      try {
+        const catalog: AppCatalog = await (await this.hub()).appCatalog()
+        tools = resolveGrants(input.appTools, catalog.tools, (t) =>
+          appToolName(t.connectionId, t.name)
+        )
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) }
+      }
     }
     const dir = `${APPS_ROOT}/${slug}`
     await this.workspace.fs.mkdir(dir, { recursive: true })
@@ -2827,6 +2877,7 @@ export class BotAgent extends Think<Env, BotState> {
       description: input.description.trim(),
       hasServer,
       access,
+      tools,
     })
     this.syncAppsState()
     await this.broadcastApp(slug, { type: "reload", version: app.version })
@@ -2841,6 +2892,25 @@ export class BotAgent extends Think<Env, BotState> {
               ...app.access,
               note: 'For strangers, the user makes a public link in the Apps tab ("Can submit"). Tell them that in one line.',
             },
+          }
+        : {}),
+      ...(app.tools.length > 0
+        ? {
+            appTools: app.tools.map((g) => ({
+              name: g.name,
+              app: g.app,
+              tool: g.tool,
+              readOnly: g.readOnly,
+              allowed: app.approvedTools.includes(approvalKey(g)),
+            })),
+            ...(app.tools.some(
+              (g) => !app.approvedTools.includes(approvalKey(g))
+            )
+              ? {
+                  appToolsNote:
+                    "Some app tools are not allowed yet, so env.BOT.tool() fails for them. Tell the user to allow them in the Apps tab, and make the page show a clear message until then.",
+                }
+              : {}),
           }
         : {}),
     }
@@ -2968,17 +3038,127 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   /** A 429 if this public link or visitor is submitting too fast, else null. */
-  private takeSubmitSlot(slug: string, caller: AppCaller) {
-    const key = `app_submits:${slug}:${caller.token ?? caller.label}`
+  private takeSubmitSlot(
+    slug: string,
+    caller: AppCaller,
+    kind = "submits",
+    limits?: SubmitLimits,
+    what = "submissions"
+  ) {
+    const key = `app_${kind}:${slug}:${caller.token ?? caller.label}`
     const window = this.ctx.storage.kv.get<SubmitWindow>(key) ?? EMPTY_WINDOW
-    const result = takeSubmitSlot(window, caller.ip ?? "unknown", Date.now())
+    const result = takeSubmitSlot(
+      window,
+      caller.ip ?? "unknown",
+      Date.now(),
+      limits
+    )
     this.ctx.storage.kv.put(key, result.window)
     if (result.ok) return null
     const minutes = Math.max(1, Math.ceil(result.retryAfterMs / 60_000))
     return {
-      error: `Too many submissions. Try again in ${minutes} min.`,
+      error: `Too many ${what}. Try again in ${minutes} min.`,
       status: 429,
     }
+  }
+
+  /**
+   * Durable Object RPC from `env.BOT.tool()` in an app's server.js: one
+   * call to a tool on the user's connections, if the app asked for it and
+   * the user allowed it. Never reachable from the page itself.
+   */
+  async appTool(
+    slug: string,
+    caller: AppCaller,
+    name: string,
+    args: unknown
+  ): Promise<{ value: unknown } | { error: string; status: number }> {
+    const app = this.apps.get(slug)
+    if (!app) return { error: "Not found", status: 404 }
+    // Allowing an app's tools in the Apps tab is the "ask first"; a block
+    // rule on the bot still wins.
+    if ((this.state.rules.apps ?? DEFAULT_RULES.apps) === "block") {
+      return {
+        error: "The user's rules block this bot from using connected apps",
+        status: 403,
+      }
+    }
+    const hub = await this.hub()
+    const catalog: AppCatalog = await hub.appCatalog()
+    const decision = decideToolCall({
+      name,
+      args,
+      grants: app.tools,
+      approved: app.approvedTools,
+      catalog: catalog.tools,
+      nameOf: (t) => appToolName(t.connectionId, t.name),
+    })
+    if (!decision.ok) return { error: decision.error, status: decision.status }
+    const { grant, tool } = decision
+    // The user's own link is not limited; everyone else is, edit links too.
+    if (!caller.owner) {
+      const limited = tool.readOnly
+        ? this.takeSubmitSlot(
+            slug,
+            caller,
+            "tool_reads",
+            TOOL_LIMITS.read,
+            "requests"
+          )
+        : this.takeSubmitSlot(
+            slug,
+            caller,
+            "tool_writes",
+            TOOL_LIMITS.write,
+            "requests"
+          )
+      if (limited) return limited
+    }
+    const entry: AppToolCallLog = {
+      at: Date.now(),
+      name: grant.name,
+      app: grant.app,
+      tool: tool.name,
+      readOnly: tool.readOnly,
+      by: caller.label,
+      ok: true,
+    }
+    try {
+      const value = await hub.callAppTool(
+        tool.connectionId,
+        tool.name,
+        args as Record<string, unknown>
+      )
+      if (!tool.readOnly) this.logToolCall(slug, entry)
+      return { value }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      this.logToolCall(slug, { ...entry, ok: false, error: clip(message, 200) })
+      return { error: clip(message, 500), status: 502 }
+    }
+  }
+
+  /** Writes and failures, so the user can see what a form did. */
+  private logToolCall(slug: string, entry: AppToolCallLog) {
+    const key = `app_tool_log:${slug}`
+    const log = this.ctx.storage.kv.get<AppToolCallLog[]>(key) ?? []
+    this.ctx.storage.kv.put(key, pushToolLog(log, entry))
+  }
+
+  /** Durable Object RPC from `env.BOT.tools()`: what server.js may call. */
+  async appToolList(slug: string) {
+    const app = this.apps.get(slug)
+    if (!app) return []
+    const allowed = new Set(
+      approvedGrants(app.tools, app.approvedTools).map((g) => g.name)
+    )
+    return app.tools.map((g) => ({
+      name: g.name,
+      app: g.app,
+      tool: g.tool,
+      readOnly: g.readOnly,
+      allowed: allowed.has(g.name),
+    }))
   }
 
   /** Queue an edit someone made in an app; the bot hears about it in a batch. */
@@ -3047,6 +3227,7 @@ export class BotAgent extends Think<Env, BotState> {
       mode: link.mode,
       token: link.token,
       ip: request.headers.get("CF-Connecting-IP") ?? "unknown",
+      owner: link.owner,
     }
 
     if (
@@ -5846,6 +6027,20 @@ export class BotAgent extends Think<Env, BotState> {
       throw new Error("This app has no public form")
     }
     return this.apps.createLink(slug, name, safe)
+  }
+
+  /** The user allows every tool the app asks for, as they are now. */
+  @callable()
+  async approveAppTools(slug: string) {
+    const app = this.apps.get(slug)
+    if (!app) throw new Error(`No app "${slug}"`)
+    this.apps.approveTools(slug, app.tools.map(approvalKey))
+  }
+
+  @callable()
+  async revokeAppTools(slug: string) {
+    if (!this.apps.get(slug)) throw new Error(`No app "${slug}"`)
+    this.apps.approveTools(slug, [])
   }
 
   @callable()

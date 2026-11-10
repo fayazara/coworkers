@@ -1,4 +1,9 @@
-import type { AppAccess, AppLink, BotAppSummary } from "@/lib/types"
+import type {
+  AppAccess,
+  AppLink,
+  AppToolGrant,
+  BotAppSummary,
+} from "@/lib/types"
 
 /**
  * Apps a bot built, the links that open them, and the data they show.
@@ -58,6 +63,28 @@ export function parseAccess(json: string | null | undefined): AppAccess {
   }
 }
 
+function isGrant(x: unknown): x is AppToolGrant {
+  const g = x as AppToolGrant
+  return (
+    !!g &&
+    typeof g.name === "string" &&
+    typeof g.connectionId === "string" &&
+    typeof g.tool === "string" &&
+    typeof g.readOnly === "boolean"
+  )
+}
+
+/** A JSON list from SQL, keeping only the entries that look right. */
+function parseList<T>(json: string | null, ok: (x: unknown) => x is T): T[] {
+  if (!json) return []
+  try {
+    const raw = JSON.parse(json) as unknown
+    return Array.isArray(raw) ? raw.filter(ok) : []
+  } catch {
+    return []
+  }
+}
+
 /** What an item looks like to apps and to the bot. */
 export type AppItem = Record<string, unknown> & {
   id: string
@@ -72,6 +99,8 @@ type AppRow = {
   version: number
   has_server: number
   access: string | null
+  tools: string | null
+  approved_tools: string | null
   updated_at: number
 }
 
@@ -147,8 +176,11 @@ export class AppStore {
     const columns = this.sql
       .exec<{ name: string }>(`PRAGMA table_info(apps)`)
       .toArray()
-    if (!columns.some((c) => c.name === "access")) {
-      this.sql.exec(`ALTER TABLE apps ADD COLUMN access TEXT`)
+    // Added later, each on its own: older bots have the table without them.
+    for (const column of ["access", "tools", "approved_tools"]) {
+      if (!columns.some((c) => c.name === column)) {
+        this.sql.exec(`ALTER TABLE apps ADD COLUMN ${column} TEXT`)
+      }
     }
   }
 
@@ -170,6 +202,11 @@ export class AppStore {
           ...toSummary(row),
           hasServer: row.has_server === 1,
           access: parseAccess(row.access),
+          tools: parseList<AppToolGrant>(row.tools, isGrant),
+          approvedTools: parseList<string>(
+            row.approved_tools,
+            (x): x is string => typeof x === "string"
+          ),
         }
       : null
   }
@@ -177,6 +214,8 @@ export class AppStore {
   /**
    * Create or update an app and make sure the owner has a link to it.
    * `access` undefined keeps what the app had; null removes its public form.
+   * `tools` the same, for the app tools it asked for. Approvals are kept:
+   * they only count for tools still asked for, as they were approved.
    */
   save(input: {
     slug: string
@@ -184,17 +223,20 @@ export class AppStore {
     description: string
     hasServer: boolean
     access?: AppAccess | null
+    tools?: AppToolGrant[] | null
   }) {
     const now = Date.now()
     const keep = input.access === undefined
+    const keepTools = input.tools === undefined
     this.sql.exec(
-      `INSERT INTO apps (slug, name, description, version, has_server, access, created_at, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+      `INSERT INTO apps (slug, name, description, version, has_server, access, tools, created_at, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
        ON CONFLICT (slug) DO UPDATE SET
          name = excluded.name,
          description = excluded.description,
          has_server = excluded.has_server,
          access = ${keep ? "apps.access" : "excluded.access"},
+         tools = ${keepTools ? "apps.tools" : "excluded.tools"},
          version = apps.version + 1,
          updated_at = excluded.updated_at`,
       input.slug,
@@ -202,11 +244,23 @@ export class AppStore {
       input.description,
       input.hasServer ? 1 : 0,
       input.access ? JSON.stringify(input.access) : null,
+      input.tools && input.tools.length > 0
+        ? JSON.stringify(input.tools)
+        : null,
       now,
       now
     )
     this.ownerLink(input.slug)
     return this.get(input.slug)!
+  }
+
+  /** The user's approval of the app's tools, as they are now. */
+  approveTools(slug: string, keys: string[]) {
+    this.sql.exec(
+      `UPDATE apps SET approved_tools = ? WHERE slug = ?`,
+      keys.length > 0 ? JSON.stringify(keys) : null,
+      slug
+    )
   }
 
   delete(slug: string) {

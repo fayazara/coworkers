@@ -154,6 +154,55 @@ describe("AppStore and public forms", () => {
   })
 })
 
+describe("AppStore and app tools", () => {
+  const grant = {
+    name: "tool_cgcal_create_event",
+    connectionId: "gcal",
+    tool: "create_event",
+    app: "Google Calendar",
+    readOnly: false,
+    description: "Create an event",
+  }
+
+  it("an app asks for no tools by default", () => {
+    const store = newStore()
+    store.save({ slug: "trip", ...base })
+    expect(store.get("trip")).toMatchObject({ tools: [], approvedTools: [] })
+  })
+
+  it("stores the tools, keeps them on republish, clears them with null", () => {
+    const store = newStore()
+    store.save({ slug: "book", ...base, tools: [grant] })
+    store.save({ slug: "book", ...base })
+    expect(store.get("book")?.tools).toEqual([grant])
+    store.save({ slug: "book", ...base, tools: null })
+    expect(store.get("book")?.tools).toEqual([])
+  })
+
+  it("keeps the user's approval across a republish", () => {
+    const store = newStore()
+    store.save({ slug: "book", ...base, tools: [grant] })
+    store.approveTools("book", ["tool_cgcal_create_event:write"])
+    store.save({ slug: "book", ...base, tools: [grant] })
+    expect(store.get("book")?.approvedTools).toEqual([
+      "tool_cgcal_create_event:write",
+    ])
+    store.approveTools("book", [])
+    expect(store.get("book")?.approvedTools).toEqual([])
+  })
+
+  it("ignores broken stored tool data", () => {
+    const sql = fakeSql()
+    const store = new AppStore(sql, linkPath)
+    store.init()
+    store.save({ slug: "book", ...base })
+    sql.db.exec(
+      `UPDATE apps SET tools = '[{"name":1},{"oops":true}]', approved_tools = '{'`
+    )
+    expect(store.get("book")).toMatchObject({ tools: [], approvedTools: [] })
+  })
+})
+
 describe("bots made before public forms", () => {
   it("gets the access column added, and old apps keep working", () => {
     const sql = fakeSql()
@@ -179,6 +228,19 @@ describe("bots made before public forms", () => {
       access: validateAccess({ submit: ["rsvps"] }),
     })
     expect(store.get("old")?.access.submit).toEqual(["rsvps"])
+  })
+
+  it("adds the tool columns to a bot that already had public forms", () => {
+    const sql = fakeSql()
+    sql.db.exec(`CREATE TABLE apps (
+      slug TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+      version INTEGER NOT NULL DEFAULT 1, has_server INTEGER NOT NULL DEFAULT 0,
+      access TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    )`)
+    const store = new AppStore(sql, linkPath)
+    store.init()
+    store.save({ slug: "x", ...base })
+    expect(store.get("x")).toMatchObject({ tools: [], approvedTools: [] })
   })
 
   it("running init twice is harmless", () => {

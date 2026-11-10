@@ -56,6 +56,8 @@ export interface AppCaller {
   token?: string
   /** The visitor's IP, for per-visitor rate limits. Never shown to the app. */
   ip?: string
+  /** The user's own link: not rate limited. Never shown to the app. */
+  owner?: boolean
 }
 
 /** The part of a caller an app may see. */
@@ -290,6 +292,27 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
 
   tell(text: string) {
     return this.call({ op: "tell", text })
+  }
+
+  /**
+   * Call a tool on the user's connected apps, live. Only tools the app
+   * asked for on save_app and the user allowed. Throws if not allowed,
+   * rate limited, or if the app fails.
+   */
+  async tool(name: string, args: Record<string, unknown> = {}) {
+    const { userId, botId, slug, caller } = this.ctx.props
+    const bot = await botStub(this.env, userId, botId)
+    const result = (await bot.appTool(slug, caller, name, args)) as
+      { value: unknown } | { error: string }
+    if ("error" in result) throw new Error(result.error)
+    return result.value
+  }
+
+  /** The app tools this app asked for, and whether each is allowed. */
+  async tools() {
+    const { userId, botId, slug } = this.ctx.props
+    const bot = await botStub(this.env, userId, botId)
+    return bot.appToolList(slug)
   }
 }
 

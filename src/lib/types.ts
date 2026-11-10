@@ -433,9 +433,44 @@ export interface AppAccess {
   wake: boolean
 }
 
+/**
+ * A tool on one of the user's connections that an app's server.js may
+ * call live. The bot asks for it; it runs only once the user approves.
+ */
+export interface AppToolGrant {
+  /** The bot's name for it, `tool_c<connection>_<tool>`. */
+  name: string
+  connectionId: string
+  /** The tool's own name on the app, e.g. "create_event". */
+  tool: string
+  /** The connection's name, e.g. "Google Calendar". */
+  app: string
+  readOnly: boolean
+  description: string
+}
+
+/** One call in an app's recent tool log, shown to the user. */
+export interface AppToolCallLog {
+  at: number
+  name: string
+  app: string
+  tool: string
+  readOnly: boolean
+  /** The link label it came through. */
+  by: string
+  ok: boolean
+  error?: string
+}
+
 export interface BotAppDetail extends BotAppSummary {
   hasServer: boolean
   access: AppAccess
+  /** Tools the app asked for. */
+  tools: AppToolGrant[]
+  /** Approval keys the user gave (see approvalKey in app-tools.ts). */
+  approvedTools: string[]
+  /** Latest tool calls, newest first. */
+  toolLog: AppToolCallLog[]
   links: AppLink[]
   collections: { name: string; count: number }[]
 }
