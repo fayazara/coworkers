@@ -1,13 +1,5 @@
 import { sameEndpoint } from "@/lib/choices"
 import { Agent, callable, getAgentByName } from "agents"
-import type { AgentMcpOAuthProvider } from "agents"
-import { HubOAuthProvider } from "./google-oauth"
-import type { GoogleClient } from "./google-oauth"
-import {
-  GOOGLE_CLIENT_ID,
-  googleScopesFor,
-  isGoogleServer,
-} from "@/lib/integrations"
 import {
   Client as McpClient,
   StreamableHTTPClientTransport,
@@ -256,15 +248,8 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       data TEXT NOT NULL,
       checked_at INTEGER NOT NULL
     )`
-    // The user's own Google OAuth client. The secret stays in this table;
-    // state only carries the client id, which is not secret.
-    this.sql`CREATE TABLE IF NOT EXISTS google_client (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      client_id TEXT NOT NULL,
-      client_secret TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )`
-    this.publishGoogle()
+    // Google sign-in was removed; drop any client secret a hub still holds.
+    this.sql`DROP TABLE IF EXISTS google_client`
     this.refreshDesk()
     await this.startSpend()
     // After an MCP sign-in completes, send the user back to Connections.
@@ -823,7 +808,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       })
     } catch (err) {
       // A server that answers the handshake but wants a sign-in for its
-      // tools (Google's do) fails discovery while already waiting for the
+      // tools fails discovery while already waiting for the
       // user: that is a connection to keep, with its sign-in link.
       const server = this.getMcpServers().servers[serverId(id)]
       if (server?.state !== "authenticating") {
@@ -868,84 +853,6 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     this.syncConnectionStatus()
     await this.mcp.waitForConnections({ timeout: 10_000 })
     this.syncConnectionStatus()
-  }
-
-  // ── Google ──────────────────────────────────────────────────────────
-
-  private googleClient(): GoogleClient | null {
-    const [row] = this.sql<{ client_id: string; client_secret: string }>`
-      SELECT client_id, client_secret FROM google_client WHERE id = 1`
-    return row
-      ? { clientId: row.client_id, clientSecret: row.client_secret }
-      : null
-  }
-
-  private publishGoogle() {
-    const client = this.googleClient()
-    const google = client ? { clientId: client.clientId } : null
-    if (JSON.stringify(google) !== JSON.stringify(this.state.google ?? null)) {
-      this.setState({ ...this.state, google })
-    }
-  }
-
-  /**
-   * Every MCP sign-in goes through this provider. Google's servers get the
-   * user's own client; every other server registers one by itself.
-   */
-  createMcpOAuthProvider(callbackUrl: string): AgentMcpOAuthProvider {
-    return new HubOAuthProvider(
-      this.ctx.storage,
-      this.name,
-      callbackUrl,
-      (id) => {
-        const url = this.getMcpServers().servers[id]?.server_url
-        if (!url || !isGoogleServer(url)) return null
-        const client = this.googleClient()
-        return client ? { client, scopes: googleScopesFor(url) } : null
-      }
-    )
-  }
-
-  /** What the Google setup page shows: the redirect URI to register. */
-  @callable()
-  googleSetup(): { redirectUri: string | null } {
-    // Where the SDK sends every MCP sign-in back to (see addMcpServer).
-    const origin = this.origin
-    return {
-      redirectUri: origin
-        ? `${origin}/agents/user-hub/${this.name}/callback`
-        : null,
-    }
-  }
-
-  @callable()
-  setGoogleClient(input: { clientId: string; clientSecret: string }) {
-    const clientId = input.clientId.trim()
-    const clientSecret = input.clientSecret.trim()
-    if (!GOOGLE_CLIENT_ID.test(clientId)) {
-      throw new Error(
-        "That is not a Google client ID. It ends in .apps.googleusercontent.com."
-      )
-    }
-    if (!clientSecret) throw new Error("Paste the client secret too.")
-    this
-      .sql`INSERT INTO google_client (id, client_id, client_secret, updated_at)
-      VALUES (1, ${clientId}, ${clientSecret}, ${Date.now()})
-      ON CONFLICT (id) DO UPDATE SET client_id = excluded.client_id,
-        client_secret = excluded.client_secret, updated_at = excluded.updated_at`
-    this.publishGoogle()
-  }
-
-  /** Forget the client, and the Google connections signed in with it. */
-  @callable()
-  async removeGoogleClient() {
-    for (const c of this.state.connections.filter((c) =>
-      isGoogleServer(c.url)
-    )) {
-      await this.removeConnection(c.id)
-    }
-    this.sql`DELETE FROM google_client`
-    this.publishGoogle()
   }
 
   /** One connection's tools, names and descriptions, for its detail page. */

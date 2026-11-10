@@ -27,10 +27,8 @@ import { sameEndpoint } from "@/lib/choices"
 import { connectionStatus } from "@/lib/connection-status"
 import { useHub } from "@/lib/hub-context"
 import {
-  GOOGLE_SETUP,
   INTEGRATIONS,
   INTEGRATION_CATEGORIES,
-  isGoogleServer,
   integrationFor,
   integrationHeaders,
 } from "@/lib/integrations"
@@ -42,7 +40,6 @@ const LINK =
 
 /** Pages under Integrations: the catalog, one app, or a custom server. */
 const CUSTOM = "custom"
-const GOOGLE_SETUP_PAGE = "google-setup"
 const customId = (connection: Connection) => `c-${connection.id}`
 
 function hostOf(url: string) {
@@ -156,15 +153,7 @@ function matches(item: Item, query: string) {
 }
 
 /** A tile: the whole card opens the app; its button acts without opening it. */
-function Tile({
-  item,
-  onOpen,
-  onGoogleSetup,
-}: {
-  item: Item
-  onOpen: () => void
-  onGoogleSetup: () => void
-}) {
+function Tile({ item, onOpen }: { item: Item; onOpen: () => void }) {
   const hub = useHub()
   const { integration, connection } = item
   const [adding, setAdding] = useState(false)
@@ -177,10 +166,6 @@ function Tile({
     if (!integration) return
     // A key is typed on the app's page, never in a tile.
     if (integration.auth === "key") return onOpen()
-    // Google needs the user's own client before any of its apps.
-    if (integration.auth === "google" && !hub.state.google) {
-      return onGoogleSetup()
-    }
     setAdding(true)
     setError(null)
     try {
@@ -281,7 +266,7 @@ function Catalog({ onOpen }: { onOpen: (page: string) => void }) {
             (i) => i.integration?.category === category && !i.connection
           ),
         })),
-      ].filter((s) => s.items.length > 0 || s.title === "Google")
+      ].filter((s) => s.items.length > 0)
     : [{ items: visible }]
 
   const open = (item: Item) =>
@@ -364,16 +349,8 @@ function Catalog({ onOpen }: { onOpen: (page: string) => void }) {
                 `${section.items.length} ${section.items.length === 1 ? "result" : "results"}`
               }
             >
-              {section.title === "Google" ? (
-                <GoogleSetupRow onOpen={() => onOpen(GOOGLE_SETUP_PAGE)} />
-              ) : null}
               {section.items.map((item) => (
-                <Tile
-                  key={item.key}
-                  item={item}
-                  onOpen={() => open(item)}
-                  onGoogleSetup={() => onOpen(GOOGLE_SETUP_PAGE)}
-                />
+                <Tile key={item.key} item={item} onOpen={() => open(item)} />
               ))}
             </Group>
           ))}
@@ -625,24 +602,20 @@ const SIGN_IN_LABEL: Record<Integration["auth"], string> = {
   none: "No account needed",
   oauth: "Your own account",
   key: "API key",
-  google: "Your Google account, through your own client",
 }
 
 function AppPage({
   integration,
   connection,
   onBack,
-  onGoogleSetup,
   autoFocusKey,
 }: {
   integration?: Integration
   connection?: Connection
   onBack: () => void
-  onGoogleSetup: () => void
   autoFocusKey?: boolean
 }) {
   const hub = useHub()
-  const googleFirst = integration?.auth === "google" && !hub.state.google
   const [key, setKey] = useState("")
   const [busyAction, setBusyAction] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -721,15 +694,6 @@ function AppPage({
             >
               Remove
             </Button>
-          ) : googleFirst ? (
-            <Button
-              variant="primary"
-              size="sm"
-              className="btn-ink rounded-full"
-              onClick={onGoogleSetup}
-            >
-              Set up Google
-            </Button>
           ) : (
             <Button
               variant="primary"
@@ -748,14 +712,6 @@ function AppPage({
       {integration ? (
         <p className="px-1.5 text-[15px] text-pretty text-kumo-default">
           {integration.description}
-        </p>
-      ) : null}
-
-      {integration?.auth === "google" && !connection ? (
-        <p className="rounded-2xl bg-kumo-tint px-4 py-3 text-sm text-pretty text-kumo-subtle">
-          {googleFirst
-            ? "Google apps sign in through a Google Cloud client of your own. Set it up once, then Gmail, Calendar, Drive, Docs and Sheets are each one click."
-            : "Connecting opens Google's sign-in. Your bots use your own Google client, so nobody else holds your tokens."}
         </p>
       ) : null}
 
@@ -1057,430 +1013,6 @@ function CustomServer({
 }
 
 // ---------------------------------------------------------------------------
-// Google: one client of the user's own, for every Google app
-
-/** First in the Google group: the setup, or the client once it is there. */
-function GoogleSetupRow({ onOpen }: { onOpen: () => void }) {
-  const hub = useHub()
-  const done = Boolean(hub.state.google)
-  return (
-    <li className="border-t border-kumo-line first:border-t-0">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex min-h-14 w-full items-center gap-4 py-3 pr-4 pl-4 text-left outline-none hover:bg-(--fill-hover) focus-visible:bg-(--fill-hover)"
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle [&>img]:size-5 [&>img]:rounded-[4px]">
-          <AppIcon size="sm" host="google.com" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm text-kumo-default">
-            {done ? "Your Google client" : "Set up Google"}
-          </span>
-          <span className="mt-0.5 block max-w-[75%] text-xs text-pretty text-kumo-subtle">
-            {done
-              ? "Every Google app signs in through it."
-              : "A one-time setup in Google Cloud, about ten minutes. Then each Google app is one click."}
-          </span>
-        </span>
-        {done ? (
-          <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-kumo-success">
-            <span className="size-1.5 rounded-full bg-kumo-success" />
-            Set up
-          </span>
-        ) : null}
-        <CaretRightIcon size={14} className="shrink-0 text-kumo-subtle" />
-      </button>
-    </li>
-  )
-}
-
-const OPEN_LINK =
-  "pressable inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-(--fill-hover) px-3 text-sm text-kumo-default outline-none hover:bg-(--fill-active) focus-visible:ring-2 focus-visible:ring-kumo-focus"
-
-function OpenLink({ href, label = "Open" }: { href: string; label?: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer noopener"
-      className={OPEN_LINK}
-    >
-      {label}
-      <ArrowSquareOutIcon size={13} className="text-kumo-subtle" />
-    </a>
-  )
-}
-
-/** One step of the setup: its number, what to do, and the way to do it. */
-function Step({
-  n,
-  title,
-  children,
-  action,
-  code,
-}: {
-  n: number
-  title: string
-  children: React.ReactNode
-  action?: React.ReactNode
-  /** Something to copy as is: a command or a URL. */
-  code?: { text: string; label: string }
-}) {
-  return (
-    <li className="flex gap-4 border-t border-kumo-line py-3.5 pr-3 pl-4 first:border-t-0">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-xs font-medium text-kumo-subtle tabular-nums">
-        {n}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-h-7 items-center gap-3">
-          <p className="min-w-0 flex-1 text-sm text-kumo-default">{title}</p>
-          {action}
-        </div>
-        <div className="mt-0.5 pr-1 text-xs text-pretty text-kumo-subtle">
-          {children}
-        </div>
-        {code ? (
-          <div className="mt-2.5 flex items-start gap-1 rounded-xl bg-(--fill-hover) py-1 pr-1 pl-3">
-            <code className="min-w-0 flex-1 py-1.5 font-mono text-[12px] leading-relaxed break-words text-kumo-default">
-              {code.text}
-            </code>
-            <CopyButton text={code.text} label={code.label} />
-          </div>
-        ) : null}
-      </div>
-    </li>
-  )
-}
-
-function GoogleSetup({
-  onBack,
-  onOpen,
-}: {
-  onBack: () => void
-  /** Another page under Integrations: an app, or the custom server. */
-  onOpen: (page: string) => void
-}) {
-  const hub = useHub()
-  const { googleSetup, live } = hub
-  const configured = hub.state.google
-  const [redirectUri, setRedirectUri] = useState<string | null>(null)
-  const [replacing, setReplacing] = useState(false)
-  const [clientId, setClientId] = useState("")
-  const [secret, setSecret] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [confirmRemove, setConfirmRemove] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const googleApps = hub.state.connections.filter((c) =>
-    isGoogleServer(c.url)
-  ).length
-
-  const read = useRef(googleSetup)
-  read.current = googleSetup
-  useEffect(() => {
-    if (!live) return
-    read.current().then(
-      (setup) => setRedirectUri(setup.redirectUri),
-      () => setRedirectUri(null)
-    )
-  }, [live])
-
-  async function save() {
-    setSaving(true)
-    setError(null)
-    try {
-      await hub.setGoogleClient({ clientId, clientSecret: secret })
-      setClientId("")
-      setSecret("")
-      setReplacing(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save it.")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function remove() {
-    setSaving(true)
-    try {
-      await hub.removeGoogleClient()
-      setConfirmRemove(false)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const command = `gcloud services enable ${GOOGLE_SETUP.enable.join(" ")}`
-  const showForm = !configured || replacing
-
-  return (
-    <div className="space-y-6">
-      <BackLink onBack={onBack} />
-      <div className="flex items-start gap-4 px-1.5">
-        <AppIcon size="lg" host="google.com" />
-        <div className="min-w-0 flex-1 pt-0.5">
-          <h2 className="text-xl font-semibold tracking-tight text-kumo-default">
-            Google
-          </h2>
-          <p className="mt-0.5 text-sm text-pretty text-kumo-subtle">
-            Gmail, Calendar, Drive, Docs and Sheets, through Google's own MCP
-            servers.
-          </p>
-        </div>
-      </div>
-
-      <p className="px-1.5 text-[15px] text-pretty text-kumo-default">
-        Google only lets an app sign in with a client its owner registered. On
-        your own Coworkers, that owner is you: create one in Google Cloud, once,
-        and every Google app connects with a click. Your tokens stay on your
-        deployment.
-      </p>
-
-      {configured && !replacing ? (
-        <Group
-          title="Your Google client"
-          hint={
-            confirmRemove
-              ? `Removing it also disconnects ${googleApps === 1 ? "your Google app" : `your ${googleApps} Google apps`}. You can set it up again any time.`
-              : "The secret stays on the server and is never shown to a model."
-          }
-        >
-          <Row
-            label="Client ID"
-            detail={
-              <span className="font-mono break-all">{configured.clientId}</span>
-            }
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              className="shrink-0 rounded-full"
-              onClick={() => setReplacing(true)}
-            >
-              Replace
-            </Button>
-            {confirmRemove && googleApps > 0 ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="shrink-0 rounded-full"
-                loading={saving}
-                onClick={() => void remove()}
-              >
-                Remove
-              </Button>
-            ) : (
-              <RowAction
-                label="Remove Google client"
-                danger
-                disabled={!live || saving}
-                onClick={() =>
-                  googleApps > 0 ? setConfirmRemove(true) : void remove()
-                }
-              >
-                <TrashIcon size={16} />
-              </RowAction>
-            )}
-          </Row>
-        </Group>
-      ) : null}
-
-      {showForm ? (
-        <Group title="Set it up">
-          <Step
-            n={1}
-            title="Join the Workspace Developer Preview"
-            action={<OpenLink href={GOOGLE_SETUP.preview} label="Join" />}
-          >
-            Google's MCP servers are in preview. Sign up with the Google account
-            your bots will use.
-          </Step>
-          <Step
-            n={2}
-            title="Create a Google Cloud project"
-            action={<OpenLink href={GOOGLE_SETUP.newProject} />}
-          >
-            Any name works, for example “Coworkers”.
-          </Step>
-          <Step
-            n={3}
-            title="Turn on the APIs"
-            action={
-              <OpenLink href={GOOGLE_SETUP.apiLibrary} label="API Library" />
-            }
-            code={{ text: command, label: "Copy the command" }}
-          >
-            Run this in Cloud Shell (the terminal icon at the top of the
-            console), or turn each one on in the API Library.
-          </Step>
-          <Step
-            n={4}
-            title="Choose who can sign in"
-            action={<OpenLink href={GOOGLE_SETUP.audience} />}
-          >
-            Pick <strong className="font-medium">External</strong>, then{" "}
-            <strong className="font-medium">Publish app</strong> so it is in
-            production. In Testing, sign-ins expire every seven days. Google
-            will warn once that the app is unverified: that is expected for an
-            app only you use.
-          </Step>
-          <Step
-            n={5}
-            title="Create an OAuth client"
-            action={<OpenLink href={GOOGLE_SETUP.newClient} />}
-            code={
-              redirectUri
-                ? { text: redirectUri, label: "Copy the redirect URI" }
-                : undefined
-            }
-          >
-            Type <strong className="font-medium">Web application</strong>, tick{" "}
-            <strong className="font-medium">
-              Use this client for an AI-powered agent
-            </strong>
-            , and add this as an authorized redirect URI:
-            {redirectUri ? null : (
-              <span className="mt-1 block text-kumo-warning">
-                Open Coworkers from its own address once, so it knows its
-                redirect URI.
-              </span>
-            )}
-          </Step>
-          <li className="flex gap-4 border-t border-kumo-line py-3.5 pr-3 pl-4">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-xs font-medium text-kumo-subtle tabular-nums">
-              6
-            </span>
-            <form
-              className="min-w-0 flex-1 space-y-2.5"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void save()
-              }}
-            >
-              <div className="flex min-h-7 items-center">
-                <p className="text-sm text-kumo-default">
-                  Paste the client here
-                </p>
-              </div>
-              <div className="flex h-10 items-center rounded-xl bg-(--fill-hover) px-3.5 focus-within:ring-2 focus-within:ring-kumo-focus">
-                <input
-                  aria-label="Client ID"
-                  placeholder="Client ID"
-                  spellCheck={false}
-                  autoComplete="off"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className={`${FIELD} min-w-0 flex-1 ${clientId ? "font-mono text-[13px]" : ""}`}
-                />
-              </div>
-              <SecretInput
-                label="Client secret"
-                placeholder="Client secret"
-                value={secret}
-                onChange={setSecret}
-              />
-              <div className="flex items-center justify-end gap-2 pt-0.5">
-                {error ? (
-                  <p
-                    role="alert"
-                    className="min-w-0 flex-1 text-xs text-pretty text-kumo-danger"
-                  >
-                    {error}
-                  </p>
-                ) : null}
-                {replacing ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rounded-full"
-                    onClick={() => setReplacing(false)}
-                  >
-                    Cancel
-                  </Button>
-                ) : null}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  className="btn-ink rounded-full"
-                  loading={saving}
-                  disabled={!live || !clientId.trim() || !secret.trim()}
-                >
-                  Save
-                </Button>
-              </div>
-            </form>
-          </li>
-        </Group>
-      ) : null}
-
-      {configured && !replacing ? (
-        <Group title="Connect">
-          {INTEGRATIONS.filter((i) => i.auth === "google").map(
-            (integration) => (
-              <Tile
-                key={integration.id}
-                item={{
-                  key: integration.id,
-                  integration,
-                  connection: hub.state.connections.find((c) =>
-                    sameEndpoint(c.url, integration.url)
-                  ),
-                }}
-                onOpen={() => onOpen(integration.id)}
-                onGoogleSetup={() => {}}
-              />
-            )
-          )}
-        </Group>
-      ) : null}
-
-      <Group
-        title="Other ways"
-        hint={
-          <>
-            They hold the Google sign-in for you, so your mail passes through
-            their servers. Google's{" "}
-            <a
-              href={GOOGLE_SETUP.docs}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={LINK}
-            >
-              MCP server guide
-            </a>{" "}
-            has the details of this setup.
-          </>
-        }
-      >
-        <li>
-          <button
-            type="button"
-            onClick={() => onOpen(CUSTOM)}
-            className="flex min-h-14 w-full items-center gap-4 py-3 pr-4 pl-4 text-left outline-none hover:bg-(--fill-hover) focus-visible:bg-(--fill-hover)"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--fill-hover) text-kumo-subtle">
-              <PlusIcon size={14} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm text-kumo-default">
-                A gateway, as a custom server
-              </span>
-              <span className="mt-0.5 block max-w-[75%] text-xs text-pretty text-kumo-subtle">
-                Executor, Composio or Pipedream, with one endpoint for Google
-                and more.
-              </span>
-            </span>
-            <CaretRightIcon size={14} className="shrink-0 text-kumo-subtle" />
-          </button>
-        </li>
-      </Group>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 
 export function IntegrationsSettings({
   app,
@@ -1532,9 +1064,7 @@ export function IntegrationsSettings({
           Sign-in didn't finish: {error}
         </p>
       ) : null}
-      {app === GOOGLE_SETUP_PAGE ? (
-        <GoogleSetup onBack={() => go()} onOpen={go} />
-      ) : app === CUSTOM ? (
+      {app === CUSTOM ? (
         <CustomServer
           onBack={() => go()}
           onAdded={(c) => {
@@ -1548,7 +1078,6 @@ export function IntegrationsSettings({
           integration={integration}
           connection={connection}
           onBack={() => go()}
-          onGoogleSetup={() => go(GOOGLE_SETUP_PAGE)}
           autoFocusKey
         />
       ) : (

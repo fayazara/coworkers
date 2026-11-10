@@ -71,12 +71,6 @@ interface HubContextValue {
   /** A sign-in link made just now, or null if none is needed any more. */
   freshSignIn: (connectionId: string) => Promise<string | null>
   connectionTools: (connectionId: string) => Promise<ConnectionTool[]>
-  googleSetup: () => Promise<{ redirectUri: string | null }>
-  setGoogleClient: (client: {
-    clientId: string
-    clientSecret: string
-  }) => Promise<void>
-  removeGoogleClient: () => Promise<void>
   push: PushApi | null
   /** Memory all bots read. Null until the hub WebSocket is up. */
   sharedMemory: SharedMemoryApi | null
@@ -204,9 +198,6 @@ export function StaticHubProvider({
       reconnect: notConnected,
       freshSignIn: notConnected,
       connectionTools: notConnected,
-      googleSetup: notConnected,
-      setGoogleClient: notConnected,
-      removeGoogleClient: notConnected,
       push: null,
       sharedMemory: null,
       models: null,
@@ -279,9 +270,6 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
       reconnect: (id) => agent.stub.reconnect(id),
       freshSignIn: (id) => agent.stub.freshSignIn(id),
       connectionTools: (id) => agent.stub.connectionTools(id),
-      googleSetup: () => agent.stub.googleSetup(),
-      setGoogleClient: (client) => agent.stub.setGoogleClient(client),
-      removeGoogleClient: () => agent.stub.removeGoogleClient(),
       push:
         agent.state !== undefined
           ? {

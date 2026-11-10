@@ -126,11 +126,6 @@ export interface HubState {
   deskSeenAt?: number
   /** Skills the user installed. Absent on hubs created before them. */
   installedSkills?: InstalledSkill[]
-  /**
-   * The user's own Google OAuth client, once set up, for Google's Workspace
-   * MCP servers. Only the id: the secret never leaves the hub.
-   */
-  google?: { clientId: string } | null
 }
 
 /**

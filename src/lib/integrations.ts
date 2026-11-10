@@ -11,10 +11,9 @@ import { sameEndpoint } from "@/lib/choices"
  */
 
 export type IntegrationCategory =
-  "Google" | "Search and web" | "Productivity" | "Developer tools"
+  "Search and web" | "Productivity" | "Developer tools"
 
 export const INTEGRATION_CATEGORIES: IntegrationCategory[] = [
-  "Google",
   "Search and web",
   "Productivity",
   "Developer tools",
@@ -40,12 +39,8 @@ export interface Integration {
    * - "none": works on one click, often on a free tier.
    * - "oauth": one click, then the provider's own sign-in.
    * - "key": needs an API key, sent as a header from the hub.
-   * - "google": the user's own Google OAuth client, set up once for every
-   *   Google server (Google has no dynamic client registration).
    */
-  auth: "none" | "oauth" | "key" | "google"
-  /** OAuth scopes to ask for, when the server does not advertise its own. */
-  scopes?: string[]
+  auth: "none" | "oauth" | "key"
   /** For "key", or an optional key that lifts a free tier's limits. */
   key?: {
     header: string
@@ -56,86 +51,7 @@ export interface Integration {
   }
 }
 
-const G = "https://www.googleapis.com/auth/"
-const GOOGLE_DOCS =
-  "https://developers.google.com/workspace/guides/configure-mcp-servers"
-
 export const INTEGRATIONS: Integration[] = [
-  // Google's own Workspace MCP servers (Developer Preview).
-  {
-    id: "gmail",
-    name: "Gmail",
-    description: "Search and read mail, and write drafts.",
-    category: "Google",
-    site: "mail.google.com",
-    icon: "https://www.gstatic.com/images/branding/product/2x/gmail_2020q4_48dp.png",
-    docs: GOOGLE_DOCS,
-    url: "https://gmailmcp.googleapis.com/mcp/v1",
-    auth: "google",
-    scopes: [`${G}gmail.readonly`, `${G}gmail.compose`],
-  },
-  {
-    id: "google-calendar",
-    name: "Google Calendar",
-    description: "See your calendars, events and when you are free.",
-    category: "Google",
-    site: "calendar.google.com",
-    icon: "https://www.gstatic.com/images/branding/product/2x/calendar_2020q4_48dp.png",
-    docs: GOOGLE_DOCS,
-    url: "https://calendarmcp.googleapis.com/mcp/v1",
-    auth: "google",
-    scopes: [
-      `${G}calendar.calendarlist.readonly`,
-      `${G}calendar.events.freebusy`,
-      `${G}calendar.events.readonly`,
-    ],
-  },
-  {
-    id: "google-drive",
-    name: "Google Drive",
-    description: "Find, read and upload files.",
-    category: "Google",
-    site: "drive.google.com",
-    icon: "https://www.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png",
-    docs: GOOGLE_DOCS,
-    url: "https://drivemcp.googleapis.com/mcp/v1",
-    auth: "google",
-    scopes: [`${G}drive.readonly`, `${G}drive.file`],
-  },
-  {
-    id: "google-docs",
-    name: "Google Docs",
-    description: "Read and write documents.",
-    category: "Google",
-    site: "docs.google.com",
-    icon: "https://www.gstatic.com/images/branding/product/2x/docs_2020q4_48dp.png",
-    docs: GOOGLE_DOCS,
-    url: "https://docsmcp.googleapis.com/mcp/v1",
-    auth: "google",
-    scopes: [
-      `${G}drive.readonly`,
-      `${G}drive.file`,
-      `${G}documents.readonly`,
-      `${G}documents`,
-    ],
-  },
-  {
-    id: "google-sheets",
-    name: "Google Sheets",
-    description: "Read and update spreadsheets.",
-    category: "Google",
-    site: "sheets.google.com",
-    icon: "https://www.gstatic.com/images/branding/product/2x/sheets_2020q4_48dp.png",
-    docs: GOOGLE_DOCS,
-    url: "https://sheetsmcp.googleapis.com/mcp/v1",
-    auth: "google",
-    scopes: [
-      `${G}drive.readonly`,
-      `${G}drive.file`,
-      `${G}spreadsheets.readonly`,
-      `${G}spreadsheets`,
-    ],
-  },
   {
     id: "parallel",
     name: "Parallel",
@@ -258,44 +174,4 @@ export function integrationHeaders(
   const k = key.trim()
   if (!integration.key || !k) return {}
   return { [integration.key.header]: `${integration.key.prefix ?? ""}${k}` }
-}
-
-/** A Google Workspace MCP server, which signs in with the user's own client. */
-export function isGoogleServer(url: string) {
-  try {
-    return new URL(url).hostname.endsWith(".googleapis.com")
-  } catch {
-    return false
-  }
-}
-
-/** The one-time Google Cloud setup, for the guided page in Settings. */
-export const GOOGLE_SETUP = {
-  preview: "https://developers.google.com/workspace/preview",
-  newProject: "https://console.cloud.google.com/projectcreate",
-  apiLibrary: "https://console.cloud.google.com/apis/library",
-  audience: "https://console.cloud.google.com/auth/audience",
-  newClient: "https://console.cloud.google.com/auth/clients/create",
-  docs: GOOGLE_DOCS,
-  /** Both the API and its MCP service, for every server in the catalog. */
-  enable: [
-    "gmail.googleapis.com",
-    "gmailmcp.googleapis.com",
-    "calendar-json.googleapis.com",
-    "calendarmcp.googleapis.com",
-    "drive.googleapis.com",
-    "drivemcp.googleapis.com",
-    "docs.googleapis.com",
-    "docsmcp.googleapis.com",
-    "sheets.googleapis.com",
-    "sheetsmcp.googleapis.com",
-  ],
-}
-
-/** What a client ID from Google Cloud looks like. */
-export const GOOGLE_CLIENT_ID = /^[\w-]+\.apps\.googleusercontent\.com$/
-
-/** The scopes to ask Google for when connecting a server. */
-export function googleScopesFor(url: string): string[] {
-  return INTEGRATIONS.find((i) => sameEndpoint(i.url, url))?.scopes ?? []
 }

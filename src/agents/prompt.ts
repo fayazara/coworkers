@@ -16,7 +16,6 @@ const AUTH_NOTE = {
   none: "",
   oauth: " (user signs in)",
   key: " (needs an API key)",
-  google: " (needs the one-time Google setup)",
 } as const
 
 /** Checked MCP endpoints bots may offer, one line each. Stable per deploy. */
