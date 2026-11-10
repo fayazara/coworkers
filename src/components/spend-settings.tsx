@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Button } from "@cloudflare/kumo/components/button"
 import { BotAvatar } from "@/components/bot-avatar"
-import { EmptyRow, Group, Row } from "@/components/group"
+import { EmptyRow, Group, Row, SectionHeader } from "@/components/group"
 import { useHub } from "@/lib/hub-context"
 import type { SpendSummary } from "@/lib/types"
 
@@ -29,7 +29,23 @@ function formatAgo(at: number) {
 }
 
 /** The account's Spend tab: what each bot cost this month, from AI Gateway. */
+const SPEND_HEADER = (
+  <SectionHeader
+    title="Spend"
+    description="What each bot's model calls cost, read back from AI Gateway."
+  />
+)
+
 export function SpendSettings() {
+  return (
+    <div className="space-y-6">
+      {SPEND_HEADER}
+      <SpendTable />
+    </div>
+  )
+}
+
+function SpendTable() {
   const hub = useHub()
   const spend = hub.state.spend
   const [refreshing, setRefreshing] = useState(false)

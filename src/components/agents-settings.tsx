@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react"
 import { CopyButton } from "@/components/copy-button"
-import { EmptyRow, Group, Row, RowAction } from "@/components/group"
+import {
+  EmptyRow,
+  Group,
+  Row,
+  RowAction,
+  SectionHeader,
+} from "@/components/group"
 import { PlugsConnectedIcon, TrashIcon } from "@/components/icons"
 import { disconnectAgent, getConnectedAgents } from "@/lib/agent-fns"
 import type { ConnectedAgent } from "@/lib/agent-fns"
@@ -59,7 +65,11 @@ export function AgentsSettings() {
   const mcpUrl = data?.mcpUrl ?? ""
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <SectionHeader
+        title="Agents"
+        description="Let Claude Code, Codex and other MCP clients work with your bots: message them, hand them tasks and read their results."
+      />
       <Group
         title="Connect an agent"
         hint="The agent opens a page here to sign in, where you choose what it may do. ChatGPT and other MCP clients: add a custom MCP server with this URL and OAuth."

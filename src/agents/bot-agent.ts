@@ -1449,7 +1449,7 @@ export class BotAgent extends Think<Env, BotState> {
         execute: async () => ({
           available: false,
           problem,
-          tellTheUser: `${problem} They can fix it in Connections. Offer the browser in the meantime if that would work.`,
+          tellTheUser: `${problem} They can fix it in Settings, Integrations. Offer the browser in the meantime if that would work.`,
         }),
       })
     }
@@ -2200,7 +2200,7 @@ export class BotAgent extends Think<Env, BotState> {
             connected: false,
             app: name,
             note: connection
-              ? `It was added but is not ready (${connection.error ?? connection.status}). The user can finish it in Settings, Connections.`
+              ? `It was added but is not ready (${connection.error ?? connection.status}). The user can finish it in Settings, Integrations.`
               : "The user did not connect it.",
             next: "Carry on without it if the browser or a public API can do the job, and say so in one line.",
           }

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Button } from "@cloudflare/kumo/components/button"
 import { Switch } from "@cloudflare/kumo/components/switch"
-import { Group, Row } from "@/components/group"
+import { Group, Row, SectionHeader } from "@/components/group"
 import {
   ArrowSquareOutIcon,
   CaretDownIcon,
@@ -103,7 +103,11 @@ export function ModelsSettings() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <SectionHeader
+        title="Models"
+        description="The model every bot thinks with, unless a bot picks its own. Calls go through your AI Gateway."
+      />
       <div className="space-y-3">
         <Group
           title="Model"

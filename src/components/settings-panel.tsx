@@ -497,12 +497,12 @@ function Toolkit() {
       <li className="border-t border-kumo-line first:border-t-0">
         <Link
           to="/settings"
-          search={{ tab: "connections" }}
+          search={{ tab: "integrations" }}
           className="flex min-h-14 items-center justify-between gap-4 py-3 pr-5 pl-4 text-sm text-kumo-default outline-none hover:bg-(--fill-hover) focus-visible:bg-(--fill-hover)"
         >
           {hub.state.connections.length === 0
-            ? "Connect an app"
-            : "Manage connections"}
+            ? "Add an integration"
+            : "Manage integrations"}
           <CaretRightIcon size={14} className="text-kumo-subtle" />
         </Link>
       </li>

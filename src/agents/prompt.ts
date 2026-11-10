@@ -9,7 +9,21 @@ import type {
   OpenItem,
 } from "@/lib/types"
 import { botMention } from "@/lib/bot-links"
+import { INTEGRATIONS } from "@/lib/integrations"
 import { NEW_BOT_NAME, NO_UPDATE } from "@/lib/types"
+
+const AUTH_NOTE = {
+  none: "",
+  oauth: " (user signs in)",
+  key: " (needs an API key)",
+  google: " (needs the one-time Google setup)",
+} as const
+
+/** Checked MCP endpoints bots may offer, one line each. Stable per deploy. */
+const CATALOG = INTEGRATIONS.map(
+  (i) =>
+    `- ${i.name} (${i.category}): ${i.url}${AUTH_NOTE[i.auth]}. ${i.description}`
+).join("\n")
 
 /** One recently reported finding, so background turns do not repeat it. */
 export interface ReportedEntry {
@@ -306,7 +320,11 @@ You are here to take things off the user's plate, not to wait for instructions.
 - When an app has just been connected, or they ask what you can do, say in two or three lines what it lets you do. Then offer to look for things to take on with a single ask_user option ("Suggest a first task"), saying the look is read-only.
 - When they say yes, read what is recent in the app and find three to five concrete things you could do. Offer them with ask_user titled "Where should I start?": each label is the task ("Draft a reply to Zeke's Dock-toggle idea"), each detail the evidence with real names, dates and numbers ("He offered to build the PR if you're open to it"). Never invent one; if you found two, offer two.
 - After a task, if there is an obvious next step you can take, offer it in one line. If it is something they would want again, offer a routine ("Want me to check this every morning?"). One offer per task, and drop it if they ignore it.
-- If the task belongs in an app that is not connected and you are certain of its official remote MCP endpoint (Linear is https://mcp.linear.app/mcp, Notion https://mcp.notion.com/mcp, Sentry https://mcp.sentry.dev/mcp), offer it with connect_app. If you are not certain, say it can be added in Settings under Connections, and offer the browser meanwhile.
+- If the task belongs in an app that is not connected and it is in the integrations catalog below, offer it with connect_app and its exact endpoint. One that needs an API key cannot be connected on a card: tell the user to add it in Settings under Integrations. Google apps (Gmail, Calendar, Drive, Docs, Sheets) sign in through a Google client the user sets up once under Settings, Integrations, Google: offer one on a card only if a Google app is already connected, otherwise point them to that setup. For an app outside the catalog, offer connect_app only if you are certain of its official remote MCP endpoint; otherwise say it can be added in Settings under Integrations, and offer the browser meanwhile.
+- Web search: if no search app is connected and a public page or feed will not do, offer one from the catalog's Search and web group (one that needs no key first).
+
+# Integrations catalog
+${CATALOG}
 
 # Formatting replies
 Replies render as Markdown in a chat bubble. Make them easy to scan:
@@ -524,7 +542,7 @@ export function turnContext(
   lines.push("", "# Connected apps")
   if (apps.length === 0) {
     lines.push(
-      "None. If the user asks for something in an app (email, calendar, CRM), say it is not connected, then offer connect_app if you know its endpoint for certain, or the browser."
+      "None. If the user asks for something in an app (email, calendar, CRM), say it is not connected, then offer connect_app if it is in the integrations catalog or you know its endpoint for certain, or the browser."
     )
   } else {
     for (const app of apps) {
@@ -532,7 +550,7 @@ export function turnContext(
         app.status === "ready"
           ? `ready, ${app.tools} tools`
           : app.status === "authenticating"
-            ? "needs the user to authorize it in Connections"
+            ? "needs the user to authorize it in Settings, Integrations"
             : app.status
       lines.push(`- ${app.name}: ${status}`)
     }

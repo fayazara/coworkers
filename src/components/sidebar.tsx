@@ -22,6 +22,7 @@ import {
 } from "@/components/icons"
 import { ApprovalPopover } from "@/components/approval-popover"
 import { BotAvatar } from "@/components/bot-avatar"
+import { SettingsSidebar, rememberAppPath } from "@/components/settings-nav"
 import { EmptyState } from "@/components/empty-state"
 import { ShimmerText } from "@/components/shimmer-text"
 import { plainMentions } from "@/lib/bot-links"
@@ -582,6 +583,11 @@ export function Sidebar({ home = false }: { home?: boolean }) {
   const section = useLocation({
     select: (l) => (l.pathname.startsWith("/pipelines") ? "pipelines" : "bots"),
   })
+  const location = useLocation({ select: (l) => l.href })
+  useEffect(() => rememberAppPath(location), [location])
+  // On a computer, Settings takes the sidebar over; a phone lists sections in the page.
+  const inSettings =
+    useLocation({ select: (l) => l.pathname === "/settings" }) && !phone
   const [view, setView] = useState<View>(section)
   // Follow the page when it moves to the other section (a link, a push
   // notification), but leave the user's own choice alone otherwise.
@@ -605,21 +611,25 @@ export function Sidebar({ home = false }: { home?: boolean }) {
       ref={phone ? undefined : swipe.viewportRef}
       className="flex h-full w-full touch-pan-y flex-col"
     >
-      <div className="sidebar-views">
-        <div
-          ref={swipe.trackRef}
-          className="sidebar-track"
-          style={{ "--view": index } as React.CSSProperties}
-        >
-          {/* The view off to the side stays out of the tab order. */}
-          <div className="sidebar-view" inert={view !== "bots"}>
-            <BotsView home={home} />
-          </div>
-          <div className="sidebar-view" inert={!onPipelines}>
-            <PipelinesView />
+      {inSettings ? (
+        <SettingsSidebar />
+      ) : (
+        <div className="sidebar-views">
+          <div
+            ref={swipe.trackRef}
+            className="sidebar-track"
+            style={{ "--view": index } as React.CSSProperties}
+          >
+            {/* The view off to the side stays out of the tab order. */}
+            <div className="sidebar-view" inert={view !== "bots"}>
+              <BotsView home={home} />
+            </div>
+            <div className="sidebar-view" inert={!onPipelines}>
+              <PipelinesView />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Same row as the search bar at the top: --header-h tall, --inset
           from the edges, the avatar where the search icon sits. */}
@@ -645,35 +655,42 @@ export function Sidebar({ home = false }: { home?: boolean }) {
         <div className="flex items-center gap-1">
           <NotificationsButton />
           {/* Toggles the sidebar; the icon shows where it goes next. */}
-          <Tooltip
-            content={onPipelines ? "Bots" : "Pipelines"}
-            render={
-              <button
-                type="button"
-                aria-label={onPipelines ? "Show bots" : "Show pipelines"}
-                onClick={() => setView(onPipelines ? "bots" : "pipelines")}
-                className={`${FOOTER_BUTTON} relative`}
-              >
-                <span
-                  className="t-icon-swap"
-                  data-state={onPipelines ? "b" : "a"}
+          {inSettings ? null : (
+            <Tooltip
+              content={onPipelines ? "Bots" : "Pipelines"}
+              render={
+                <button
+                  type="button"
+                  aria-label={onPipelines ? "Show bots" : "Show pipelines"}
+                  onClick={() => setView(onPipelines ? "bots" : "pipelines")}
+                  className={`${FOOTER_BUTTON} relative`}
                 >
-                  <PipelineIcon size={20} className="t-icon" data-icon="a" />
-                  <BotIcon size={20} className="t-icon" data-icon="b" />
-                </span>
-                {waiting && !onPipelines ? (
                   <span
-                    className="unread-dot absolute top-1 right-1 size-2.5 rounded-full bg-kumo-warning ring-2 ring-kumo-canvas"
-                    aria-label="A pipeline needs your OK"
-                  />
-                ) : null}
-              </button>
-            }
-          />
+                    className="t-icon-swap"
+                    data-state={onPipelines ? "b" : "a"}
+                  >
+                    <PipelineIcon size={20} className="t-icon" data-icon="a" />
+                    <BotIcon size={20} className="t-icon" data-icon="b" />
+                  </span>
+                  {waiting && !onPipelines ? (
+                    <span
+                      className="unread-dot absolute top-1 right-1 size-2.5 rounded-full bg-kumo-warning ring-2 ring-kumo-canvas"
+                      aria-label="A pipeline needs your OK"
+                    />
+                  ) : null}
+                </button>
+              }
+            />
+          )}
           <Tooltip
             content="Settings"
             render={
-              <Link to="/settings" aria-label="Settings" className="icon-btn">
+              <Link
+                to="/settings"
+                aria-label="Settings"
+                aria-pressed={inSettings}
+                className="icon-btn"
+              >
                 <GearSixIcon size={20} />
               </Link>
             }

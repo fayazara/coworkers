@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Button } from "@cloudflare/kumo/components/button"
+import { Select } from "@cloudflare/kumo/components/select"
 import { Checkbox } from "@cloudflare/kumo/components/checkbox"
 import { CodeBlock } from "@/components/code-block"
 import { FIELD, GROUP_LIST, Group, Row } from "@/components/group"
@@ -279,15 +280,18 @@ export function SkillInstall({
 }: {
   /** What the user pasted. */
   source: string
-  botId: string
+  /** The bot it is for. Without one (account settings), the user picks. */
+  botId?: string
   forAllBots?: boolean
   onInstalled: () => void
   onCancel: () => void
 }) {
-  const { previewSkill, installSkills } = useHub()
+  const { previewSkill, installSkills, state: hubState } = useHub()
   const [preview, setPreview] = useState<SkillPreview | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [scope, setScope] = useState<Scope>(forAllBots ? "all" : "bot")
+  // In account settings: "all", or the id of the one bot that gets it.
+  const [target, setTarget] = useState("all")
   const [installing, setInstalling] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // A new function on every hub update: reading again would reset the choice.
@@ -330,7 +334,7 @@ export function SkillInstall({
         source: preview.source,
         version: preview.version,
         skills: chosen.map(({ name, digest }) => ({ name, digest })),
-        scope: scope === "all" ? "all" : botId,
+        scope: botId ? (scope === "all" ? "all" : botId) : target,
       })
       onInstalled()
     } catch (err) {
@@ -382,12 +386,28 @@ export function SkillInstall({
           <ul className={`mt-3 ${GROUP_LIST}`}>
             {lone ? <SkillContents skill={lone} /> : null}
             <Row label="Who gets it">
-              <SlidingTabs
-                tabs={SCOPES}
-                value={scope}
-                onValueChange={setScope}
-                className="shrink-0"
-              />
+              {botId ? (
+                <SlidingTabs
+                  tabs={SCOPES}
+                  value={scope}
+                  onValueChange={setScope}
+                  className="shrink-0"
+                />
+              ) : (
+                <Select
+                  aria-label="Who gets it"
+                  size="sm"
+                  className="w-44 shrink-0"
+                  value={target}
+                  items={{
+                    all: "All bots",
+                    ...Object.fromEntries(
+                      hubState.bots.map((b) => [b.id, b.name])
+                    ),
+                  }}
+                  onValueChange={(value) => value && setTarget(String(value))}
+                />
+              )}
             </Row>
           </ul>
           <p className="mt-2 px-1.5 text-xs text-pretty text-kumo-subtle">

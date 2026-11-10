@@ -1,4 +1,8 @@
-import { CodeHighlighted, ShikiProvider, normalizeLanguage } from "@cloudflare/kumo/code"
+import {
+  CodeHighlighted,
+  ShikiProvider,
+  normalizeLanguage,
+} from "@cloudflare/kumo/code"
 import type { LanguageInput } from "@cloudflare/kumo/code"
 
 const LANGUAGES: LanguageInput[] = [
@@ -73,7 +77,10 @@ function prepare(code: string, lang?: string) {
   const trimmed = code.trim()
   if ((!lang || lang === "json") && /^[[{]/.test(trimmed)) {
     try {
-      return { code: JSON.stringify(JSON.parse(trimmed), null, 2), lang: "json" }
+      return {
+        code: JSON.stringify(JSON.parse(trimmed), null, 2),
+        lang: "json",
+      }
     } catch {
       return { code, lang: "json" }
     }

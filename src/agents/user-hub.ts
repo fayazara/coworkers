@@ -1,5 +1,13 @@
 import { sameEndpoint } from "@/lib/choices"
 import { Agent, callable, getAgentByName } from "agents"
+import type { AgentMcpOAuthProvider } from "agents"
+import { HubOAuthProvider } from "./google-oauth"
+import type { GoogleClient } from "./google-oauth"
+import {
+  GOOGLE_CLIENT_ID,
+  googleScopesFor,
+  isGoogleServer,
+} from "@/lib/integrations"
 import {
   Client as McpClient,
   StreamableHTTPClientTransport,
@@ -248,6 +256,15 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       data TEXT NOT NULL,
       checked_at INTEGER NOT NULL
     )`
+    // The user's own Google OAuth client. The secret stays in this table;
+    // state only carries the client id, which is not secret.
+    this.sql`CREATE TABLE IF NOT EXISTS google_client (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      client_id TEXT NOT NULL,
+      client_secret TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`
+    this.publishGoogle()
     this.refreshDesk()
     await this.startSpend()
     // After an MCP sign-in completes, send the user back to Connections.
@@ -259,11 +276,12 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
           : `&error=${encodeURIComponent(result.authError)}`
         return new Response(null, {
           status: 302,
-          headers: { Location: `/settings?tab=connections${query}` },
+          headers: { Location: `/settings?tab=integrations${query}` },
         })
       },
     })
     await this.restoreLegacyConnections()
+    await this.dropOrphanServers()
   }
 
   // ── Spend ───────────────────────────────────────────────────────────
@@ -797,11 +815,22 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     const name = input.name.trim() || url.hostname
     // The MCP client persists the URL and headers itself; only header names
     // go into `state`, which is broadcast to the browser.
-    await this.addMcpServer(name, url.toString(), {
-      id: serverId(id),
-      callbackHost: this.origin,
-      transport: { headers },
-    })
+    try {
+      await this.addMcpServer(name, url.toString(), {
+        id: serverId(id),
+        callbackHost: this.origin,
+        transport: { headers },
+      })
+    } catch (err) {
+      // A server that answers the handshake but wants a sign-in for its
+      // tools (Google's do) fails discovery while already waiting for the
+      // user: that is a connection to keep, with its sign-in link.
+      const server = this.getMcpServers().servers[serverId(id)]
+      if (server?.state !== "authenticating") {
+        if (server) await this.removeMcpServer(serverId(id))
+        throw err
+      }
+    }
     const connection: Connection = {
       id,
       name,
@@ -839,6 +868,134 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     this.syncConnectionStatus()
     await this.mcp.waitForConnections({ timeout: 10_000 })
     this.syncConnectionStatus()
+  }
+
+  // ── Google ──────────────────────────────────────────────────────────
+
+  private googleClient(): GoogleClient | null {
+    const [row] = this.sql<{ client_id: string; client_secret: string }>`
+      SELECT client_id, client_secret FROM google_client WHERE id = 1`
+    return row
+      ? { clientId: row.client_id, clientSecret: row.client_secret }
+      : null
+  }
+
+  private publishGoogle() {
+    const client = this.googleClient()
+    const google = client ? { clientId: client.clientId } : null
+    if (JSON.stringify(google) !== JSON.stringify(this.state.google ?? null)) {
+      this.setState({ ...this.state, google })
+    }
+  }
+
+  /**
+   * Every MCP sign-in goes through this provider. Google's servers get the
+   * user's own client; every other server registers one by itself.
+   */
+  createMcpOAuthProvider(callbackUrl: string): AgentMcpOAuthProvider {
+    return new HubOAuthProvider(
+      this.ctx.storage,
+      this.name,
+      callbackUrl,
+      (id) => {
+        const url = this.getMcpServers().servers[id]?.server_url
+        if (!url || !isGoogleServer(url)) return null
+        const client = this.googleClient()
+        return client ? { client, scopes: googleScopesFor(url) } : null
+      }
+    )
+  }
+
+  /** What the Google setup page shows: the redirect URI to register. */
+  @callable()
+  googleSetup(): { redirectUri: string | null } {
+    // Where the SDK sends every MCP sign-in back to (see addMcpServer).
+    const origin = this.origin
+    return {
+      redirectUri: origin
+        ? `${origin}/agents/user-hub/${this.name}/callback`
+        : null,
+    }
+  }
+
+  @callable()
+  setGoogleClient(input: { clientId: string; clientSecret: string }) {
+    const clientId = input.clientId.trim()
+    const clientSecret = input.clientSecret.trim()
+    if (!GOOGLE_CLIENT_ID.test(clientId)) {
+      throw new Error(
+        "That is not a Google client ID. It ends in .apps.googleusercontent.com."
+      )
+    }
+    if (!clientSecret) throw new Error("Paste the client secret too.")
+    this
+      .sql`INSERT INTO google_client (id, client_id, client_secret, updated_at)
+      VALUES (1, ${clientId}, ${clientSecret}, ${Date.now()})
+      ON CONFLICT (id) DO UPDATE SET client_id = excluded.client_id,
+        client_secret = excluded.client_secret, updated_at = excluded.updated_at`
+    this.publishGoogle()
+  }
+
+  /** Forget the client, and the Google connections signed in with it. */
+  @callable()
+  async removeGoogleClient() {
+    for (const c of this.state.connections.filter((c) =>
+      isGoogleServer(c.url)
+    )) {
+      await this.removeConnection(c.id)
+    }
+    this.sql`DELETE FROM google_client`
+    this.publishGoogle()
+  }
+
+  /** One connection's tools, names and descriptions, for its detail page. */
+  @callable()
+  connectionTools(
+    connectionId: string
+  ): { name: string; description: string; readOnly: boolean }[] {
+    const id = serverId(connectionId)
+    return this.mcp
+      .listTools()
+      .filter((t) => t.serverId === id)
+      .map((t) => ({
+        name: t.name,
+        description: t.description ?? "",
+        readOnly: t.annotations?.readOnlyHint ?? looksReadOnly(t.name),
+      }))
+  }
+
+  /**
+   * MCP servers the client still holds but no connection points to, left
+   * by an add that failed halfway. Connection servers are the `c…` ids.
+   */
+  private async dropOrphanServers() {
+    const known = new Set(this.state.connections.map((c) => serverId(c.id)))
+    for (const id of Object.keys(this.getMcpServers().servers)) {
+      if (id.startsWith("c") && !known.has(id)) await this.removeMcpServer(id)
+    }
+  }
+
+  /**
+   * A sign-in link made now. The SDK keeps the first link it made, but its
+   * state lasts ten minutes, and once a callback finds it expired every
+   * later click fails with "State not found". Null if no sign-in is needed.
+   */
+  @callable()
+  async freshSignIn(connectionId: string): Promise<string | null> {
+    const id = serverId(connectionId)
+    let result = await this.mcp.connectToServer(id)
+    // The tokens refresh fine but the server still answers 401 (Executor
+    // does this), so the SDK wants a sign-in yet has no link to offer.
+    // Forget those tokens: the next handshake starts a real sign-in.
+    if (result.state === "failed" && /missing authUrl/.test(result.error)) {
+      const provider =
+        this.mcp.mcpConnections[id]?.options.transport.authProvider
+      await provider?.invalidateCredentials?.("tokens")
+      result = await this.mcp.connectToServer(id)
+    }
+    if (result.state === "connected") await this.mcp.discoverIfConnected(id)
+    this.syncConnectionStatus()
+    return result.state === "authenticating" ? (result.authUrl ?? null) : null
   }
 
   /** Retry a connection: a fresh sign-in link, or a new handshake. */
@@ -1445,7 +1602,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
         "This app"
       throw new Error(
         kind === "auth"
-          ? `${app} rejected the request because its sign-in expired or was revoked. Tell the user to reconnect ${app} in Connections. Do not retry until they have.`
+          ? `${app} rejected the request because its sign-in expired or was revoked. Tell the user to reconnect ${app} in Settings, Integrations. Do not retry until they have.`
           : kind === "unreachable"
             ? `${app} could not be reached (${message.slice(0, 120)}). It may be down. Tell the user if it matters; do not retry more than once.`
             : message

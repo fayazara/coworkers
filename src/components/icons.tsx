@@ -58,6 +58,8 @@ import {
   MinusSignIcon as Minus,
   ShoppingBag01Icon as ShoppingBag,
   StarIcon as Star,
+  AiChipIcon as AiChip,
+  Coins01Icon as Coins,
 } from "@hugeicons/core-free-icons"
 import type { HugeiconsProps, IconSvgElement } from "@hugeicons/react"
 
@@ -98,6 +100,8 @@ export const BellIcon = icon(Notification, "BellIcon")
 export const BellRingingIcon = icon(NotificationRinging, "BellRingingIcon")
 export const BellSlashIcon = icon(NotificationOff, "BellSlashIcon")
 export const BrainIcon = icon(Brain, "BrainIcon")
+export const AiChipIcon = icon(AiChip, "AiChipIcon")
+export const CoinsIcon = icon(Coins, "CoinsIcon")
 export const CalendarIcon = icon(Calendar, "CalendarIcon")
 export const BotIcon = icon(Bot, "BotIcon")
 export const BookOpenTextIcon = icon(BookOpen, "BookOpenTextIcon")

@@ -86,7 +86,15 @@ export function nextRun(cron: Cron, from: number) {
   return null
 }
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+]
 
 function single(field: Field) {
   return field.values.size === 1 ? [...field.values][0] : null
@@ -110,7 +118,9 @@ export function describeCron(cron: Cron): string | null {
     if (minStep && h === "*") return `Every ${minStep[1]} minutes`
     const minute = single(cron.minute)
     if (minute !== null && h === "*") {
-      return minute === 0 ? "Every hour" : `Every hour at :${String(minute).padStart(2, "0")}`
+      return minute === 0
+        ? "Every hour"
+        : `Every hour at :${String(minute).padStart(2, "0")}`
     }
     const hourStep = /^\*\/(\d+)$/.exec(h)
     if (minute !== null && hourStep) return `Every ${hourStep[1]} hours`

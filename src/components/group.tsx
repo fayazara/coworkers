@@ -6,6 +6,36 @@ export const GROUP_LIST =
   "@container overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06]"
 
 /**
+ * The top of a settings section: its name and one line on what it is for. A
+ * phone already names the section in its header, so only the line shows there.
+ */
+export function SectionHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description?: React.ReactNode
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-1.5">
+      <div className="min-w-0">
+        <h2 className="text-xl font-semibold tracking-tight text-kumo-default max-md:hidden">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1 text-sm text-pretty text-kumo-subtle max-md:mt-0">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  )
+}
+
+/**
  * Grouped list, the shape every settings-like surface uses: a small title, a
  * rounded card of rows split by hairlines, and at most one short hint below.
  */

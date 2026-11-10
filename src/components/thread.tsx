@@ -25,6 +25,7 @@ import {
   WebhooksLogoIcon,
   XIcon,
 } from "@/components/icons"
+import { AppIcon } from "@/components/app-icon"
 import { BotAvatar } from "@/components/bot-avatar"
 import { BotMention } from "@/components/bot-mention"
 import { CaptureCard } from "@/components/capture-card"
@@ -33,6 +34,7 @@ import { CodeBlock } from "@/components/code-block"
 import { SkillInstall } from "@/components/skill-install"
 import { ComputerCard } from "@/components/computer-card"
 import { ShimmerText } from "@/components/shimmer-text"
+import { SignInButton } from "@/components/sign-in-button"
 import { ShowActions, ShowBlocks } from "@/components/show-blocks"
 import { ShopCheckoutCard } from "@/components/shop-checkout"
 import { ShopResults } from "@/components/shop-results"
@@ -477,27 +479,6 @@ function ChoiceCard({
   )
 }
 
-/** The app's own icon, from its site (mcp.linear.app is Linear's). */
-function AppIcon({ host }: { host: string | null }) {
-  const [failed, setFailed] = useState(false)
-  const site = host?.replace(/^(mcp|api)\./, "")
-  return (
-    <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-kumo-base text-kumo-subtle ring-1 ring-kumo-line">
-      {site && !failed ? (
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(site)}&sz=64`}
-          alt=""
-          aria-hidden="true"
-          onError={() => setFailed(true)}
-          className="size-6 rounded-[5px]"
-        />
-      ) : (
-        <PlugsConnectedIcon size={18} />
-      )}
-    </span>
-  )
-}
-
 /**
  * connect_app: the bot offers an app, the user connects and signs in right
  * here. The connection is made over the user's own socket to the hub; the
@@ -584,14 +565,11 @@ function ConnectCard({
             Connected
           </span>
         ) : needsSignIn ? (
-          <a
-            href={connection.authUrl}
-            target="_blank"
-            rel="noreferrer noopener"
+          <SignInButton
+            connectionId={connection.id}
+            newTab
             className="pressable inline-flex h-9 shrink-0 items-center rounded-full bg-kumo-contrast px-4 text-sm font-medium text-kumo-inverse outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
-          >
-            Sign in
-          </a>
+          />
         ) : connecting ? (
           <span className="shrink-0 pr-1">
             <ShimmerText text="Connecting" className="text-sm" />
