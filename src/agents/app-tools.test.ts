@@ -9,6 +9,7 @@ import {
   decideToolCall,
   pushToolLog,
   resolveGrants,
+  toolResultError,
 } from "./app-tools"
 import { EMPTY_WINDOW, takeSubmitSlot } from "./app-access"
 
@@ -203,5 +204,38 @@ describe("pushToolLog", () => {
     }
     expect(log).toHaveLength(MAX_TOOL_LOG)
     expect(log[0]!.at).toBe(MAX_TOOL_LOG + 4)
+  })
+})
+
+describe("toolResultError", () => {
+  it("turns an isError result into its message", () => {
+    // Found live: a failed create-event came back as a normal result, so
+    // the booking page could only say "couldn't put that on the calendar".
+    expect(
+      toolResultError({
+        isError: true,
+        content: [
+          { type: "text", text: "403: insufficient permissions" },
+          { type: "text", text: "scope calendar.events missing" },
+        ],
+      })
+    ).toBe("403: insufficient permissions\nscope calendar.events missing")
+  })
+
+  it("still fails an isError result with no text", () => {
+    expect(toolResultError({ isError: true, content: [] })).toMatch(/error/)
+  })
+
+  it("leaves successful and odd results alone", () => {
+    for (const ok of [
+      { content: [{ type: "text", text: "{}" }] },
+      { isError: false, content: [] },
+      { isError: "true" },
+      null,
+      "text",
+      42,
+    ]) {
+      expect(toolResultError(ok)).toBeNull()
+    }
   })
 })

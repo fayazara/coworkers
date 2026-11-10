@@ -121,3 +121,24 @@ export const MAX_TOOL_LOG = 20
 export function pushToolLog(log: AppToolCallLog[], entry: AppToolCallLog) {
   return [entry, ...log].slice(0, MAX_TOOL_LOG)
 }
+
+/**
+ * An MCP result that reports a failure (`isError`) as a message, else null.
+ * Apps often fail this way instead of throwing, and an app's code would
+ * otherwise read the failure as a result and lose the reason.
+ */
+export function toolResultError(result: unknown): string | null {
+  const r = result as {
+    isError?: boolean
+    content?: { type?: string; text?: string }[]
+  } | null
+  if (!r || typeof r !== "object" || r.isError !== true) return null
+  const text = Array.isArray(r.content)
+    ? r.content
+        .map((c) => (typeof c?.text === "string" ? c.text : ""))
+        .filter(Boolean)
+        .join("\n")
+        .trim()
+    : ""
+  return text || "The app returned an error without a message"
+}

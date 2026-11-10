@@ -111,6 +111,7 @@ import {
   decideToolCall,
   pushToolLog,
   resolveGrants,
+  toolResultError,
 } from "./app-tools"
 import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
 import type {
@@ -3129,6 +3130,8 @@ export class BotAgent extends Think<Env, BotState> {
         tool.name,
         args as Record<string, unknown>
       )
+      const failed = toolResultError(value)
+      if (failed) throw new Error(failed)
       if (!tool.readOnly) this.logToolCall(slug, entry)
       return { value }
     } catch (err) {
