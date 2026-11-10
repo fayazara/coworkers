@@ -61,6 +61,7 @@ import type {
   AppCatalog,
   AppLink,
   ActivityEntry,
+  AppAccess,
   BotAppDetail,
   BotAttachment,
   BotAvatarKind,
@@ -86,11 +87,22 @@ import {
   APPS_ROOT,
   AppDataError,
   AppStore,
+  NO_ACCESS,
   assertCollection,
   isAppSlug,
 } from "./app-store"
 import type { AppItem } from "./app-store"
-import { MIME_TYPES, appLiveName } from "./apps-runtime"
+import {
+  EMPTY_WINDOW,
+  authorize,
+  hideReceipts,
+  isReceiptId,
+  takeSubmitSlot,
+  validateAccess,
+  visibleCollections,
+} from "./app-access"
+import type { SubmitWindow } from "./app-access"
+import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
 import type {
   AppCaller,
   AppDataOp,
@@ -2607,9 +2619,37 @@ export class BotAgent extends Think<Env, BotState> {
             .describe(
               "Path (relative to the app folder) → the complete file content, never a placeholder. The app needs index.html; server.js is optional. Omit to publish what is already in the folder."
             ),
+          publicForm: z
+            .object({
+              submit: z
+                .array(z.string())
+                .min(1)
+                .max(10)
+                .describe(
+                  "Collections strangers add to, e.g. ['responses'] or ['bookings']. They cannot list, change or delete them; each visitor reads back only their own entry, by the id submit returned."
+                ),
+              read: z
+                .array(z.string())
+                .max(10)
+                .optional()
+                .describe(
+                  "Collections anyone with a public link may read, e.g. ['questions'] or ['slots']. Never personal data."
+                ),
+              wake: z
+                .boolean()
+                .optional()
+                .describe(
+                  "Wake you for new submissions. Only when you must act on each one (send a calendar invite). A plain survey does not need it."
+                ),
+            })
+            .nullable()
+            .optional()
+            .describe(
+              "Make this app a public form (survey, sign-up, booking page) that strangers can submit to through a link the user makes. Omit to keep what the app has; null removes it."
+            ),
         }),
-        execute: async ({ slug, name, description, files }) =>
-          this.publishApp({ slug, name, description, files }),
+        execute: async ({ slug, name, description, files, publicForm }) =>
+          this.publishApp({ slug, name, description, files, publicForm }),
       }),
 
       list_apps: tool({
@@ -2691,6 +2731,7 @@ export class BotAgent extends Think<Env, BotState> {
     return this.apps.list().map((app) => ({
       ...app,
       hasServer: this.apps.get(app.slug)?.hasServer ?? false,
+      access: this.apps.get(app.slug)?.access ?? NO_ACCESS,
       links: this.apps.links(app.slug),
       collections: this.apps.collections(app.slug),
     }))
@@ -2720,12 +2761,22 @@ export class BotAgent extends Think<Env, BotState> {
     name: string
     description: string
     files?: Record<string, string>
+    publicForm?: { submit: string[]; read?: string[]; wake?: boolean } | null
   }) {
     const slug = input.slug.trim().toLowerCase()
     if (!isAppSlug(slug)) {
       return {
         error: "slug must be lowercase letters, digits and '-', up to 48",
       }
+    }
+    let access: AppAccess | null | undefined
+    try {
+      access = input.publicForm
+        ? validateAccess(input.publicForm)
+        : input.publicForm
+    } catch (err) {
+      if (err instanceof AppDataError) return { error: err.message }
+      throw err
     }
     const dir = `${APPS_ROOT}/${slug}`
     await this.workspace.fs.mkdir(dir, { recursive: true })
@@ -2775,6 +2826,7 @@ export class BotAgent extends Think<Env, BotState> {
       name: input.name.trim(),
       description: input.description.trim(),
       hasServer,
+      access,
     })
     this.syncAppsState()
     await this.broadcastApp(slug, { type: "reload", version: app.version })
@@ -2783,6 +2835,14 @@ export class BotAgent extends Think<Env, BotState> {
       version: app.version,
       link: `${this.#origin}${this.apps.ownerLink(slug).path}`,
       note: "Give the user this link as is. It is private to them; they can share the app from the Apps tab in your computer panel. Your browser may not reach this host, so do not try to open it.",
+      ...(app.access.submit.length > 0
+        ? {
+            publicForm: {
+              ...app.access,
+              note: 'For strangers, the user makes a public link in the Apps tab ("Can submit"). Tell them that in one line.',
+            },
+          }
+        : {}),
     }
   }
 
@@ -2883,6 +2943,44 @@ export class BotAgent extends Think<Env, BotState> {
     }
   }
 
+  /**
+   * What a public link may see of a public collection: the same items with
+   * any submission id in them hidden. A visitor reading back their own
+   * submission (by its receipt) sees it as is.
+   */
+  private forPublic<T>(
+    slug: string,
+    caller: AppCaller,
+    collection: string,
+    value: T
+  ): T {
+    const access = this.apps.get(slug)?.access
+    if (caller.mode !== "submit" || !access?.read.includes(collection)) {
+      return value
+    }
+    const receipts = new Set<string>()
+    for (const c of access.submit) {
+      for (const item of this.apps.items(slug, c)) {
+        if (isReceiptId(item.id)) receipts.add(item.id)
+      }
+    }
+    return hideReceipts(value, receipts)
+  }
+
+  /** A 429 if this public link or visitor is submitting too fast, else null. */
+  private takeSubmitSlot(slug: string, caller: AppCaller) {
+    const key = `app_submits:${slug}:${caller.token ?? caller.label}`
+    const window = this.ctx.storage.kv.get<SubmitWindow>(key) ?? EMPTY_WINDOW
+    const result = takeSubmitSlot(window, caller.ip ?? "unknown", Date.now())
+    this.ctx.storage.kv.put(key, result.window)
+    if (result.ok) return null
+    const minutes = Math.max(1, Math.ceil(result.retryAfterMs / 60_000))
+    return {
+      error: `Too many submissions. Try again in ${minutes} min.`,
+      status: 429,
+    }
+  }
+
   /** Queue an edit someone made in an app; the bot hears about it in a batch. */
   private async queueAppEvent(slug: string, line: string) {
     const key = `app_events:${slug}`
@@ -2944,7 +3042,12 @@ export class BotAgent extends Think<Env, BotState> {
     const link = this.apps.findLink(slug, token)
     const app = link ? this.apps.get(slug) : null
     if (!link || !app) return new Response("Not found", { status: 404 })
-    const caller: AppCaller = { label: link.label, mode: link.mode }
+    const caller: AppCaller = {
+      label: link.label,
+      mode: link.mode,
+      token: link.token,
+      ip: request.headers.get("CF-Connecting-IP") ?? "unknown",
+    }
 
     if (
       path === "_data" ||
@@ -3091,10 +3194,18 @@ export class BotAgent extends Think<Env, BotState> {
   ): Promise<{ value: unknown } | { error: string; status: number }> {
     const app = this.apps.get(slug)
     if (!app) return { error: "Not found", status: 404 }
-    const writes = op.op === "put" || op.op === "remove" || op.op === "tell"
-    if (writes && caller.mode !== "edit") {
-      return { error: "This link is view-only", status: 403 }
+    const decision = authorize(caller.mode, app.access, op)
+    if (!decision.ok) {
+      return { error: decision.error, status: decision.status }
     }
+    op = decision.op
+    const submitting = caller.mode === "submit" && op.op === "put"
+    if (submitting) {
+      const limited = this.takeSubmitSlot(slug, caller)
+      if (limited) return limited
+    }
+    // Ids in submit collections are receipts: never send them to viewers.
+    const privateIds = app.access.submit
     const by = `link:${caller.label}`
     try {
       switch (op.op) {
@@ -3102,16 +3213,32 @@ export class BotAgent extends Think<Env, BotState> {
           return {
             value: {
               app: { name: app.name, description: app.description },
-              collections: this.apps.collections(slug),
-              caller,
+              collections: visibleCollections(
+                caller.mode,
+                app.access,
+                this.apps.collections(slug)
+              ),
+              caller: publicCaller(caller),
+              ...(caller.mode === "submit"
+                ? { form: { submit: app.access.submit, read: app.access.read } }
+                : {}),
             },
           }
         case "list":
-          return { value: this.apps.items(slug, op.collection) }
+          return {
+            value: this.forPublic(
+              slug,
+              caller,
+              op.collection,
+              this.apps.items(slug, op.collection)
+            ),
+          }
         case "get": {
           assertCollection(op.collection)
           const item = this.apps.item(slug, op.collection, op.id)
-          return item ? { value: item } : { error: "Not found", status: 404 }
+          return item
+            ? { value: this.forPublic(slug, caller, op.collection, item) }
+            : { error: "Not found", status: 404 }
         }
         case "put": {
           const before = op.item.id
@@ -3119,16 +3246,23 @@ export class BotAgent extends Think<Env, BotState> {
             : null
           const item = this.apps.put(slug, op.collection, op.item, by, {
             merge: op.merge,
+            createOnly: submitting,
           })
           await this.broadcastApp(slug, {
             type: "change",
             collection: op.collection,
-            id: item.id,
+            ...(privateIds.includes(op.collection) ? {} : { id: item.id }),
           })
-          await this.queueAppEvent(
-            slug,
-            `${caller.label} ${before ? "changed" : "added"} ${op.collection}/${item.id}: ${clip(JSON.stringify(stripMeta(item)), 400)}`
-          )
+          // A survey with 500 answers should not mean 500 bot turns.
+          if (!submitting || app.access.wake) {
+            const who = submitting
+              ? `A stranger on the public link "${caller.label}"`
+              : caller.label
+            await this.queueAppEvent(
+              slug,
+              `${who} ${before ? "changed" : "added"} ${op.collection}/${item.id}: ${clip(JSON.stringify(stripMeta(item)), 400)}`
+            )
+          }
           return { value: item }
         }
         case "remove": {
@@ -5704,9 +5838,14 @@ export class BotAgent extends Think<Env, BotState> {
     label: string,
     mode: AppLink["mode"]
   ): Promise<AppLink> {
-    if (!this.apps.get(slug)) throw new Error(`No app "${slug}"`)
+    const app = this.apps.get(slug)
+    if (!app) throw new Error(`No app "${slug}"`)
     const name = label.trim().slice(0, 40) || "Shared link"
-    return this.apps.createLink(slug, name, mode === "view" ? "view" : "edit")
+    const safe = mode === "view" || mode === "submit" ? mode : "edit"
+    if (safe === "submit" && app.access.submit.length === 0) {
+      throw new Error("This app has no public form")
+    }
+    return this.apps.createLink(slug, name, safe)
   }
 
   @callable()

@@ -1,4 +1,4 @@
-import type { AppLink, BotAppSummary } from "@/lib/types"
+import type { AppAccess, AppLink, BotAppSummary } from "@/lib/types"
 
 /**
  * Apps a bot built, the links that open them, and the data they show.
@@ -36,6 +36,28 @@ export class AppDataError extends Error {
   }
 }
 
+export const NO_ACCESS: AppAccess = { read: [], submit: [], wake: false }
+
+/** Access as stored in SQL. Anything unreadable means no public form. */
+export function parseAccess(json: string | null | undefined): AppAccess {
+  if (!json) return NO_ACCESS
+  try {
+    const raw = JSON.parse(json) as Partial<AppAccess> | null
+    if (!raw || typeof raw !== "object") return NO_ACCESS
+    const list = (v: unknown) =>
+      Array.isArray(v)
+        ? v.filter((x): x is string => typeof x === "string")
+        : []
+    return {
+      read: list(raw.read),
+      submit: list(raw.submit),
+      wake: raw.wake === true,
+    }
+  } catch {
+    return NO_ACCESS
+  }
+}
+
 /** What an item looks like to apps and to the bot. */
 export type AppItem = Record<string, unknown> & {
   id: string
@@ -49,6 +71,7 @@ type AppRow = {
   description: string
   version: number
   has_server: number
+  access: string | null
   updated_at: number
 }
 
@@ -56,7 +79,7 @@ type LinkRow = {
   token: string
   slug: string
   label: string
-  mode: "edit" | "view"
+  mode: AppLink["mode"]
   owner: number
   created_at: number
 }
@@ -120,6 +143,13 @@ export class AppStore {
       updated_by TEXT NOT NULL,
       PRIMARY KEY (app, collection, id)
     )`)
+    // Added with public forms; older bots have the table without it.
+    const columns = this.sql
+      .exec<{ name: string }>(`PRAGMA table_info(apps)`)
+      .toArray()
+    if (!columns.some((c) => c.name === "access")) {
+      this.sql.exec(`ALTER TABLE apps ADD COLUMN access TEXT`)
+    }
   }
 
   // ── Apps ────────────────────────────────────────────────────────────
@@ -135,30 +165,43 @@ export class AppStore {
     const row = this.sql
       .exec<AppRow>(`SELECT * FROM apps WHERE slug = ?`, slug)
       .toArray()[0]
-    return row ? { ...toSummary(row), hasServer: row.has_server === 1 } : null
+    return row
+      ? {
+          ...toSummary(row),
+          hasServer: row.has_server === 1,
+          access: parseAccess(row.access),
+        }
+      : null
   }
 
-  /** Create or update an app and make sure the owner has a link to it. */
+  /**
+   * Create or update an app and make sure the owner has a link to it.
+   * `access` undefined keeps what the app had; null removes its public form.
+   */
   save(input: {
     slug: string
     name: string
     description: string
     hasServer: boolean
+    access?: AppAccess | null
   }) {
     const now = Date.now()
+    const keep = input.access === undefined
     this.sql.exec(
-      `INSERT INTO apps (slug, name, description, version, has_server, created_at, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?, ?)
+      `INSERT INTO apps (slug, name, description, version, has_server, access, created_at, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?, ?, ?)
        ON CONFLICT (slug) DO UPDATE SET
          name = excluded.name,
          description = excluded.description,
          has_server = excluded.has_server,
+         access = ${keep ? "apps.access" : "excluded.access"},
          version = apps.version + 1,
          updated_at = excluded.updated_at`,
       input.slug,
       input.name,
       input.description,
       input.hasServer ? 1 : 0,
+      input.access ? JSON.stringify(input.access) : null,
       now,
       now
     )
@@ -295,7 +338,7 @@ export class AppStore {
     collection: string,
     input: Record<string, unknown>,
     by: string,
-    options: { merge?: boolean } = {}
+    options: { merge?: boolean; createOnly?: boolean } = {}
   ): AppItem {
     assertCollection(collection)
     if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -312,6 +355,9 @@ export class AppStore {
       )
     }
     const existing = this.item(slug, collection, id)
+    if (existing && options.createOnly) {
+      throw new AppDataError("An item with that id already exists", 409)
+    }
     if (!existing) this.checkRoom(slug, collection)
     let data: Record<string, unknown> = fields
     if (options.merge && existing) {

@@ -20,6 +20,14 @@ import type { AppLink, BotAppDetail } from "@/lib/types"
 const MODE_LABELS: Record<AppLink["mode"], string> = {
   edit: "Can edit",
   view: "View only",
+  submit: "Can submit",
+}
+
+/** Under the link's name in the list. */
+const MODE_DETAILS: Record<AppLink["mode"], string> = {
+  edit: MODE_LABELS.edit,
+  view: MODE_LABELS.view,
+  submit: "Public form · sees only their own entry",
 }
 
 function absolute(path: string) {
@@ -186,7 +194,11 @@ function AppDetail({
   const owner = app.links.find((l) => l.owner)
   const shared = app.links.filter((l) => !l.owner)
   const [label, setLabel] = useState("")
-  const [mode, setMode] = useState<AppLink["mode"]>("edit")
+  const hasForm = app.access.submit.length > 0
+  const modes = hasForm
+    ? MODE_LABELS
+    : { edit: MODE_LABELS.edit, view: MODE_LABELS.view }
+  const [mode, setMode] = useState<AppLink["mode"]>(hasForm ? "submit" : "edit")
   const [creating, setCreating] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -274,7 +286,7 @@ function AppDetail({
             <PersonRow
               key={link.token}
               name={link.label}
-              detail={MODE_LABELS[link.mode]}
+              detail={MODE_DETAILS[link.mode]}
               path={link.path}
               onRevoke={() => void revoke(link.token)}
             />
@@ -294,8 +306,14 @@ function AppDetail({
                 value={label}
                 maxLength={40}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="Add a person"
-                aria-label="Name of the person to share with"
+                placeholder={
+                  mode === "submit" ? "Name this link" : "Add a person"
+                }
+                aria-label={
+                  mode === "submit"
+                    ? "Name of the public link, like Website"
+                    : "Name of the person to share with"
+                }
                 className="h-8 min-w-0 flex-1 bg-transparent text-sm text-kumo-default outline-none placeholder:text-kumo-placeholder"
               />
               <Select
@@ -303,7 +321,7 @@ function AppDetail({
                 size="sm"
                 className="w-28 shrink-0"
                 value={mode}
-                items={MODE_LABELS}
+                items={modes}
                 onValueChange={(value) =>
                   value && setMode(value as AppLink["mode"])
                 }
@@ -322,8 +340,9 @@ function AppDetail({
           </li>
         </ul>
         <p className="px-1.5 text-xs text-pretty text-kumo-subtle">
-          Anyone with a link can open the app without signing in, so share it
-          like a password. Edits reach the bot under that person's name.
+          {mode === "submit"
+            ? "Anyone with this link can fill in the form without signing in. They can't see other entries, and can send a few per hour."
+            : "Anyone with a link can open the app without signing in, so share it like a password. Edits reach the bot under that person's name."}
         </p>
       </div>
 

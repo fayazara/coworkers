@@ -52,6 +52,15 @@ export type AppLiveMessage =
 export interface AppCaller {
   label: string
   mode: AppLink["mode"]
+  /** The link's token, for per-link rate limits. Never shown to the app. */
+  token?: string
+  /** The visitor's IP, for per-visitor rate limits. Never shown to the app. */
+  ip?: string
+}
+
+/** The part of a caller an app may see. */
+export function publicCaller(caller: AppCaller) {
+  return { label: caller.label, mode: caller.mode }
 }
 
 export function appLiveName(userId: string, botId: string, slug: string) {
@@ -247,7 +256,7 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
 
   /** Who opened the app: the link's label and whether it may edit. */
   caller() {
-    return this.ctx.props.caller
+    return publicCaller(this.ctx.props.caller)
   }
 
   info() {
@@ -347,11 +356,29 @@ const CLIENT_JS = `(() => {
   addEventListener("unhandledrejection", (event) => report(event.reason, "promise"));
 
   const listeners = new Map();
+  const watchers = new Map();
   let socket = null;
   let attempts = 0;
   let pinger = 0;
 
+  async function refreshWatched(collection) {
+    for (const [key, set] of watchers) {
+      const [c, id] = JSON.parse(key);
+      if (c !== collection || set.size === 0) continue;
+      try {
+        const item = await coworkers.get(c, id).catch((err) => {
+          if (String(err && err.message) === "Not found") return null;
+          throw err;
+        });
+        for (const fn of set) fn(item);
+      } catch (err) {
+        console.error("coworkers: watch failed", err);
+      }
+    }
+  }
+
   async function refresh(collection) {
+    refreshWatched(collection);
     const set = listeners.get(collection);
     if (!set || set.size === 0) return;
     try {
@@ -368,7 +395,11 @@ const CLIENT_JS = `(() => {
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     socket = new WebSocket(url);
     socket.onopen = () => {
-      if (attempts > 0) for (const c of listeners.keys()) refresh(c);
+      if (attempts > 0) {
+        const seen = new Set(listeners.keys());
+        for (const key of watchers.keys()) seen.add(JSON.parse(key)[0]);
+        for (const c of seen) refresh(c);
+      }
       attempts = 0;
       clearInterval(pinger);
       pinger = setInterval(() => socket.readyState === 1 && socket.send("ping"), 30000);
@@ -388,7 +419,7 @@ const CLIENT_JS = `(() => {
   }
 
   const coworkers = {
-    /** { app, collections, caller: { label, mode } } */
+    /** { app, collections, caller: { label, mode }, form? } */
     info: () => request("GET", "_data"),
     list: (collection) =>
       request("GET", "_data/" + enc(collection)).then((r) => r.items),
@@ -407,6 +438,22 @@ const CLIENT_JS = `(() => {
       request("DELETE", "_data/" + enc(collection) + "/" + enc(id)),
     /** Send the bot a message. It answers in its own thread, not here. */
     tell: (text) => request("POST", "_tell", { text }),
+    /**
+     * Add a new item, e.g. a form response. Works on public (submit) links.
+     * Resolves to the saved item; keep its id to read it back with watch().
+     */
+    submit: (collection, item) => {
+      const { id: _id, ...fields } = item || {};
+      return request("POST", "_data/" + enc(collection), fields).then((r) => r.item);
+    },
+    /** Call fn(item or null) now and whenever that one item may have changed. Returns unsubscribe. */
+    watch(collection, id, fn) {
+      const key = JSON.stringify([collection, id]);
+      if (!watchers.has(key)) watchers.set(key, new Set());
+      watchers.get(key).add(fn);
+      refreshWatched(collection);
+      return () => watchers.get(key).delete(fn);
+    },
     /** Call fn(items) now and whenever the collection changes. Returns unsubscribe. */
     subscribe(collection, fn) {
       if (!listeners.has(collection)) listeners.set(collection, new Set());

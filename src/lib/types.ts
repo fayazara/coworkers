@@ -409,15 +409,33 @@ export interface AppLink {
   token: string
   /** Who it is for, e.g. "Sarah". The owner's own link is "You". */
   label: string
-  mode: "edit" | "view"
+  /**
+   * edit: change anything. view: read anything. submit: a public form that
+   * adds to the app's submit collections and reads only its own entries.
+   */
+  mode: "edit" | "view" | "submit"
   owner: boolean
   createdAt: number
   /** Path on this host, ending in "/". */
   path: string
 }
 
+/**
+ * What a public (submit) link may do in an app. The bot sets it on
+ * save_app; empty `submit` means the app has no public form.
+ */
+export interface AppAccess {
+  /** Collections anyone with a public link can read, e.g. open slots. */
+  read: string[]
+  /** Collections a public link can add to but not read, e.g. responses. */
+  submit: string[]
+  /** Whether submissions wake the bot (a booking needs it, a survey not). */
+  wake: boolean
+}
+
 export interface BotAppDetail extends BotAppSummary {
   hasServer: boolean
+  access: AppAccess
   links: AppLink[]
   collections: { name: string; count: number }[]
 }
