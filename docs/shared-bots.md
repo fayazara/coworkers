@@ -1,4 +1,4 @@
-# Shared bot conversations
+# Shared bots and computers
 
 This branch builds on `feature/private-app-sharing`. The bot owner can invite
 specific Access-authenticated emails or enable sharing with every identity
@@ -11,9 +11,10 @@ attach files, and answer ordinary questions. Owner settings and sensitive
 approvals remain owner-only. Revocation clears the member view on its next
 poll and denies subsequent server requests.
 
-The shared computer panel is the next stacked branch,
-`feature/shared-computer`. It adds Browser, Terminal, Files, Apps and Activity
-to this conversation through a member-scoped RPC allowlist.
+The same branch includes the shared computer panel: Browser, Terminal, Files,
+Apps and Activity, connected through a member-scoped RPC allowlist. Shared chat
+and computer access are one feature, with no separate computer-sharing branch
+or invitation.
 
 Sharing an existing bot exposes its existing history and workspace. Use a
 fresh bot when the existing one contains private information. Access policy
