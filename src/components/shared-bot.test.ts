@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   getSharedBot: vi.fn(),
+  messageSharedBot: vi.fn(),
+  answerSharedBotChoice: vi.fn(),
   workspace: vi.fn(),
   listFiles: vi.fn(),
   fileModel: {
@@ -15,15 +17,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => () => ({}),
   Link: () => null,
+  useLocation: () => "",
+  useHydrated: () => true,
 }))
 vi.mock("@/lib/sharing-fns", () => ({
   getSharedBot: mocks.getSharedBot,
   callSharedBotWorkspace: mocks.workspace,
   listSharedBotFiles: mocks.listFiles,
   downloadSharedBotFile: vi.fn(),
-  messageSharedBot: vi.fn(),
+  messageSharedBot: mocks.messageSharedBot,
   uploadSharedBotFile: vi.fn(),
-  answerSharedBotChoice: vi.fn(),
+  answerSharedBotChoice: mocks.answerSharedBotChoice,
 }))
 vi.mock("@/lib/layout-context", () => ({
   useLayout: () => ({ widths: {}, setWidth: vi.fn() }),
@@ -34,9 +38,6 @@ vi.mock("@/components/bot-header", () => ({
 }))
 vi.mock("@cloudflare/kumo/components/tooltip", () => ({
   Tooltip: ({ render }: { render: ReactNode }) => render,
-}))
-vi.mock("@/components/thread", () => ({
-  Thread: () => createElement("div", null, "Shared conversation"),
 }))
 vi.mock("@/components/composer", () => ({ Composer: () => null }))
 vi.mock("@/components/code-block", () => ({
@@ -72,6 +73,9 @@ vi.mock("@pierre/trees/react", () => ({
 }))
 import { SharedBotChat } from "@/routes/_app/shared.$ownerId.$botId"
 import type { getSharedBot } from "@/lib/sharing-fns"
+import { Thread } from "./thread"
+import { BotContext } from "@/lib/bot-context"
+import type { UIMessage } from "ai"
 
 const initial = {
   state: { name: "Family Manager", avatar: "blue-rectangle", status: "idle" },
@@ -97,7 +101,10 @@ beforeEach(() => {
     }
   )
   HTMLElement.prototype.scrollIntoView = vi.fn()
+  vi.stubGlobal("matchMedia", () => ({ matches: true }))
   mocks.getSharedBot.mockResolvedValue(initial)
+  mocks.messageSharedBot.mockResolvedValue(undefined)
+  mocks.answerSharedBotChoice.mockResolvedValue(undefined)
   mocks.workspace.mockImplementation(
     async ({ data }: { data: { action: { method: string } } }) => {
       if (data.action.method === "runCommand")
@@ -112,6 +119,185 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+})
+
+describe("shared bot conversation interactions", () => {
+  function conversation(part: unknown) {
+    const snapshot = {
+      ...initial,
+      messagesJson: JSON.stringify([
+        { id: "reply", role: "assistant", parts: [part] },
+      ]),
+    }
+    mocks.getSharedBot.mockResolvedValue(snapshot)
+    return render(
+      createElement(SharedBotChat, {
+        params: { ownerId: "owner", botId: "bot" },
+        initial: snapshot,
+      })
+    )
+  }
+
+  it.each([
+    [
+      [{ label: "Book Monday", detail: "The calendar is free" }],
+      "Book MondayThe calendar is free",
+    ],
+    [["Book Monday"], "Book Monday"],
+  ])(
+    "renders and submits current and legacy question options: %j",
+    async (options, name) => {
+      const view = conversation({
+        type: "tool-ask_user",
+        toolCallId: "question",
+        state: "approval-requested",
+        approval: { id: "approval" },
+        input: { question: "When should I book?", options },
+      })
+      const button = view.getByRole("button", { name: String(name) })
+      expect(button.hasAttribute("disabled")).toBe(false)
+      expect(
+        view.getByRole("button", { name: "Dismiss" }).hasAttribute("disabled")
+      ).toBe(true)
+      fireEvent.click(button)
+      await waitFor(() =>
+        expect(mocks.answerSharedBotChoice).toHaveBeenCalledWith({
+          data: {
+            ownerId: "owner",
+            botId: "bot",
+            toolCallId: "question",
+            option: "Book Monday",
+          },
+        })
+      )
+      expect(mocks.messageSharedBot).not.toHaveBeenCalled()
+    }
+  )
+
+  it("renders real show action buttons and sends through the member endpoint without BotContext", async () => {
+    const view = conversation({
+      type: "tool-show",
+      toolCallId: "next-steps",
+      state: "output-available",
+      input: {
+        blocks: [{ type: "actions", items: [{ label: "Plan next week" }] }],
+      },
+      output: { shown: true },
+    })
+    fireEvent.click(view.getByRole("button", { name: "Plan next week" }))
+    await waitFor(() =>
+      expect(mocks.messageSharedBot).toHaveBeenCalledWith({
+        data: {
+          ownerId: "owner",
+          botId: "bot",
+          text: "Plan next week",
+          requestId: expect.any(String),
+        },
+      })
+    )
+    expect(mocks.answerSharedBotChoice).not.toHaveBeenCalled()
+  })
+
+  it("reports a rejected member action instead of silently losing it", async () => {
+    mocks.messageSharedBot.mockRejectedValue(new Error("Access revoked"))
+    const view = conversation({
+      type: "tool-show",
+      toolCallId: "next-steps",
+      state: "output-available",
+      input: {
+        blocks: [{ type: "actions", items: [{ label: "Plan next week" }] }],
+      },
+    })
+    fireEvent.click(view.getByRole("button", { name: "Plan next week" }))
+    await waitFor(() =>
+      expect(view.getByRole("alert").textContent).toBe("Access revoked")
+    )
+  })
+
+  it("keeps failed question answers retryable and never exposes generic approval", async () => {
+    mocks.answerSharedBotChoice.mockRejectedValue(new Error("Answer failed"))
+    const view = conversation({
+      type: "tool-ask_user",
+      toolCallId: "question",
+      state: "approval-requested",
+      approval: { id: "approval" },
+      input: { question: "When?", options: [{ label: "Monday" }] },
+    })
+    const button = view.getByRole("button", { name: "Monday" })
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(view.getByRole("alert").textContent).toBe("Answer failed")
+    )
+    expect(button.hasAttribute("disabled")).toBe(false)
+    expect(
+      view.getByRole("button", { name: "Dismiss" }).hasAttribute("disabled")
+    ).toBe(true)
+  })
+
+  it("still answers and approves questions through the owner's callbacks", async () => {
+    const answer = vi.fn().mockResolvedValue(undefined)
+    const approve = vi.fn()
+    const messages = [
+      {
+        id: "reply",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-ask_user",
+            toolCallId: "question",
+            state: "approval-requested",
+            approval: { id: "approval" },
+            input: { question: "When?", options: [{ label: "Monday" }] },
+          },
+        ],
+      },
+    ] as UIMessage[]
+    const view = render(
+      createElement(Thread, {
+        bot: initial.state,
+        messages,
+        busy: false,
+        onAnswerChoice: answer,
+        onApproval: approve,
+      })
+    )
+    fireEvent.click(view.getByRole("button", { name: "Monday" }))
+    await waitFor(() => expect(approve).toHaveBeenCalledWith("approval", true))
+    expect(answer).toHaveBeenCalledWith("question", "Monday")
+  })
+
+  it("retains the owner's BotContext sender when no scoped sender is provided", () => {
+    const send = vi.fn()
+    const messages = [
+      {
+        id: "reply",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-show",
+            toolCallId: "actions",
+            state: "output-available",
+            output: {},
+            input: {
+              blocks: [{ type: "actions", items: [{ label: "Next step" }] }],
+            },
+          },
+        ],
+      },
+    ] as UIMessage[]
+    const view = render(
+      createElement(
+        BotContext.Provider,
+        {
+          value: { botId: "bot", state: initial.state, agent: null, send },
+        },
+        createElement(Thread, { bot: initial.state, messages, busy: false })
+      )
+    )
+    fireEvent.click(view.getByRole("button", { name: "Next step" }))
+    expect(send).toHaveBeenCalledWith("Next step")
+    expect(mocks.messageSharedBot).not.toHaveBeenCalled()
+  })
 })
 
 describe("shared bot computer", () => {
@@ -285,7 +471,7 @@ describe("shared bot computer", () => {
     await waitFor(() =>
       expect(view.getByRole("alert").textContent).toBe("Access revoked")
     )
-    expect(view.queryByText("Shared conversation")).toBeNull()
+    expect(view.queryByText("Family notes")).toBeNull()
     expect(view.queryByRole("tab", { name: "Browser" })).toBeNull()
     expect(
       view.getByRole("button", { name: "Computer" }).hasAttribute("disabled")

@@ -80,6 +80,7 @@ export function SharedBotChat({
   }, [refresh])
 
   async function send(text: string) {
+    if (!snapshot || snapshot.state.paused || sending) return
     setSending(true)
     setError("")
     try {
@@ -116,17 +117,6 @@ export function SharedBotChat({
   const messages = snapshot
     ? (JSON.parse(snapshot.messagesJson) as UIMessage[])
     : []
-  const questions = messages
-    .flatMap((m) => m.parts)
-    .filter(
-      (p) =>
-        p.type === "tool-ask_user" &&
-        "state" in p &&
-        p.state === "approval-requested"
-    ) as unknown as {
-    toolCallId: string
-    input: { question?: string; options?: string[] }
-  }[]
 
   return (
     <SplitView
@@ -196,37 +186,14 @@ export function SharedBotChat({
               getBrowserFrame={computer.stub.getBrowserFrame}
               navigateBrowser={computer.stub.navigateBrowser}
               readFile={computer.stub.readFileData}
+              onSend={(text) => void send(text)}
+              onAnswerChoice={async (toolCallId, option) => {
+                await answerSharedBotChoice({
+                  data: { ...params, toolCallId, option },
+                })
+                await refresh()
+              }}
             />
-            {questions.map((question) => (
-              <div
-                key={question.toolCallId}
-                className="mx-auto w-full max-w-[820px] px-4 py-2"
-              >
-                <p className="text-sm">{question.input.question}</p>
-                <div className="flex flex-wrap gap-2">
-                  {question.input.options?.map((option) => (
-                    <button
-                      type="button"
-                      key={option}
-                      className="min-h-11 rounded-xl border border-kumo-line px-3 text-sm"
-                      onClick={() => {
-                        void answerSharedBotChoice({
-                          data: {
-                            ...params,
-                            toolCallId: question.toolCallId,
-                            option,
-                          },
-                        })
-                          .then(refresh)
-                          .catch((err: Error) => setError(err.message))
-                      }}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
           </>
         ) : (
           <div className="flex-1" />

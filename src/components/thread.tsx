@@ -80,7 +80,7 @@ export type OnProvideSecret = (
   value: string
 ) => Promise<void>
 
-/** Hands the tapped ask_user option to the bot before the card is approved. */
+/** Hands the tapped ask_user option to the bot. Scoped member RPCs also approve it. */
 export type OnAnswerChoice = (
   toolCallId: string,
   option: string
@@ -101,6 +101,8 @@ interface ThreadProps {
   onApproval?: OnApproval
   onProvideSecret?: OnProvideSecret
   onAnswerChoice?: OnAnswerChoice
+  /** Send a suggested next step through a scoped route instead of BotContext. */
+  onSend?: (text: string) => void
   /** App calls from the bot's scripts, paused for the user's OK. */
   scriptApprovals?: ScriptApproval[]
   onScriptApproval?: OnScriptApproval
@@ -400,15 +402,15 @@ function ChoiceCard({
   const [picking, setPicking] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const options = choiceOptions(call.input.options)
-  const ready = Boolean(onApproval && onAnswerChoice && call.approvalId)
+  const ready = Boolean(onAnswerChoice && call.approvalId)
 
   async function pick(option: string) {
-    if (!onApproval || !onAnswerChoice || !call.approvalId) return
+    if (!onAnswerChoice || !call.approvalId) return
     setPicking(option)
     setError(null)
     try {
       await onAnswerChoice(call.id, option)
-      onApproval(call.approvalId, true)
+      onApproval?.(call.approvalId, true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send that.")
       setPicking(null)
@@ -425,7 +427,7 @@ function ChoiceCard({
           type="button"
           aria-label="Dismiss"
           className="icon-btn"
-          disabled={!ready || picking !== null}
+          disabled={!onApproval || !ready || picking !== null}
           onClick={() =>
             onApproval?.(
               call.approvalId!,
@@ -1066,6 +1068,7 @@ export function Thread({
   scriptApprovals,
   onScriptApproval,
   unreadFrom,
+  onSend,
 }: ThreadProps) {
   // A link to one task's message (from a pipeline run) opens the thread there.
   const hash = useLocation({ select: (l) => l.hash })
@@ -1080,7 +1083,8 @@ export function Thread({
 
   const hydrated = useHydrated()
   // Absent on the server render and until the chat is live.
-  const pick = useContext(BotContext)?.send
+  const contextSend = useContext(BotContext)?.send
+  const pick = onSend ?? contextSend
   const rendered = useMemo(() => {
     const rows: Row[] = []
     let background = false

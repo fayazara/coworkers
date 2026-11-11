@@ -11,6 +11,11 @@ attach files, and answer ordinary questions. Owner settings and sensitive
 approvals remain owner-only. Revocation clears the member view on its next
 poll and denies subsequent server requests.
 
+Member questions use the same choice cards as owner chat, including structured
+labels/details and older string options. Answers go through the member-scoped
+endpoint; generic approvals and dismissal remain owner-only. Suggested next-step
+buttons also send through the member endpoint without an owner socket.
+
 The same branch includes the shared computer panel: Browser, Terminal, Files,
 Apps and Activity, connected through a member-scoped RPC allowlist. Shared chat
 and computer access are one feature, with no separate computer-sharing branch
