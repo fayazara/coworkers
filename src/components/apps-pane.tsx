@@ -14,6 +14,7 @@ import {
   XIcon,
 } from "@/components/icons"
 import { CopyButton } from "@/components/copy-button"
+import { AppSharingConnections } from "@/components/app-sharing-connections"
 import { EmptyState } from "@/components/empty-state"
 import { Group, Row } from "@/components/group"
 import { useBot } from "@/lib/bot-context"
@@ -508,6 +509,11 @@ function AppDetail({
           new link to change permissions. Email recipients must be allowed to
           sign in through Cloudflare Access.
         </p>
+        <AppSharingConnections
+          agent={agent}
+          willIsolate={canMessage || mode === "submit"}
+          refreshKey={app.links}
+        />
         {error ? (
           <p role="alert" className="px-1.5 text-sm text-kumo-danger">
             {error}

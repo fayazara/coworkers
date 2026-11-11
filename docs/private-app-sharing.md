@@ -18,6 +18,12 @@ memory, inherited skills, credentials, pipelines, and other bots. Isolation
 persists after revocation. Connections require an explicit owner allowlist.
 App server tools require owner-approved grants as well as that allowlist.
 
+In Computer → Apps → Access and sharing, selecting bot messaging or a public
+form reveals **Connected accounts for sharing**. Choose accounts explicitly;
+none are enabled automatically. The selection remains available after isolation
+and applies to the bot and all its apps, independently of app-tool approvals.
+Changing one account does not replace bot membership or disable isolation.
+
 This branch includes the shared authorization and membership backend used by
 the subsequent shared-bot interface. It adds no bindings or Durable Object
 classes. The schema migration is additive inside existing bot storage.

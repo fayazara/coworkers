@@ -3466,6 +3466,28 @@ export class BotAgent extends Think<Env, BotState> {
     return this.sharing()
   }
 
+  /** Owner-only account selection, without replacing membership or isolation. */
+  @callable()
+  async setSharingConnection(input: unknown): Promise<BotSharing> {
+    const { connectionId, enabled } = z
+      .object({
+        connectionId: z.string().min(1).max(100),
+        enabled: z.boolean(),
+      })
+      .parse(input)
+    const previous = this.sharing()
+    const connectionIds = previous.connectionIds.filter(
+      (id) => id !== connectionId
+    )
+    if (enabled) connectionIds.push(connectionId)
+    const sharing = {
+      ...previous,
+      connectionIds: botSharingSchema.shape.connectionIds.parse(connectionIds),
+    }
+    this.ctx.storage.kv.put("bot_sharing", sharing)
+    return sharing
+  }
+
   /** A separate member surface intentionally never opens the owner agent socket. */
   async isSharedWith(email: string | null) {
     return isBotMember(this.sharing(), email)
