@@ -4,14 +4,16 @@ import { botInstanceName } from "@/lib/types"
 import type { AppLink } from "@/lib/types"
 import type { BotAgent } from "./bot-agent"
 import type { UserHub } from "./user-hub"
+import { accessConfigured, identify, Unauthorized } from "@/lib/auth"
 
 /**
  * Serving the apps bots build.
  *
  *   /apps/<userId>/<botId>/<slug>/<token>/<path>
  *
- * The token is a per-link capability, so links work without a login (put
- * `/apps/*` in a Cloudflare Access bypass policy, like `/api/hooks/*`).
+ * Owner/email entry links require verified identity and bootstrap short-lived
+ * app-scoped sessions. Explicit secret share links work without a login. Keep
+ * `/apps/*` in the Access bypass: the Worker enforces each app's permissions.
  * Responses carry a CSP `sandbox`, so app code runs in an opaque origin
  * and cannot reach the Coworkers UI, its cookies, or the agent sockets.
  *
@@ -52,6 +54,7 @@ export type AppLiveMessage =
 export interface AppCaller {
   label: string
   mode: AppLink["mode"]
+  canMessage?: boolean
   /** The link's token, for per-link rate limits. Never shown to the app. */
   token?: string
   /** The visitor's IP, for per-visitor rate limits. Never shown to the app. */
@@ -69,7 +72,11 @@ export interface AppCaller {
 
 /** The part of a caller an app may see. */
 export function publicCaller(caller: AppCaller) {
-  return { label: caller.label, mode: caller.mode }
+  return {
+    label: caller.label,
+    mode: caller.mode,
+    canMessage: caller.canMessage ?? false,
+  }
 }
 
 export function appLiveName(userId: string, botId: string, slug: string) {
@@ -112,7 +119,7 @@ function withAppHeaders(response: Response, origin: string) {
   // The link token is in the URL: never leak it to CDNs or other sites.
   headers.set("Referrer-Policy", "no-referrer")
   headers.set("X-Content-Type-Options", "nosniff")
-  if (!headers.has("Cache-Control")) headers.set("Cache-Control", "no-cache")
+  headers.set("Cache-Control", "private, no-store")
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -160,6 +167,48 @@ export async function handleAppRequest(
   // Looking up an unknown bot would create an empty Durable Object.
   if (!(await hub.hasBot(botId))) return notFound()
 
+  const bot = await botStub(env, userId, botId)
+  const candidate = await bot.appLink(slug, token)
+  if (!candidate) return notFound()
+  let viewer: { id: string; email: string | null } | null = null
+  if (candidate.audience === "owner" || candidate.audience === "email") {
+    if (!accessConfigured() && !import.meta.env.DEV) {
+      return new Response("Private apps require configured sign-in.", {
+        status: 401,
+        headers: { "Cache-Control": "no-store" },
+      })
+    }
+    try {
+      viewer = await identify(request)
+    } catch (err) {
+      if (!(err instanceof Unauthorized)) throw err
+    }
+    if (!viewer)
+      return new Response(
+        "Sign in to Coworkers before opening this private app.",
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      )
+  }
+  const access = await bot.authorizeAppLink(slug, token, viewer)
+  if (!access) return notFound()
+  if (access.token !== token) {
+    // An opaque-origin app cannot send the UI's login cookies. Bootstrap a
+    // short-lived, app-scoped capability only after checking the identity.
+    const next = new URL(
+      access.path + rest.map(encodeURIComponent).join("/"),
+      url.origin
+    )
+    next.search = url.search
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: next.toString(),
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      },
+    })
+  }
+
   // `_bdots.js` and `window.bdots`: apps published before the rename.
   if (path === "_coworkers.js" || path === "_bdots.js") {
     return withAppHeaders(
@@ -173,7 +222,6 @@ export async function handleAppRequest(
     )
   }
 
-  const bot = await botStub(env, userId, botId)
   if (path === "_live") {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected a WebSocket", { status: 426 })
@@ -183,6 +231,10 @@ export async function handleAppRequest(
     const live = env.AppLive.getByName(appLiveName(userId, botId, slug))
     const headers = new Headers(request.headers)
     headers.set("X-Coworkers-Link", token)
+    headers.set("X-Coworkers-Expires", String(access.expiresAt ?? 0))
+    headers.set("X-Coworkers-User", userId)
+    headers.set("X-Coworkers-Bot", botId)
+    headers.set("X-Coworkers-App", slug)
     return live.fetch(new Request(request, { headers }))
   }
 
@@ -205,15 +257,67 @@ export class AppLive extends DurableObject<Env> {
 
   override async fetch(request: Request) {
     const token = request.headers.get("X-Coworkers-Link") ?? ""
+    const expiresAt = Number(request.headers.get("X-Coworkers-Expires")) || 0
+    const userId = request.headers.get("X-Coworkers-User") ?? ""
+    const botId = request.headers.get("X-Coworkers-Bot") ?? ""
+    const slug = request.headers.get("X-Coworkers-App") ?? ""
+    if (!userId || !botId || !slug || !token) return notFound()
     const { 0: client, 1: server } = new WebSocketPair()
     this.ctx.acceptWebSocket(server, [token])
+    server.serializeAttachment({ expiresAt, userId, botId, slug, token })
+    // Accept first, then recheck: revocation racing the upgrade either sees
+    // this socket in disconnect(), or this recheck closes it.
+    if (
+      !(await (
+        await botStub(this.env, userId, botId)
+      ).authorizeAppLink(slug, token, null))
+    ) {
+      server.close(4001, "Access revoked")
+    }
+    if (expiresAt) {
+      const alarm = await this.ctx.storage.getAlarm()
+      if (!alarm || alarm > expiresAt)
+        await this.ctx.storage.setAlarm(expiresAt)
+    }
     return new Response(null, { status: 101, webSocket: client })
   }
 
-  broadcast(message: AppLiveMessage) {
+  override async alarm() {
+    let next = Infinity
+    for (const ws of this.ctx.getWebSockets()) {
+      const { expiresAt } = (ws.deserializeAttachment() ?? {}) as {
+        expiresAt?: number
+      }
+      if (!expiresAt) continue
+      if (expiresAt <= Date.now())
+        ws.close(4001, "Session expired; reopen the private app")
+      else next = Math.min(next, expiresAt)
+    }
+    if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next)
+  }
+
+  async broadcast(message: AppLiveMessage) {
     const data = JSON.stringify(message)
     for (const ws of this.ctx.getWebSockets()) {
       try {
+        const attachment = ws.deserializeAttachment() as {
+          userId?: string
+          botId?: string
+          slug?: string
+          token?: string
+        } | null
+        if (
+          !attachment?.userId ||
+          !attachment.botId ||
+          !attachment.slug ||
+          !attachment.token ||
+          !(await (
+            await botStub(this.env, attachment.userId, attachment.botId)
+          ).authorizeAppLink(attachment.slug, attachment.token, null))
+        ) {
+          ws.close(4001, "Access revoked")
+          continue
+        }
         ws.send(data)
       } catch {
         // Already closing.
@@ -320,9 +424,9 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
 
   /** The app tools this app asked for, and whether each is allowed. */
   async tools() {
-    const { userId, botId, slug } = this.ctx.props
+    const { userId, botId, slug, caller } = this.ctx.props
     const bot = await botStub(this.env, userId, botId)
-    return bot.appToolList(slug)
+    return bot.appToolList(slug, caller)
   }
 }
 

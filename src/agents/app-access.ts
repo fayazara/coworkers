@@ -2,6 +2,8 @@ import type { AppAccess, AppLink } from "@/lib/types"
 import { AppDataError, assertCollection } from "./app-store"
 export { NO_ACCESS, parseAccess } from "./app-store"
 import type { AppDataOp } from "./apps-runtime"
+import type { AppCaller } from "./apps-runtime"
+import { appOperationDenied } from "@/lib/sharing"
 
 /**
  * Who may do what through an app link.
@@ -70,6 +72,39 @@ const deny = (error: string, status = 403): Decision => ({
   error,
   status,
 })
+
+/** Form backends manage their own data; ordinary view links stay view-only. */
+export function callerDataMode(caller: AppCaller): AppLink["mode"] {
+  return caller.server && caller.mode === "submit" ? "edit" : caller.mode
+}
+
+/** Rebind cached server capabilities to the current, authorized link. */
+export function refreshAppCaller(
+  caller: AppCaller,
+  grant: AppLink | null
+): AppCaller | null {
+  if (!caller.token || !grant || grant.token !== caller.token) return null
+  return {
+    ...caller,
+    label: grant.label,
+    mode: grant.mode,
+    canMessage: grant.canMessage,
+    owner: grant.owner,
+  }
+}
+
+/** Keep independent edit/message grants when applying public-form rules. */
+export function authorizeCaller(
+  caller: AppCaller,
+  access: AppAccess,
+  op: AppDataOp
+): Decision {
+  const mode = callerDataMode(caller)
+  const denial = appOperationDenied({ ...caller, mode }, op.op)
+  if (denial) return deny(denial)
+  if (op.op === "tell" || op.op === "error") return { ok: true, op }
+  return authorize(mode, access, op)
+}
 
 /**
  * Whether a link may run an op, and the op to run. For a submission the

@@ -169,6 +169,8 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   }
 
   async onStart() {
+    this
+      .sql`CREATE TABLE IF NOT EXISTS sharing_directory (owner_id TEXT NOT NULL, bot_id TEXT NOT NULL, emails TEXT NOT NULL, workspace INTEGER NOT NULL, PRIMARY KEY (owner_id, bot_id))`
     this.skills.init()
     // Push endpoints are capability URLs: keep them out of broadcast state.
     this.sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
@@ -514,6 +516,9 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       const bot = await this.bot(botId)
       await bot.releaseEmail().catch((err) => {
         console.warn(`removeBot ${botId}: routing rule not removed`, err)
+      })
+      await bot.releaseSharing().catch((err) => {
+        console.warn(`removeBot ${botId}: sharing cleanup failed`, err)
       })
       await bot.destroy()
     } catch (err) {
@@ -1413,6 +1418,55 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     return this.state.bots
   }
 
+  /** Private RPC index. A hit is only a hint; the bot's own ACL is authoritative. */
+  async indexSharedBot(
+    ownerId: string,
+    botId: string,
+    emails: string[],
+    workspace: boolean
+  ) {
+    if (!emails.length && !workspace) {
+      this
+        .sql`DELETE FROM sharing_directory WHERE owner_id = ${ownerId} AND bot_id = ${botId}`
+    } else {
+      this
+        .sql`INSERT OR REPLACE INTO sharing_directory (owner_id, bot_id, emails, workspace) VALUES (${ownerId}, ${botId}, ${JSON.stringify(emails)}, ${workspace ? 1 : 0})`
+    }
+  }
+
+  async sharedBotRefs(
+    email: string
+  ): Promise<{ ownerId: string; botId: string }[]> {
+    return this.sql<{
+      owner_id: string
+      bot_id: string
+      emails: string
+      workspace: number
+    }>`SELECT * FROM sharing_directory`
+      .filter(
+        (r) =>
+          r.workspace === 1 ||
+          (JSON.parse(r.emails) as string[]).includes(email.toLowerCase())
+      )
+      .map((r) => ({ ownerId: r.owner_id, botId: r.bot_id }))
+  }
+
+  async hasSharedBotRef(
+    ownerId: string,
+    botId: string,
+    email: string
+  ): Promise<boolean> {
+    const row = this.sql<{
+      emails: string
+      workspace: number
+    }>`SELECT emails, workspace FROM sharing_directory WHERE owner_id = ${ownerId} AND bot_id = ${botId}`[0]
+    return (
+      !!row &&
+      (row.workspace === 1 ||
+        (JSON.parse(row.emails) as string[]).includes(email.toLowerCase()))
+    )
+  }
+
   /** Inbound email and webhooks check this before waking a bot. */
   async hasBot(botId: string): Promise<boolean> {
     return this.state.bots.some((b) => b.id === botId)
@@ -1733,7 +1787,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     text: string,
     delivery: { key?: string; hops?: number; files?: BotAttachment[] } = {}
   ): Promise<Delivery & { files?: string[] }> {
-    const found = this.recipient(fromBotId, to)
+    const found = await this.recipient(fromBotId, to)
     if ("error" in found) return { delivered: false, ...found }
     const { from, target } = found
     const bot = await this.bot(target.id)
@@ -1751,18 +1805,29 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   }
 
   /** The sender and the bot it named (by link, id or name), for bot-to-bot calls. */
-  private recipient(
+  private async recipient(
     fromBotId: string,
     to: string
-  ):
+  ): Promise<
     | { from: BotSummary; target: BotSummary }
-    | { code: FailureCode; error: string } {
+    | { code: FailureCode; error: string }
+  > {
     const from = this.state.bots.find((b) => b.id === fromBotId)
     if (!from) return { code: "not_found", error: "Unknown sender" }
     const found = this.target(to, fromBotId)
     if ("error" in found) return found
     if (found.target.id === fromBotId) {
       return { code: "invalid", error: "A bot cannot message itself" }
+    }
+    if (
+      (await (await this.bot(fromBotId)).sharingIsolated()) ||
+      (await (await this.bot(found.target.id)).sharingIsolated())
+    ) {
+      return {
+        code: "denied",
+        error:
+          "Shared bots are isolated from private bot-to-bot messaging and delegation.",
+      }
     }
     return { from, target: found.target }
   }
@@ -1891,7 +1956,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       files?: BotAttachment[]
     }
   ): Promise<Delivery> {
-    const found = this.recipient(fromBotId, to)
+    const found = await this.recipient(fromBotId, to)
     if ("error" in found) return { delivered: false, ...found }
     const { from, target } = found
     const bot = await this.bot(target.id)
