@@ -4,7 +4,7 @@ import { getAgentByName } from "agents"
 import { env } from "cloudflare:workers"
 import { z } from "zod"
 import { identify } from "./auth"
-import { SHARING_DIRECTORY } from "./sharing"
+import { SHARING_DIRECTORY, sharedWorkspaceActionSchema } from "./sharing"
 import { botInstanceName } from "./types"
 import type { BotAgent } from "@/agents/bot-agent"
 import type { UserHub } from "@/agents/user-hub"
@@ -97,6 +97,26 @@ export const messageSharedBot = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { bot, email } = await sharedBot(data)
     await bot.sharedMessage(email, data.text, data.requestId)
+  })
+
+export const callSharedBotWorkspace = createServerFn({ method: "POST" })
+  .validator((v: unknown) =>
+    refSchema.extend({ action: sharedWorkspaceActionSchema }).parse(v)
+  )
+  .handler(async ({ data }) => {
+    const { bot, email } = await sharedBot(data)
+    const result = await bot.sharedWorkspace(email, data.action)
+    try {
+      if (result === undefined) return
+      // DO RPC results may carry disposable handles. Only plain data crosses
+      // the server-function boundary into a member's browser.
+      return JSON.parse(JSON.stringify(result)) as Exclude<
+        Awaited<ReturnType<BotAgent["sharedWorkspace"]>>,
+        void
+      >
+    } finally {
+      if (result && typeof result === "object") result[Symbol.dispose]?.()
+    }
   })
 
 export const uploadSharedBotFile = createServerFn({ method: "POST" })

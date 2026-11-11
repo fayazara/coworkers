@@ -10,14 +10,16 @@ import { useBot } from "@/lib/bot-context"
 export function SidePanel({
   title,
   toolbar,
+  onClose,
   children,
 }: {
   title: string
   /** Shown in the header instead of the title, e.g. the Computer's tabs. */
   toolbar?: React.ReactNode
+  /** Shared bots close locally, without navigating into an owner's bot route. */
+  onClose?: () => void
   children: React.ReactNode
 }) {
-  const { botId } = useBot()
   return (
     <aside aria-label={title} className="flex h-full flex-col bg-kumo-canvas">
       <div className="col-header justify-between">
@@ -31,16 +33,34 @@ export function SidePanel({
             {title}
           </h2>
         )}
-        <Link
-          to="/bots/$botId"
-          params={{ botId }}
-          aria-label={`Close ${title.toLowerCase()}`}
-          className="icon-btn"
-        >
-          <XIcon size={18} />
-        </Link>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={`Close ${title.toLowerCase()}`}
+            className="icon-btn"
+          >
+            <XIcon size={18} />
+          </button>
+        ) : (
+          <OwnerPanelClose title={title} />
+        )}
       </div>
       {children}
     </aside>
+  )
+}
+
+function OwnerPanelClose({ title }: { title: string }) {
+  const { botId } = useBot()
+  return (
+    <Link
+      to="/bots/$botId"
+      params={{ botId }}
+      aria-label={`Close ${title.toLowerCase()}`}
+      className="icon-btn"
+    >
+      <XIcon size={18} />
+    </Link>
   )
 }

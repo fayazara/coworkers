@@ -154,6 +154,7 @@ import {
   isBotMember,
 } from "@/lib/sharing"
 import type { BotSharing } from "@/lib/sharing"
+import { runSharedWorkspace } from "./shared-workspace"
 import { MAX_BOT_FILES, updateBot as updateBotOperation } from "@/control/bots"
 import {
   operationClasses,
@@ -3609,6 +3610,11 @@ export class BotAgent extends Think<Env, BotState> {
       apps,
       memory: this.session.getContextBlock("memory")?.content ?? "",
     }
+  }
+
+  /** Member RPC only. Never expose the owner's general agent WebSocket. */
+  async sharedWorkspace(email: string, input: unknown) {
+    return runSharedWorkspace(this, this.sharing(), email, input)
   }
 
   async sharedMessage(email: string, text: string, requestId: string) {

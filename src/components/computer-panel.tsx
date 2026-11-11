@@ -11,7 +11,6 @@ import {
   PowerIcon,
   WarningIcon,
 } from "@/components/icons"
-import { AppsPane } from "@/components/apps-pane"
 import { useFileData } from "@/components/capture-card"
 import type { ReadFileData } from "@/components/capture-card"
 import {
@@ -25,8 +24,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Group, RowAction } from "@/components/group"
 import { SidePanel } from "@/components/side-panel"
 import { SlidingTabs } from "@/components/sliding-tabs"
-import { useBot } from "@/lib/bot-context"
-import type { BotConnection } from "@/lib/bot-context"
+import type { ComputerConnection } from "@/lib/bot-context"
 import type { ActivityEntry } from "@/lib/types"
 
 type Pane = "browser" | "terminal" | "files" | "apps" | "activity"
@@ -39,24 +37,38 @@ const PANES: { value: Pane; label: string }[] = [
   { value: "activity", label: "Activity" },
 ]
 
-function BrowserPane({ agent }: { agent: BotConnection }) {
+function BrowserPane({ agent }: { agent: ComputerConnection }) {
   const getLiveView = useCallback(() => agent.stub.getLiveView(), [agent])
   const { tabs, error, refresh } = useLiveView(getLiveView, true)
   const [index, setIndex] = useState(0)
   const [closing, setClosing] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const tab = tabs?.[Math.min(index, tabs.length - 1)]
 
   async function navigate(action: BrowserNav) {
-    const moved = await agent.stub.navigateBrowser(action)
-    void refresh()
-    return moved
+    setActionError(null)
+    try {
+      const moved = await agent.stub.navigateBrowser(action)
+      void refresh()
+      return moved
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not navigate browser"
+      )
+      return false
+    }
   }
 
   async function close() {
     setClosing(true)
+    setActionError(null)
     try {
       await agent.stub.closeBrowser()
       await refresh()
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not close browser"
+      )
     } finally {
       setClosing(false)
     }
@@ -94,6 +106,11 @@ function BrowserPane({ agent }: { agent: BotConnection }) {
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 px-4 pt-2 pb-4">
+      {actionError ? (
+        <p role="alert" className="text-sm text-kumo-danger">
+          {actionError}
+        </p>
+      ) : null}
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {tabs.map((t, i) => (
@@ -145,7 +162,7 @@ interface TerminalLine {
   exitCode: number | null
 }
 
-function TerminalPane({ agent }: { agent: BotConnection }) {
+function TerminalPane({ agent }: { agent: ComputerConnection }) {
   const [lines, setLines] = useState<TerminalLine[]>([])
   const [command, setCommand] = useState("")
   const [running, setRunning] = useState(false)
@@ -155,19 +172,24 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
   // Seed with the bot's own recent shell commands.
   useEffect(() => {
     let cancelled = false
-    void agent.stub.getActivity(200).then((entries) => {
-      if (cancelled) return
-      const history = entries
-        .filter((e) => e.tool === "exec" || e.tool === "terminal")
-        .reverse()
-        .map((e) => ({
-          id: nextId.current++,
-          command: e.summary,
-          output: e.tool === "exec" ? "" : e.detail,
-          exitCode: e.ok ? 0 : 1,
-        }))
-      setLines((current) => [...history, ...current])
-    })
+    void agent.stub
+      .getActivity(200)
+      .then((entries) => {
+        if (cancelled) return
+        const history = entries
+          .filter((e) => e.tool === "exec" || e.tool === "terminal")
+          .reverse()
+          .map((e) => ({
+            id: nextId.current++,
+            command: e.summary,
+            output: e.tool === "exec" ? "" : e.detail,
+            exitCode: e.ok ? 0 : 1,
+          }))
+        setLines((current) => [...history, ...current])
+      })
+      .catch(() => {
+        // The command input remains usable if loading older activity fails.
+      })
     return () => {
       cancelled = true
     }
@@ -306,7 +328,13 @@ function BinaryPreview({
   )
 }
 
-function FilesPane({ agent }: { agent: BotConnection }) {
+function FilesPane({
+  agent,
+  onDownload,
+}: {
+  agent: ComputerConnection
+  onDownload?: (path: string) => Promise<void>
+}) {
   const [loaded, setLoaded] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [preview, setPreview] = useState<{
@@ -314,6 +342,7 @@ function FilesPane({ agent }: { agent: BotConnection }) {
     truncated: boolean
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
   const readFile = useCallback<ReadFileData>(
     (path) => agent.stub.readFileData(path),
     [agent]
@@ -386,6 +415,27 @@ function FilesPane({ agent }: { agent: BotConnection }) {
           </div>
         )}
         <FileTree model={model} className="min-h-0 flex-1" style={TREE_STYLE} />
+        {selected && onDownload ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="m-2 shrink-0"
+            loading={downloading}
+            onClick={() => {
+              setDownloading(true)
+              void onDownload(`${WORKSPACE_ROOT}/${selected}`)
+                .catch((err: Error) => setError(err.message))
+                .finally(() => setDownloading(false))
+            }}
+          >
+            Download file
+          </Button>
+        ) : null}
+        {error && selected === null ? (
+          <p role="alert" className="p-4 text-sm text-kumo-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="min-w-0 flex-1 overflow-auto">
         {selected === null ? (
@@ -429,11 +479,12 @@ function FilesPane({ agent }: { agent: BotConnection }) {
   )
 }
 
-function ActivityPane({ agent }: { agent: BotConnection }) {
+function ActivityPane({ agent }: { agent: ComputerConnection }) {
   const [entries, setEntries] = useState<
     (ActivityEntry & { detail: string })[] | null
   >(null)
   const [open, setOpen] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
   // Rows keep their output mounted after the first open so closing can
   // animate, without highlighting every row up front.
   const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set())
@@ -444,13 +495,29 @@ function ActivityPane({ agent }: { agent: BotConnection }) {
   }
 
   const load = useCallback(async () => {
-    setEntries(await agent.stub.getActivity(200))
+    try {
+      setEntries(await agent.stub.getActivity(200))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load activity")
+    }
   }, [agent])
 
   useEffect(() => {
     void load()
   }, [load])
 
+  if (error)
+    return (
+      <div className="p-4">
+        <p role="alert" className="text-sm text-kumo-danger">
+          {error}
+        </p>
+        <Button size="sm" variant="ghost" onClick={() => void load()}>
+          Try again
+        </Button>
+      </div>
+    )
   if (entries === null) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -536,13 +603,25 @@ function ActivityPane({ agent }: { agent: BotConnection }) {
 }
 
 /** The bot's computer: its browser, shell, files and an audit log. */
-export function ComputerPanel() {
-  const { agent, state } = useBot()
+export function ComputerPanel({
+  agent,
+  name,
+  apps,
+  onDownload,
+  onClose,
+}: {
+  agent: ComputerConnection | null
+  name: string
+  apps: React.ReactNode
+  onDownload?: (path: string) => Promise<void>
+  onClose?: () => void
+}) {
   const [pane, setPane] = useState<Pane>("browser")
 
   return (
     <SidePanel
-      title={`${state.name}'s computer`}
+      title={`${name}'s computer`}
+      onClose={onClose}
       toolbar={
         <SlidingTabs tabs={PANES} value={pane} onValueChange={setPane} />
       }
@@ -556,9 +635,9 @@ export function ComputerPanel() {
       ) : pane === "terminal" ? (
         <TerminalPane agent={agent} />
       ) : pane === "files" ? (
-        <FilesPane agent={agent} />
+        <FilesPane agent={agent} onDownload={onDownload} />
       ) : pane === "apps" ? (
-        <AppsPane agent={agent} />
+        apps
       ) : (
         <ActivityPane agent={agent} />
       )}

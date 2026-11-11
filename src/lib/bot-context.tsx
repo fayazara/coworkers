@@ -5,6 +5,22 @@ import type { BotState, MessageMeta } from "@/lib/types"
 
 export type BotConnection = ReturnType<typeof useAgent<BotAgent, BotState>>
 
+/** The common computer surface; members get only these scoped operations. */
+export interface ComputerConnection {
+  stub: Pick<
+    BotConnection["stub"],
+    | "getLiveView"
+    | "getBrowserFrame"
+    | "navigateBrowser"
+    | "closeBrowser"
+    | "getActivity"
+    | "readFileData"
+    | "readFileText"
+    | "runCommand"
+    | "listWorkspace"
+  >
+}
+
 interface BotContextValue {
   botId: string
   state: BotState

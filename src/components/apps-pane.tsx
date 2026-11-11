@@ -195,6 +195,89 @@ function AppThumbnail({
   )
 }
 
+/** Bot members use the same apps, without managing external sharing links. */
+export function SharedAppsPane({
+  apps,
+}: {
+  apps: (BotAppSummary & { path: string })[]
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const app = apps.find((item) => item.slug === selected)
+  if (app)
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex items-center gap-1 pt-1 pr-4 pb-2 pl-2">
+          <button
+            type="button"
+            aria-label="All apps"
+            className="icon-btn"
+            onClick={() => setSelected(null)}
+          >
+            <ArrowLeftIcon size={16} />
+          </button>
+          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">
+            {app.name}
+          </h3>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<ArrowSquareOutIcon />}
+            className="rounded-full"
+            onClick={() => window.open(app.path, "_blank", "noopener")}
+          >
+            Open
+          </Button>
+        </div>
+        <div className="mx-4 min-h-[480px] flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line">
+          <iframe
+            key={app.version}
+            title={`${app.name} preview`}
+            src={app.path}
+            sandbox="allow-scripts allow-forms allow-popups allow-modals"
+            className="size-full min-h-[480px]"
+          />
+        </div>
+        <p className="px-5 py-3 text-xs text-kumo-subtle">
+          You can edit app data and message the bot. External sharing is managed
+          by the owner.
+        </p>
+      </div>
+    )
+  if (!apps.length)
+    return (
+      <div className="flex flex-1 items-center justify-center pb-16">
+        <EmptyState
+          icon={<AppWindowIcon size={24} />}
+          title="No apps yet"
+          description="Ask the bot to build one, like a page for your next trip."
+        />
+      </div>
+    )
+  return (
+    <ul className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-x-4 gap-y-5 overflow-y-auto px-4 pt-2 pb-4">
+      {apps.map((item) => (
+        <li key={item.slug}>
+          <button
+            type="button"
+            onClick={() => setSelected(item.slug)}
+            className="group pressable flex w-full flex-col gap-2.5 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus focus-visible:ring-offset-4 focus-visible:ring-offset-kumo-canvas"
+          >
+            <AppThumbnail app={item} path={item.path} />
+            <span className="min-w-0 px-0.5">
+              <span className="block truncate text-sm font-medium">
+                {item.name}
+              </span>
+              <span className="block text-xs text-kumo-subtle">
+                Can edit · {formatAgo(item.updatedAt)}
+              </span>
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function AppDetail({
   agent,
   app,
