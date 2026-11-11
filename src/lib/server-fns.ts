@@ -7,11 +7,14 @@ import { SIDEBAR_COOKIE, parseWidths } from "@/lib/layout-context"
 import type { PanelWidths } from "@/lib/layout-context"
 import { botInstanceName } from "@/lib/types"
 import type { BotState, HubState } from "@/lib/types"
+import type { SharedBotSummary } from "@/lib/types"
+import { listSharedBots } from "@/lib/sharing-fns"
 import type { BotAgent } from "@/agents/bot-agent"
 import type { UserHub } from "@/agents/user-hub"
 
 export interface Viewer {
   id: string
+  email?: string | null
   label: string
   avatarUrl?: string
 }
@@ -29,7 +32,7 @@ async function viewerFromRequest(request: Request): Promise<Viewer> {
   if (id in DEMO_PROFILES) {
     return { id, label: DEMO_PROFILES[id as keyof typeof DEMO_PROFILES].label }
   }
-  return { id, label: email ?? id }
+  return { id, email, label: email ?? id }
 }
 
 /**
@@ -40,6 +43,7 @@ export const getHubSnapshot = createServerFn().handler(
   async (): Promise<{
     viewer: Viewer
     hub: HubState
+    sharedBots: SharedBotSummary[]
     sidebarOpen: boolean
     widths: PanelWidths
   }> => {
@@ -54,6 +58,12 @@ export const getHubSnapshot = createServerFn().handler(
     return {
       viewer,
       hub: await hub.snapshot(),
+      sharedBots: viewer.email
+        ? await listSharedBots().catch((err) => {
+            console.warn("Loading incoming shares failed", err)
+            return []
+          })
+        : [],
       sidebarOpen,
       widths: parseWidths(cookie),
     }

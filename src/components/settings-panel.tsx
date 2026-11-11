@@ -12,6 +12,7 @@ import { ModelPicker } from "@/components/model-picker"
 import { RoutineCard } from "@/components/routine-card"
 import { SkillInstall } from "@/components/skill-install"
 import { BotSpend } from "@/components/spend-settings"
+import { BotSharingSettings } from "@/components/bot-sharing"
 import {
   EmptyRow,
   FIELD,
@@ -1100,6 +1101,7 @@ export function SettingsPanel() {
   return (
     <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-4 pt-2 pb-6">
       <Identity />
+      <BotSharingSettings />
       <Model />
       <Access />
       <Spend />

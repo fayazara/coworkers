@@ -30,6 +30,12 @@ import { useHub } from "@/lib/hub-context"
 import { usePushNotifications } from "@/lib/push"
 import { useIsPhone } from "@/lib/use-is-phone"
 import { useSwipeViews } from "@/lib/use-swipe-views"
+import {
+  sidebarBots,
+  sidebarBotLink,
+  sidebarBotActive,
+} from "@/lib/sidebar-bots"
+import type { SidebarBot } from "@/lib/sidebar-bots"
 import type { BotSummary, Pipeline, PipelineRun } from "@/lib/types"
 
 /** Bots large enough to earn the phone home's top row. */
@@ -115,8 +121,9 @@ function formatWhen(timestamp: number, now = new Date()) {
   return date.toLocaleDateString([], { day: "numeric", month: "short" })
 }
 
-function previewFor(bot: BotSummary) {
-  if (bot.status === "action_needed") return "Needs you to continue"
+function previewFor(bot: BotSummary, shared = false) {
+  if (bot.status === "action_needed")
+    return shared ? "Waiting for the owner" : "Needs you to continue"
   if (bot.paused) return "Paused"
   return plainMentions(bot.preview) || "No messages yet"
 }
@@ -131,14 +138,25 @@ function initials(label: string) {
   )
 }
 
-function BotRow({ bot, active }: { bot: BotSummary; active: boolean }) {
+function SharedBadge() {
+  return (
+    <span
+      title="Shared with you"
+      className="shrink-0 rounded-full bg-(--fill-hover) px-1.5 py-0.5 text-[10px] font-medium text-kumo-subtle"
+    >
+      Shared
+    </span>
+  )
+}
+
+function BotRow({ entry, active }: { entry: SidebarBot; active: boolean }) {
+  const { bot, ownerId } = entry
   // The server does not know the viewer's time zone or locale.
   const hydrated = useHydrated()
   const { live } = useHub()
   const row = (
     <Link
-      to="/bots/$botId"
-      params={{ botId: bot.id }}
+      {...sidebarBotLink(entry)}
       className={`${ROW} ${
         active ? "bg-(--fill-active)" : "hover:bg-(--fill-hover)"
       }`}
@@ -154,8 +172,9 @@ function BotRow({ bot, active }: { bot: BotSummary; active: boolean }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[15px] font-medium text-kumo-default">
-            {bot.name}
+          <span className="flex min-w-0 items-center gap-1.5 text-[15px] font-medium text-kumo-default">
+            <span className="truncate">{bot.name}</span>
+            {ownerId ? <SharedBadge /> : null}
           </span>
           <span className="shrink-0 text-xs text-kumo-subtle tabular-nums">
             {hydrated ? formatWhen(bot.updatedAt) : null}
@@ -174,14 +193,14 @@ function BotRow({ bot, active }: { bot: BotSummary; active: boolean }) {
                 : "text-kumo-subtle"
             }`}
           >
-            {previewFor(bot)}
+            {previewFor(bot, !!ownerId)}
           </span>
         )}
       </span>
     </Link>
   )
   // The open chat shows its own cards.
-  return bot.status === "action_needed" && !active && live ? (
+  return !ownerId && bot.status === "action_needed" && !active && live ? (
     <ApprovalPopover bot={bot}>{row}</ApprovalPopover>
   ) : (
     row
@@ -275,37 +294,40 @@ function SearchPill({
 }
 
 /** The phone home's top row: the first bots, large, like a contacts strip. */
-function FeaturedBots({ bots }: { bots: BotSummary[] }) {
+function FeaturedBots({ bots }: { bots: SidebarBot[] }) {
   return (
     <ul className="grid grid-cols-3 gap-1 px-1 pt-3 pb-2">
-      {bots.map((bot) => (
-        <li key={bot.id}>
-          <Link
-            to="/bots/$botId"
-            params={{ botId: bot.id }}
-            className="pressable flex flex-col items-center gap-2 rounded-2xl p-2 outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
-          >
-            <span className="relative">
-              <BotAvatar avatar={bot.avatar} status={bot.status} size={72} />
-              {bot.unread || bot.status === "action_needed" ? (
-                <span
-                  className={`unread-dot absolute top-0 right-0 size-3.5 rounded-full ring-2 ring-kumo-canvas ${
-                    bot.status === "action_needed"
-                      ? "bg-kumo-warning"
-                      : "bg-kumo-danger"
-                  }`}
-                  aria-label={
-                    bot.status === "action_needed" ? "Needs you" : "Unread"
-                  }
-                />
-              ) : null}
-            </span>
-            <span className="max-w-full truncate text-[13px] text-kumo-subtle">
-              {bot.name}
-            </span>
-          </Link>
-        </li>
-      ))}
+      {bots.map((entry) => {
+        const { bot, ownerId } = entry
+        return (
+          <li key={entry.key}>
+            <Link
+              {...sidebarBotLink(entry)}
+              className="pressable flex flex-col items-center gap-2 rounded-2xl p-2 outline-none focus-visible:ring-2 focus-visible:ring-kumo-focus"
+            >
+              <span className="relative">
+                <BotAvatar avatar={bot.avatar} status={bot.status} size={72} />
+                {!ownerId && (bot.unread || bot.status === "action_needed") ? (
+                  <span
+                    className={`unread-dot absolute top-0 right-0 size-3.5 rounded-full ring-2 ring-kumo-canvas ${
+                      bot.status === "action_needed"
+                        ? "bg-kumo-warning"
+                        : "bg-kumo-danger"
+                    }`}
+                    aria-label={
+                      bot.status === "action_needed" ? "Needs you" : "Unread"
+                    }
+                  />
+                ) : null}
+              </span>
+              <span className="max-w-full truncate text-[13px] text-kumo-subtle">
+                {bot.name}
+              </span>
+              {ownerId ? <SharedBadge /> : null}
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -313,19 +335,13 @@ function FeaturedBots({ bots }: { bots: BotSummary[] }) {
 function BotsView({ home }: { home: boolean }) {
   const hub = useHub()
   const navigate = useNavigate()
-  const { botId } = useParams({ strict: false })
+  const { botId, ownerId } = useParams({ strict: false })
   const [query, setQuery] = useState("")
   const [creating, setCreating] = useState(false)
 
   const bots = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return hub.state.bots
-    return hub.state.bots.filter(
-      (b) =>
-        b.name.toLowerCase().includes(needle) ||
-        b.preview.toLowerCase().includes(needle)
-    )
-  }, [hub.state.bots, query])
+    return sidebarBots(hub.state.bots, hub.sharedBots, hub.viewer.id, query)
+  }, [hub.state.bots, hub.sharedBots, hub.viewer.id, query])
 
   // Only worth a strip when the list still has rows left under it.
   const featured =
@@ -373,9 +389,18 @@ function BotsView({ home }: { home: boolean }) {
             <div className="mx-2.5 my-1 h-px bg-kumo-line" />
           </>
         ) : null}
-        {bots.slice(featured.length).map((bot) => (
-          <BotRow key={bot.id} bot={bot} active={bot.id === botId} />
+        {bots.slice(featured.length).map((entry) => (
+          <BotRow
+            key={entry.key}
+            entry={entry}
+            active={sidebarBotActive(entry, botId, ownerId)}
+          />
         ))}
+        {hub.sharedBotsError ? (
+          <p role="status" className="px-2.5 py-2 text-xs text-kumo-subtle">
+            {hub.sharedBotsError}
+          </p>
+        ) : null}
         {bots.length === 0 ? (
           <p className="px-2.5 py-6 text-sm text-kumo-subtle">
             {query ? "No bots match that search." : "No bots yet."}

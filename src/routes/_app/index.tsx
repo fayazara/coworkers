@@ -34,11 +34,11 @@ function PhoneHome() {
 }
 
 function Home() {
-  const { state } = useHub()
+  const { state, sharedBots } = useHub()
   const { desk } = Route.useSearch()
   const phone = useIsPhone()
   const hydrated = useHydrated()
-  if (!state.bots.length) return <Onboarding />
+  if (!state.bots.length && !sharedBots.length) return <Onboarding />
   if (desk) return <Desk />
   // The server cannot tell a phone, so it sends both and CSS shows the right
   // one. The Desk only marks cards seen once live, so this first copy cannot.
