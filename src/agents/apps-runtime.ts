@@ -194,10 +194,7 @@ export async function handleAppRequest(
   if (access.token !== token) {
     // An opaque-origin app cannot send the UI's login cookies. Bootstrap a
     // short-lived, app-scoped capability only after checking the identity.
-    const next = new URL(
-      access.path + rest.map(encodeURIComponent).join("/"),
-      url.origin
-    )
+    const next = new URL(access.path + rest.join("/"), url.origin)
     next.search = url.search
     return new Response(null, {
       status: 302,
@@ -416,8 +413,12 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
   async tool(name: string, args: Record<string, unknown> = {}) {
     const { userId, botId, slug, caller } = this.ctx.props
     const bot = await botStub(this.env, userId, botId)
-    const result = (await bot.appTool(slug, caller, name, args)) as
-      { value: unknown } | { error: string }
+    const result = (await bot.appTool(
+      slug,
+      { ...caller, server: true },
+      name,
+      args
+    )) as { value: unknown } | { error: string }
     if ("error" in result) throw new Error(result.error)
     return result.value
   }
@@ -426,7 +427,7 @@ export class AppBinding extends WorkerEntrypoint<Env, AppBindingProps> {
   async tools() {
     const { userId, botId, slug, caller } = this.ctx.props
     const bot = await botStub(this.env, userId, botId)
-    return bot.appToolList(slug, caller)
+    return bot.appToolList(slug, { ...caller, server: true })
   }
 }
 

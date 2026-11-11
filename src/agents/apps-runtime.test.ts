@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   identify: vi.fn(),
   accessConfigured: vi.fn(),
-  bot: { appLink: vi.fn(), authorizeAppLink: vi.fn(), serveApp: vi.fn() },
+  bot: {
+    appLink: vi.fn(),
+    authorizeAppLink: vi.fn(),
+    serveApp: vi.fn(),
+    appTool: vi.fn(),
+    appToolList: vi.fn(),
+  },
   hub: { hasBot: vi.fn() },
   live: { fetch: vi.fn() },
 }))
@@ -16,7 +22,12 @@ vi.mock("cloudflare:workers", () => ({
       this.env = env
     }
   },
-  WorkerEntrypoint: class {},
+  WorkerEntrypoint: class {
+    constructor(
+      public ctx: unknown,
+      public env: unknown
+    ) {}
+  },
 }))
 vi.mock("agents", () => ({
   getAgentByName: (_ns: unknown, name: string) =>
@@ -27,7 +38,7 @@ vi.mock("@/lib/auth", () => ({
   identify: mocks.identify,
   Unauthorized: class Unauthorized extends Error {},
 }))
-import { AppLive, handleAppRequest } from "./apps-runtime"
+import { AppBinding, AppLive, handleAppRequest } from "./apps-runtime"
 import { Unauthorized } from "@/lib/auth"
 
 const env = {
@@ -108,6 +119,43 @@ describe("app HTTP authorization boundary", () => {
     ).toBe(404)
     expect(mocks.bot.serveApp).not.toHaveBeenCalled()
   })
+  it.each([
+    ["annual%20report.html", "annual report.html"],
+    ["reports/caf%C3%A9.html", "reports/café.html"],
+    ["api/100%25", "api/100%"],
+    ["literal%2520name.html", "literal%20name.html"],
+    ["api/a%2Fb", "api/a/b"],
+  ])(
+    "preserves escaping through a private session redirect: %s",
+    async (encoded, decoded) => {
+      mocks.identify.mockResolvedValue({ id: "owner", email: "owner@test.com" })
+      mocks.bot.authorizeAppLink.mockResolvedValue({
+        token: "session",
+        path: "/apps/owner/bot/trip/session/",
+      })
+      const response = await handleAppRequest(
+        new Request(entry + encoded + "?q=a%20b"),
+        env
+      )
+      const location = response!.headers.get("Location")!
+      expect(location).toBe(
+        "https://coworkers.test/apps/owner/bot/trip/session/" +
+          encoded +
+          "?q=a%20b"
+      )
+      mocks.bot.appLink.mockResolvedValue({
+        token: "session",
+        audience: "session",
+      })
+      await handleAppRequest(new Request(location), env)
+      expect(mocks.bot.serveApp).toHaveBeenCalledWith(
+        "trip",
+        "session",
+        decoded,
+        expect.any(Request)
+      )
+    }
+  )
   it("lets explicit public capabilities work without a human Access login", async () => {
     mocks.bot.appLink.mockResolvedValue({ token: "private", audience: "link" })
     mocks.bot.authorizeAppLink.mockResolvedValue({ token: "private" })
@@ -157,6 +205,75 @@ describe("app HTTP authorization boundary", () => {
     const forwarded = mocks.live.fetch.mock.calls[0]![0] as Request
     expect(forwarded.headers.get("X-Coworkers-User")).toBe("owner")
     expect(forwarded.headers.get("X-Coworkers-Expires")).toBe("12345")
+  })
+})
+
+describe("app server connected-tool binding", () => {
+  function binding(owner: boolean) {
+    const caller = {
+      label: owner ? "You" : "Guest",
+      mode: "view" as const,
+      token: "session",
+      owner,
+      canMessage: false,
+    }
+    const ctx = {
+      props: { userId: "owner", botId: "bot", slug: "trip", caller },
+    }
+    return {
+      caller,
+      binding: new AppBinding(
+        ctx as ConstructorParameters<typeof AppBinding>[0],
+        env
+      ),
+    }
+  }
+  it.each([true, false])(
+    "marks tool calls as server-side while retaining owner=%s and view-only permissions",
+    async (owner) => {
+      const fixture = binding(owner)
+      mocks.bot.appTool.mockImplementation(async (_slug, caller) =>
+        caller.server ? { value: ["available"] } : { error: "Access revoked" }
+      )
+      mocks.bot.appToolList.mockImplementation(async (_slug, caller) => {
+        if (!caller.server) throw new Error("Access revoked")
+        return [{ name: "calendar_read", allowed: true }]
+      })
+      await expect(
+        fixture.binding.tool("calendar_read", { day: "Monday" })
+      ).resolves.toEqual(["available"])
+      await expect(fixture.binding.tools()).resolves.toEqual([
+        { name: "calendar_read", allowed: true },
+      ])
+      expect(mocks.bot.appTool).toHaveBeenCalledWith(
+        "trip",
+        { ...fixture.caller, server: true },
+        "calendar_read",
+        { day: "Monday" }
+      )
+      expect(mocks.bot.appToolList).toHaveBeenCalledWith("trip", {
+        ...fixture.caller,
+        server: true,
+      })
+      expect(fixture.caller).not.toHaveProperty("server")
+      expect(fixture.binding.caller()).toEqual({
+        label: fixture.caller.label,
+        mode: "view",
+        canMessage: false,
+      })
+    }
+  )
+  it("propagates revoked access and denied writes from the authorization boundary", async () => {
+    const fixture = binding(false)
+    mocks.bot.appTool.mockResolvedValue({
+      error: "This link is view-only",
+      status: 403,
+    })
+    await expect(fixture.binding.tool("calendar_write")).rejects.toThrow(
+      "This link is view-only"
+    )
+    mocks.bot.appToolList.mockRejectedValue(new Error("Access revoked"))
+    await expect(fixture.binding.tools()).rejects.toThrow("Access revoked")
   })
 })
 
