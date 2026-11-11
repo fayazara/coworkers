@@ -3,8 +3,7 @@
 @import "tailwindcss";
 
 /*
- * `dark:` follows the app's mode (Kumo's data-mode), not the OS. The app is
- * light, so without this a dark-mode Mac gets dark switches on a light page.
+ * `dark:` follows the selected app mode, including explicit overrides of the OS.
  */
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
@@ -39,6 +38,8 @@
   }
 
   html {
+    color-scheme: light dark;
+    background: var(--color-kumo-canvas);
     font-family:
       system-ui,
       -apple-system,
@@ -48,6 +49,13 @@
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html[data-mode="light"] {
+    color-scheme: light;
+  }
+  html[data-mode="dark"] {
+    color-scheme: dark;
   }
 
   html,
@@ -108,7 +116,7 @@
   height: var(--screen-h);
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: light-dark(#ffffff, #111111);
   transition: opacity 300ms ease-out;
 }
 
@@ -176,6 +184,14 @@
   /* Translucent fills that read the same on the canvas and on white. */
   --fill-hover: light-dark(oklch(0% 0 0 / 0.045), oklch(100% 0 0 / 0.07));
   --fill-active: light-dark(oklch(0% 0 0 / 0.07), oklch(100% 0 0 / 0.11));
+  --preview-outline: light-dark(oklch(0% 0 0 / 0.1), oklch(100% 0 0 / 0.1));
+}
+
+/* A terminal stays dark in either app mode. */
+.terminal-pane {
+  color-scheme: dark;
+  background: #111111;
+  color: #eeeeee;
 }
 
 /*

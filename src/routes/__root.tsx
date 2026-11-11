@@ -4,10 +4,9 @@ import { TooltipProvider } from "@cloudflare/kumo/components/tooltip"
 import { CodeProvider } from "@/components/code-block"
 import { LaunchSplash } from "@/components/launch-splash"
 import { followViewport } from "@/lib/viewport"
+import { ThemeProvider } from "@/lib/theme-context"
+import { THEME_BOOTSTRAP, THEME_COLORS } from "@/lib/theme"
 import appCss from "../styles.css?url"
-
-// The page background, and theme_color in public/manifest.json.
-const THEME_COLOR = "#ffffff"
 
 // What iOS shows while an installed app starts: width, height, pixel ratio.
 const SPLASH_SCREENS = [
@@ -24,13 +23,11 @@ const SPLASH_SCREENS = [
 export const Route = createRootRoute({
   head: () => ({
     meta: [
-      { charSet: "utf-8" },
       {
         name: "viewport",
         content:
           "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content",
       },
-      { name: "theme-color", content: THEME_COLOR },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Coworkers" },
@@ -56,11 +53,15 @@ export const Route = createRootRoute({
         href: "/icons/launch-robot.png",
         media: "(display-mode: standalone) and (max-width: 767.98px)",
       },
-      ...SPLASH_SCREENS.map(([width, height, ratio]) => ({
-        rel: "apple-touch-startup-image",
-        href: `/icons/splash-${width * ratio}x${height * ratio}.png`,
-        media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
-      })),
+      // Native iOS launch screens follow the device; the app's own splash
+      // switches to the saved browser preference as soon as HTML is loaded.
+      ...SPLASH_SCREENS.flatMap(([width, height, ratio]) =>
+        ["light", "dark"].map((mode) => ({
+          rel: "apple-touch-startup-image",
+          href: `/icons/splash-${width * ratio}x${height * ratio}${mode === "dark" ? "-dark" : ""}.png`,
+          media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait) and (prefers-color-scheme: ${mode})`,
+        }))
+      ),
     ],
   }),
   shellComponent: RootDocument,
@@ -77,18 +78,28 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     }
   }, [])
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <meta charSet="utf-8" />
+        <meta name="color-scheme" content="light dark" />
+        <meta
+          name="theme-color"
+          content={THEME_COLORS.light}
+          suppressHydrationWarning
+        />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <HeadContent />
       </head>
       <body className="bg-kumo-canvas text-kumo-default antialiased">
         {/* `isolate` keeps Kumo's portalled popups above the app layout. */}
-        <div className="app-root isolate">
-          <TooltipProvider>
-            <CodeProvider>{children}</CodeProvider>
-          </TooltipProvider>
-        </div>
-        <LaunchSplash />
+        <ThemeProvider>
+          <div className="app-root isolate">
+            <TooltipProvider>
+              <CodeProvider>{children}</CodeProvider>
+            </TooltipProvider>
+          </div>
+          <LaunchSplash />
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

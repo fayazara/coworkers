@@ -11,13 +11,22 @@ const OFFLINE_PAGE = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<script>
+  try {
+    const mode = localStorage.getItem("coworkers-theme");
+    if (mode === "light" || mode === "dark") document.documentElement.style.colorScheme = mode;
+  } catch {}
+</script>
 <title>Coworkers</title>
 <style>
+  :root { color-scheme: light dark; background: light-dark(#fff, #111); }
   body { margin: 0; height: 100dvh; display: grid; place-content: center; gap: 12px;
-    font: 15px system-ui, sans-serif; text-align: center; color: #555; }
-  h1 { margin: 0; font-size: 18px; font-weight: 600; color: #111; }
+    padding: 24px; box-sizing: border-box;
+    font: 15px system-ui, sans-serif; text-align: center; color: light-dark(#555, #aaa); }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; color: light-dark(#111, #eee); }
   button { justify-self: center; height: 44px; padding: 0 20px; border: 0;
-    border-radius: 22px; background: #111; color: #fff; font: inherit; }
+    border-radius: 22px; background: light-dark(#111, #eee); color: light-dark(#fff, #111); font: inherit; cursor: pointer; }
 </style>
 <h1>You're offline</h1>
 <p style="margin: 0">Coworkers needs a connection to reach your bots.</p>

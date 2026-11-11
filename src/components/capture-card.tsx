@@ -63,7 +63,7 @@ export function CaptureCard({
   if (isImage) {
     return (
       <figure className="w-full max-w-[640px]">
-        <div className="overflow-hidden rounded-2xl bg-kumo-recessed outline outline-1 -outline-offset-1 outline-black/[0.06]">
+        <div className="overflow-hidden rounded-2xl bg-kumo-recessed outline outline-1 -outline-offset-1 outline-kumo-line">
           {url ? (
             <a href={url} target="_blank" rel="noreferrer" title={capture.path}>
               <img

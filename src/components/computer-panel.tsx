@@ -130,7 +130,7 @@ function BrowserPane({ agent }: { agent: BotConnection }) {
           {closing ? <Loader size="sm" /> : <PowerIcon size={16} />}
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.08]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-(--preview-outline)">
         <BrowserChrome pageUrl={tab.pageUrl} onNavigate={navigate} />
         <LiveViewFrame tab={tab} interactive className="min-h-0 flex-1" />
       </div>
@@ -201,7 +201,7 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
   }
 
   return (
-    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl bg-kumo-contrast font-mono text-[13px] text-kumo-inverse">
+    <div className="terminal-pane mx-4 mt-2 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl font-mono text-[13px]">
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {lines.length === 0 ? (
           <p className="opacity-60">
@@ -242,7 +242,7 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="flex-1 bg-transparent outline-none placeholder:opacity-40"
+          className="flex-1 bg-transparent outline-none placeholder:text-white/50"
         />
         {running ? <Loader size="sm" /> : null}
       </form>
@@ -251,10 +251,9 @@ function TerminalPane({ agent }: { agent: BotConnection }) {
 }
 
 // Trees renders inside a shadow root and is themed through CSS variables.
-// Kumo tokens use light-dark(); pin the scheme so the tree follows the app
-// rather than the OS setting.
+// Inherit the selected app scheme rather than pinning light or following the OS.
 const TREE_STYLE = {
-  colorScheme: "light",
+  colorScheme: "inherit",
   "--trees-bg-override": "transparent",
   "--trees-fg-override": "var(--text-color-kumo-default)",
   "--trees-fg-muted-override": "var(--text-color-kumo-subtle)",
@@ -365,7 +364,7 @@ function FilesPane({ agent }: { agent: BotConnection }) {
   }, [refresh])
 
   return (
-    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-black/[0.06] max-md:flex-col">
+    <div className="mx-4 mt-2 mb-4 flex min-h-0 flex-1 overflow-hidden rounded-2xl bg-kumo-base outline outline-1 -outline-offset-1 outline-kumo-line max-md:flex-col">
       <div className="flex shrink-0 flex-col border-kumo-line max-md:h-1/2 max-md:border-b md:w-60 md:border-r">
         <div className="flex h-10 items-center justify-between pr-1 pl-4">
           <span className="text-xs font-medium text-kumo-subtle">
