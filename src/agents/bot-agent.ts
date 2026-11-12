@@ -157,6 +157,7 @@ import {
   isBotMember,
 } from "@/lib/sharing"
 import type { BotSharing } from "@/lib/sharing"
+import { SharingIsolation } from "./sharing-isolation"
 import { runSharedWorkspace } from "./shared-workspace"
 import { MAX_BOT_FILES, updateBot as updateBotOperation } from "@/control/bots"
 import {
@@ -3516,30 +3517,41 @@ export class BotAgent extends Think<Env, BotState> {
     await directory.indexSharedBot(this.userId, this.botId, [], false)
   }
 
-  private async enableSharingIsolation() {
-    if (this.sharing().isolated) return
-    if (
-      this.state.status !== "idle" ||
-      this.#turnActive ||
-      this.hasPendingApproval() ||
-      this.sql<{
-        n: number
-      }>`SELECT COUNT(*) AS n FROM script_runs WHERE status != 'done'`[0]?.n ||
-      this.openDelegations().length
-    ) {
-      throw new Error(
-        "Wait until this bot and its scripts are idle before enabling sharing."
-      )
-    }
-    this.ctx.storage.kv.put("bot_sharing", {
-      ...this.sharing(),
-      isolated: true,
-    })
-    this.setState({ ...this.state, shared: true })
-    // Never lend an existing signed-in browser session to another person.
-    await this.browser.connector.closeSession()
-    this.ctx.storage.kv.delete("browser_tab")
-    this.ctx.storage.kv.delete("browser_tabs")
+  #sharingIsolation = new SharingIsolation({
+    ready: () =>
+      this.sharing().isolated &&
+      this.ctx.storage.kv.get<boolean>("sharing_browser_reset_complete") ===
+        true,
+    assertIdle: () => {
+      if (
+        this.state.status !== "idle" ||
+        this.#turnActive ||
+        this.hasPendingApproval() ||
+        this.sql<{
+          n: number
+        }>`SELECT COUNT(*) AS n FROM script_runs WHERE status != 'done'`[0]
+          ?.n ||
+        this.openDelegations().length
+      ) {
+        throw new Error(
+          "Wait until this bot and its scripts are idle before enabling sharing."
+        )
+      }
+    },
+    isolate: () => {
+      this.ctx.storage.kv.put("bot_sharing", {
+        ...this.sharing(),
+        isolated: true,
+      })
+      this.setState({ ...this.state, shared: true })
+    },
+    closeBrowser: () => this.closeBrowser(),
+    complete: () =>
+      this.ctx.storage.kv.put("sharing_browser_reset_complete", true),
+  })
+
+  private enableSharingIsolation() {
+    return this.#sharingIsolation.enable()
   }
 
   @callable()

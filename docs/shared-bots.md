@@ -21,6 +21,12 @@ Apps and Activity, connected through a member-scoped RPC allowlist. Shared chat
 and computer access are one feature, with no separate computer-sharing branch
 or invitation.
 
+Enabling sharing waits for a successful reset of the previous browser session.
+Context isolation remains enabled if the reset fails, but membership is not
+granted. Retries and object restarts repeat an incomplete reset; concurrent
+attempts wait for the same reset. Bots from older versions without a recorded
+reset completion are reset on their next sharing change before adding members.
+
 Sharing an existing bot exposes its existing history and workspace. Use a
 fresh bot when the existing one contains private information. Access policy
 changes and invitation emails are not performed by this UI.
