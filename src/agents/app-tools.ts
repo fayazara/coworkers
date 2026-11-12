@@ -195,6 +195,18 @@ export function approvedGrants(grants: AppToolGrant[], approved: string[]) {
   return grants.filter((g) => keys.has(approvalKey(g)))
 }
 
+/** The readable part of a grant, as advertised to a view-only app session. */
+export function readableGrant(grant: AppToolGrant): AppToolGrant | null {
+  if (grant.readOnly) return grant
+  if (!grant.only?.length) return null
+  const only = grant.only.map((scope) => ({
+    ...scope,
+    allow: scope.allow.filter((value) => value.reads),
+  }))
+  if (only.some((scope) => !scope.allow.length)) return null
+  return { ...grant, readOnly: true, only }
+}
+
 export type ToolDecision =
   | { ok: true; grant: AppToolGrant; tool: AppTool; reads: boolean }
   | { ok: false; error: string; status: number }

@@ -36,7 +36,8 @@ function ownsInstance(userId: string, agent: string, instance: string) {
 
 export default {
   async fetch(request, env, ctx) {
-    // Apps authenticate by the link token in their URL, not the user.
+    // Apps enforce their own authorization, including owner/email login and
+    // explicit share capabilities, before the normal UI/agent routing.
     const app = await handleAppRequest(request, env)
     if (app) return app
 
