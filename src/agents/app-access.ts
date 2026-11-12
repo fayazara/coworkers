@@ -90,7 +90,13 @@ export function refreshAppCaller(
     mode: grant.mode,
     canMessage: grant.canMessage,
     owner: grant.owner,
+    rateLimitToken: grant.parentToken ?? grant.token,
   }
+}
+
+/** Sessions rotate for authorization, but share their parent grant's quotas. */
+export function appRateLimitKey(slug: string, caller: AppCaller, kind: string) {
+  return `app_${kind}:${slug}:${caller.rateLimitToken ?? caller.token ?? caller.label}`
 }
 
 /** Keep independent edit/message grants when applying public-form rules. */

@@ -1,4 +1,5 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers"
+import { decodeAppPath } from "./app-path"
 import { getAgentByName } from "agents"
 import { botInstanceName } from "@/lib/types"
 import type { AppLink } from "@/lib/types"
@@ -57,6 +58,8 @@ export interface AppCaller {
   canMessage?: boolean
   /** The link's token, for per-link rate limits. Never shown to the app. */
   token?: string
+  /** Stable parent grant for quotas; refreshed from storage, never from the page. */
+  rateLimitToken?: string
   /** The visitor's IP, for per-visitor rate limits. Never shown to the app. */
   ip?: string
   /** The user's own link: not rate limited. Never shown to the app. */
@@ -156,7 +159,7 @@ export async function handleAppRequest(
   let path: string
   try {
     userId = decodeURIComponent(rawUser)
-    path = rest.map(decodeURIComponent).join("/")
+    path = decodeAppPath(rest.join("/"))
   } catch {
     return notFound()
   }

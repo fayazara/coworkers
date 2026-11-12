@@ -99,6 +99,7 @@ import {
   SERVER_WRITE_LIMITS,
   authorizeCaller,
   callerDataMode,
+  appRateLimitKey,
   refreshAppCaller,
   hideReceipts,
   isReceiptId,
@@ -111,12 +112,14 @@ import {
   TOOL_LIMITS,
   approvalKey,
   approvedGrants,
+  readableGrant,
   decideToolCall,
   describeCall,
   resolveGrants,
   toolResultError,
 } from "./app-tools"
 import type { AppToolRequest } from "./app-tools"
+import { appFetchTarget } from "./app-path"
 import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
 import { plainReason } from "@/lib/app-tool-log"
 import type {
@@ -1916,17 +1919,13 @@ export class BotAgent extends Think<Env, BotState> {
             slug,
             method === "GET" ? "view" : "edit"
           ).token
-          const url = new URL(
-            path.replace(/^\/+/, ""),
-            "https://own-app.invalid/"
-          )
-          if (url.origin !== "https://own-app.invalid")
-            return { error: "Only relative app paths are allowed" }
+          const target = appFetchTarget(path)
+          if ("error" in target) return target
           const response = await this.serveApp(
             slug,
             token,
-            url.pathname.slice(1),
-            new Request(url, {
+            target.path,
+            new Request(target.url, {
               method,
               body,
               headers:
@@ -3192,7 +3191,7 @@ export class BotAgent extends Think<Env, BotState> {
     limits?: SubmitLimits,
     what = "submissions"
   ) {
-    const key = `app_${kind}:${slug}:${caller.token ?? caller.label}`
+    const key = appRateLimitKey(slug, caller, kind)
     const window = this.ctx.storage.kv.get<SubmitWindow>(key) ?? EMPTY_WINDOW
     const result = takeSubmitSlot(
       window,
@@ -3394,17 +3393,21 @@ export class BotAgent extends Think<Env, BotState> {
     )
     return app.tools
       .filter((g) => visible.has(g.name))
-      .map((g) => ({
-        name: g.name,
-        app: g.app,
-        tool: g.tool,
-        readOnly: g.readOnly,
-        ...(g.only ? { only: g.only } : {}),
-        allowed:
-          allowed.has(g.name) &&
-          (this.state.rules.apps ?? DEFAULT_RULES.apps) !== "block" &&
-          (current.mode !== "view" || g.readOnly),
-      }))
+      .map((g) => {
+        const available = current.mode === "view" ? readableGrant(g) : g
+        const exposed = available ?? g
+        return {
+          name: g.name,
+          app: g.app,
+          tool: g.tool,
+          readOnly: exposed.readOnly,
+          ...(exposed.only ? { only: exposed.only } : {}),
+          allowed:
+            allowed.has(g.name) &&
+            (this.state.rules.apps ?? DEFAULT_RULES.apps) !== "block" &&
+            available !== null,
+        }
+      })
   }
 
   /** Queue an edit someone made in an app; the bot hears about it in a batch. */
