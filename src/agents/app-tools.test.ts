@@ -5,6 +5,7 @@ import {
   TOOL_LIMITS,
   approvalKey,
   approvedGrants,
+  readableGrant,
   cleanScopes,
   decideToolCall,
   describeCall,
@@ -73,6 +74,87 @@ describe("resolveGrants", () => {
     expect(() => resolveGrants(many.map(nameOf), many, nameOf)).toThrow(
       /at most 10/
     )
+  })
+})
+
+describe("view-link tool availability", () => {
+  const executor = tool("exec", "Executor", "call", false)
+  const [grant] = resolveGrants(
+    [
+      {
+        name: nameOf(executor),
+        only: [
+          {
+            at: "calls[].path",
+            allow: [
+              { value: "freebusy", reads: true },
+              { value: "insert", reads: false },
+            ],
+          },
+          {
+            at: "calls[].account",
+            allow: [{ value: "calendar", reads: true }],
+          },
+        ],
+      },
+    ],
+    [executor],
+    nameOf
+  )
+
+  it("advertises the readable subset without mutating the approved grant", () => {
+    const view = readableGrant(grant!)!
+    expect(view.readOnly).toBe(true)
+    expect(view.only![0]!.allow).toEqual([{ value: "freebusy", reads: true }])
+    expect(grant!.only![0]!.allow).toHaveLength(2)
+    const decide = (path: string) =>
+      decideToolCall({
+        name: grant!.name,
+        args: { calls: [{ path, account: "calendar" }] },
+        grants: [grant!],
+        approved: [approvalKey(grant!)],
+        catalog: [executor],
+        nameOf,
+      })
+    expect(decide("freebusy")).toMatchObject({ ok: true, reads: true })
+    expect(decide("insert")).toMatchObject({ ok: true, reads: false })
+    expect(decide("delete")).toMatchObject({ ok: false, status: 403 })
+  })
+  it("makes an entirely read-scoped general tool available", () => {
+    const read = {
+      ...grant!,
+      only: grant!.only!.map((scope) => ({
+        ...scope,
+        allow: scope.allow.filter((value) => value.reads),
+      })),
+    }
+    expect(readableGrant(read)).toMatchObject({
+      readOnly: true,
+      only: read.only,
+    })
+  })
+  it("keeps unrestricted and write-only general tools unavailable", () => {
+    expect(readableGrant({ ...grant!, only: undefined })).toBeNull()
+    expect(
+      readableGrant({
+        ...grant!,
+        only: [{ at: "path", allow: [{ value: "insert", reads: false }] }],
+      })
+    ).toBeNull()
+  })
+  it("retains native read-only tools and still requires current owner approval", () => {
+    const [native] = resolveGrants([FREEBUSY], catalog, nameOf)
+    expect(readableGrant(native!)).toEqual(native)
+    expect(
+      decideToolCall({
+        name: grant!.name,
+        args: { calls: [{ path: "freebusy", account: "calendar" }] },
+        grants: [grant!],
+        approved: [],
+        catalog: [executor],
+        nameOf,
+      })
+    ).toMatchObject({ ok: false, status: 403 })
   })
 })
 

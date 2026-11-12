@@ -13,6 +13,12 @@ Bots test their own apps through `app_fetch`. Scoped service credentials never
 appear in the model's results. GET tests are read-only, including connected
 tools invoked by an app's server.
 
+HTTP requests and `app_fetch` decode file paths once, including spaces and
+Unicode. Session renewals share the parent link's submission and tool quotas;
+opening an invitation again does not reset either its per-link or per-IP limits.
+View-only tool discovery advertises the approved read scopes of general tools,
+while each call still checks its arguments and current approval.
+
 External messages and public forms isolate the bot from private account
 memory, inherited skills, credentials, pipelines, and other bots. Isolation
 persists after revocation. Connections require an explicit owner allowlist.

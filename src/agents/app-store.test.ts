@@ -1,6 +1,14 @@
 import { DatabaseSync } from "node:sqlite"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { authorize, validateAccess } from "./app-access"
+import {
+  authorize,
+  validateAccess,
+  appRateLimitKey,
+  refreshAppCaller,
+  takeSubmitSlot,
+  EMPTY_WINDOW,
+} from "./app-access"
+import type { SubmitWindow } from "./app-access"
 import { AppDataError, AppStore, NO_ACCESS } from "./app-store"
 import { PRIVATE_BOT } from "@/lib/sharing"
 
@@ -36,6 +44,71 @@ afterEach(() => {
 })
 
 describe("durable app sharing", () => {
+  it.each(["submits", "server_writes", "tool_reads", "tool_writes"])(
+    "keeps %s quotas across reopened email sessions and store reinitialization",
+    (kind) => {
+      const { store } = fixture()
+      const parent = store.createLink("trip", "Guest", "submit", false, {
+        audience: "email",
+        email: "guest@test.com",
+      })
+      const windows = new Map<string, SubmitWindow>()
+      const limits = {
+        perVisitor: { limit: 1, windowMs: 10000 },
+        perLink: { limit: 2, windowMs: 10000 },
+      }
+      const sessions: string[] = []
+      function visit(ip: string) {
+        const session = store.authorize(
+          "trip",
+          parent.token,
+          { id: "guest", email: "guest@test.com" },
+          "owner",
+          PRIVATE_BOT
+        )!
+        sessions.push(session.token)
+        const grant = store.authorize(
+          "trip",
+          session.token,
+          null,
+          "owner",
+          PRIVATE_BOT
+        )
+        const caller = refreshAppCaller(
+          {
+            label: "Guest",
+            mode: "submit",
+            token: session.token,
+            ip,
+            rateLimitToken: "forged-new-bucket",
+          },
+          grant
+        )!
+        expect(caller.token).toBe(session.token)
+        expect(caller.rateLimitToken).toBe(parent.token)
+        const key = appRateLimitKey("trip", caller, kind)
+        const result = takeSubmitSlot(
+          windows.get(key) ?? EMPTY_WINDOW,
+          ip,
+          1000,
+          limits
+        )
+        windows.set(key, result.window)
+        return result.ok
+      }
+      expect(visit("ip-a")).toBe(true)
+      store.init()
+      expect(visit("ip-a")).toBe(false)
+      expect(visit("ip-b")).toBe(true)
+      expect(visit("ip-c")).toBe(false)
+      expect(new Set(sessions).size).toBe(4)
+      expect(windows.size).toBe(1)
+      store.revokeLink(parent.token)
+      expect(
+        store.authorize("trip", sessions[0]!, null, "owner", PRIVATE_BOT)
+      ).toBeNull()
+    }
+  )
   it("creates only an authenticated owner link for a new app", () => {
     const { store } = fixture()
     expect(store.links("trip")).toMatchObject([
