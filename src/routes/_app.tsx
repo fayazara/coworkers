@@ -56,7 +56,7 @@ function Shell() {
 }
 
 function AppLayout() {
-  const { viewer, hub, sidebarOpen, widths } = Route.useLoaderData()
+  const { viewer, hub, sharedBots, sidebarOpen, widths } = Route.useLoaderData()
   return (
     <LayoutProvider initialSidebarOpen={sidebarOpen} initialWidths={widths}>
       {/* WebSockets only exist in the browser. The server (and the first
@@ -64,12 +64,20 @@ function AppLayout() {
           over after hydration. */}
       <ClientOnly
         fallback={
-          <StaticHubProvider viewer={viewer} initial={hub}>
+          <StaticHubProvider
+            viewer={viewer}
+            initial={hub}
+            initialShared={sharedBots}
+          >
             <Shell />
           </StaticHubProvider>
         }
       >
-        <LiveHubProvider viewer={viewer} initial={hub}>
+        <LiveHubProvider
+          viewer={viewer}
+          initial={hub}
+          initialShared={sharedBots}
+        >
           <Shell />
         </LiveHubProvider>
       </ClientOnly>

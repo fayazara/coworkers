@@ -97,7 +97,10 @@ import type { AppItem } from "./app-store"
 import {
   EMPTY_WINDOW,
   SERVER_WRITE_LIMITS,
-  authorize,
+  authorizeCaller,
+  callerDataMode,
+  appRateLimitKey,
+  refreshAppCaller,
   hideReceipts,
   isReceiptId,
   takeSubmitSlot,
@@ -109,12 +112,14 @@ import {
   TOOL_LIMITS,
   approvalKey,
   approvedGrants,
+  readableGrant,
   decideToolCall,
   describeCall,
   resolveGrants,
   toolResultError,
 } from "./app-tools"
 import type { AppToolRequest } from "./app-tools"
+import { appFetchTarget } from "./app-path"
 import { MIME_TYPES, appLiveName, publicCaller } from "./apps-runtime"
 import { plainReason } from "@/lib/app-tool-log"
 import type {
@@ -142,6 +147,18 @@ import type { BrowserNav, FrameResult, SeenTab } from "./browser-frame"
 import { finishTeachingCode, startTeachingCode } from "./teach"
 import type { TeachRecording, TeachSession } from "./teach"
 import type { UserHub } from "./user-hub"
+import {
+  PRIVATE_BOT,
+  SHARING_DIRECTORY,
+  blockedForSharedBot,
+  botSharingSchema,
+  appSharingSchema,
+  sharedConnectionRule,
+  isBotMember,
+} from "@/lib/sharing"
+import type { BotSharing } from "@/lib/sharing"
+import { SharingIsolation } from "./sharing-isolation"
+import { runSharedWorkspace } from "./shared-workspace"
 import { MAX_BOT_FILES, updateBot as updateBotOperation } from "@/control/bots"
 import {
   operationClasses,
@@ -1188,7 +1205,9 @@ export class BotAgent extends Think<Env, BotState> {
         () => this.state.skills ?? [],
         (path) => this.workspace.fs.readFile(path, "utf8").catch(() => null)
       ),
-      installedSkillSource(() => this.hub(), this.botId),
+      ...(!this.sharing().isolated
+        ? [installedSkillSource(() => this.hub(), this.botId)]
+        : []),
     ]
   }
 
@@ -1240,13 +1259,17 @@ export class BotAgent extends Think<Env, BotState> {
         await Promise.all([
           hub
             .listBots()
-            .then((bots) => bots.filter((b) => b.id !== this.botId)),
-          hub.appCatalog(),
+            .then((bots) =>
+              this.sharing().isolated
+                ? []
+                : bots.filter((b) => b.id !== this.botId)
+            ),
+          this.sharedAppCatalog(),
           hub.appOrigin(),
           // In the per-turn context rather than a context block: it is fresh
           // every turn, and a block's "remind" message breaks approval
           // continuations (it lands after the approval response).
-          hub.sharedMemory(),
+          this.sharing().isolated ? Promise.resolve("") : hub.sharedMemory(),
           hub.modelSettings(),
         ])
       this.#origin = origin ?? ""
@@ -1288,7 +1311,7 @@ export class BotAgent extends Think<Env, BotState> {
     })
     return {
       model: this.turnModel(),
-      instructions: `${system}\n\n${context}`,
+      instructions: `${system}\n\n${context}${this.sharing().isolated ? "\n\nThis is a shared bot. Members share this bot's whole history, memory, files, browser, terminal, and results, including replies to its owner. Members can edit this bot's app data and message you from its apps. Never access private account memory, inherited skills, other bots, or saved credentials. Your browser session belongs to this shared bot and is visible and controllable by its members; never assume it is private to the owner. Only the owner can manage settings, invitations, routines and approvals. Connected accounts are limited to the owner's explicit allowlist; their changes always need the owner's approval. Use app_fetch to access your own private apps without a human login. Do not tell members to approve sensitive actions: ask the owner." : "\n\nUse app_fetch to read or test your own private apps without a browser login. App URLs you give people are private entry links, not bot credentials."}`,
       messages: withSentTimes(
         ctx.messages,
         this.messages.filter((m) => m.role === "user").map((m) => metaOf(m).at),
@@ -1347,12 +1370,22 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   private policyFor(toolName: string): RulePolicy {
+    if (this.sharing().isolated) {
+      if (blockedForSharedBot(toolName, TOOL_CLASS[toolName])) return "block"
+    }
     // The stand-in for a broken app only explains; it never acts.
     if (toolName.endsWith("_unavailable") && this.#appToolNames.has(toolName))
       return "allow"
     const cls = this.#appToolNames.has(toolName) ? "apps" : TOOL_CLASS[toolName]
     // Bots from before a class existed get its default.
     const policy = cls ? (this.state.rules[cls] ?? DEFAULT_RULES[cls]) : "allow"
+    if (this.#appToolNames.has(toolName))
+      return sharedConnectionRule(
+        policy,
+        this.sharing().isolated,
+        this.#readOnlyAppTools.has(toolName),
+        false
+      )
     return policy === "ask" && SHOP_READS.has(toolName) ? "allow" : policy
   }
 
@@ -1363,6 +1396,16 @@ export class BotAgent extends Think<Env, BotState> {
    */
   private decide(toolName: string): RulePolicy {
     const policy = this.policyFor(toolName)
+    if (
+      this.#appToolNames.has(toolName) &&
+      sharedConnectionRule(
+        policy,
+        this.sharing().isolated,
+        this.#readOnlyAppTools.has(toolName),
+        this.isBackgroundTurn()
+      ) === "block"
+    )
+      return "block"
     if (policy === "block" || !this.isBackgroundTurn()) return policy
     if (this.#readOnlyAppTools.has(toolName)) return "allow"
     if (
@@ -1448,9 +1491,8 @@ export class BotAgent extends Think<Env, BotState> {
             return {
               error: "Unknown tool. Find it with app_tools_search first.",
             }
-          const hub = await this.hub()
           return unwrapToolResult(
-            await hub.callAppTool(t.connectionId, t.name, args ?? {})
+            await this.callSharedAppTool(t.connectionId, t.name, args ?? {})
           )
         },
       }),
@@ -1491,8 +1533,7 @@ export class BotAgent extends Think<Env, BotState> {
         needsApproval: async () =>
           this.decide(appToolName(t.connectionId, t.name)) === "ask",
         execute: async (args) => {
-          const hub = await this.hub()
-          const result = await hub.callAppTool(
+          const result = await this.callSharedAppTool(
             t.connectionId,
             t.name,
             (args ?? {}) as Record<string, unknown>
@@ -1580,6 +1621,13 @@ export class BotAgent extends Think<Env, BotState> {
     // Apply the user's rules: "ask" pauses the call for an approval card.
     // "block" is enforced in beforeToolCall.
     for (const [name, def] of Object.entries(tools)) {
+      if (
+        this.sharing().isolated &&
+        blockedForSharedBot(name, TOOL_CLASS[name])
+      ) {
+        delete tools[name]
+        continue
+      }
       if (def.needsApproval !== undefined) continue
       if (!TOOL_CLASS[name]) continue
       tools[name] = {
@@ -1836,6 +1884,7 @@ export class BotAgent extends Think<Env, BotState> {
 
   /** The operations this bot may call, as tools. */
   private operationTools(): ToolSet {
+    if (this.sharing().isolated) return {}
     return operationTools(this.asCaller(), (requestId, approved) => ({
       // Built per call: hops and background belong to the current turn.
       caller: this.asCaller(),
@@ -1848,6 +1897,52 @@ export class BotAgent extends Think<Env, BotState> {
 
   private botTools(): ToolSet {
     return {
+      app_fetch: tool({
+        description:
+          "Read or test one of your own published apps without a human browser login. Paths are relative to that app, including its _data API or server routes. Private service credentials stay in the host and are never returned. Use this instead of opening the private app URL with curl or your browser.",
+        inputSchema: z.object({
+          slug: z.string(),
+          path: z.string().default(""),
+          method: z
+            .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
+            .default("GET"),
+          body: z
+            .string()
+            .max(64 * 1024)
+            .optional(),
+        }),
+        needsApproval: ({ method }) =>
+          method !== "GET" && this.decide("write") === "ask",
+        execute: async ({ slug, path, method, body }) => {
+          if (!this.apps.get(slug)) return { error: "App not found" }
+          if (method !== "GET" && this.decide("write") === "block")
+            return { error: "App writes are blocked by the owner's rules" }
+          const token = this.apps.botLink(
+            slug,
+            method === "GET" ? "view" : "edit"
+          ).token
+          const target = appFetchTarget(path)
+          if ("error" in target) return target
+          const response = await this.serveApp(
+            slug,
+            token,
+            target.path,
+            new Request(target.url, {
+              method,
+              body,
+              headers:
+                body === undefined
+                  ? {}
+                  : { "Content-Type": "application/json" },
+            })
+          )
+          return {
+            status: response.status,
+            contentType: response.headers.get("Content-Type"),
+            body: (await response.text()).slice(0, 64 * 1024),
+          }
+        },
+      }),
       set_name: tool({
         description:
           "Give yourself a name that describes your job, 1-3 words in Title Case. Call once, when the user first tells you what you are for.",
@@ -2731,7 +2826,12 @@ export class BotAgent extends Think<Env, BotState> {
         description:
           "List the apps you built, with their links, collections and item counts.",
         inputSchema: z.object({}),
-        execute: async () => ({ apps: this.appDetails() }),
+        execute: async () => ({
+          apps: this.appDetails().map((app) => ({
+            ...app,
+            links: app.links.filter((link) => link.owner),
+          })),
+        }),
       }),
 
       delete_app: tool({
@@ -2809,7 +2909,11 @@ export class BotAgent extends Think<Env, BotState> {
       access: this.apps.get(app.slug)?.access ?? NO_ACCESS,
       tools: this.apps.get(app.slug)?.tools ?? [],
       approvedTools: this.apps.get(app.slug)?.approvedTools ?? [],
-      links: this.apps.links(app.slug),
+      links: this.apps
+        .links(app.slug)
+        .filter(
+          (link) => link.audience !== "bot" && link.audience !== "session"
+        ),
       collections: this.apps.collections(app.slug),
     }))
   }
@@ -2860,7 +2964,7 @@ export class BotAgent extends Think<Env, BotState> {
       input.appTools === null ? null : undefined
     if (input.appTools) {
       try {
-        const catalog: AppCatalog = await (await this.hub()).appCatalog()
+        const catalog = await this.sharedAppCatalog()
         tools = resolveGrants(input.appTools, catalog.tools, (t) =>
           appToolName(t.connectionId, t.name)
         )
@@ -3089,7 +3193,7 @@ export class BotAgent extends Think<Env, BotState> {
     limits?: SubmitLimits,
     what = "submissions"
   ) {
-    const key = `app_${kind}:${slug}:${caller.token ?? caller.label}`
+    const key = appRateLimitKey(slug, caller, kind)
     const window = this.ctx.storage.kv.get<SubmitWindow>(key) ?? EMPTY_WINDOW
     const result = takeSubmitSlot(
       window,
@@ -3117,6 +3221,10 @@ export class BotAgent extends Think<Env, BotState> {
     name: string,
     args: unknown
   ): Promise<{ value: unknown } | { error: string; status: number }> {
+    const currentCaller = await this.currentAppCaller(slug, caller)
+    if (!currentCaller || !currentCaller.server)
+      return { error: "Access revoked", status: 403 }
+    caller = currentCaller
     const app = this.apps.get(slug)
     if (!app) return { error: "Not found", status: 404 }
     // Allowing an app's tools in the Apps tab is the "ask first"; a block
@@ -3127,8 +3235,7 @@ export class BotAgent extends Think<Env, BotState> {
         status: 403,
       }
     }
-    const hub = await this.hub()
-    const catalog: AppCatalog = await hub.appCatalog()
+    const catalog = await this.sharedAppCatalog()
     const decision = decideToolCall({
       name,
       args,
@@ -3156,6 +3263,8 @@ export class BotAgent extends Think<Env, BotState> {
       return { error: decision.error, status: decision.status }
     }
     const { grant, tool, reads } = decision
+    if (caller.mode === "view" && !reads)
+      return { error: "This link is view-only", status: 403 }
     const entry: AppToolCallLog = {
       at: Date.now(),
       name: grant.name,
@@ -3189,7 +3298,13 @@ export class BotAgent extends Think<Env, BotState> {
       }
     }
     try {
-      const value = await hub.callAppTool(
+      // Catalog lookup crosses an RPC boundary; recheck revocation and owner
+      // approval before dispatching, including long-lived app-server bindings.
+      if (!(await this.currentAppCaller(slug, caller)))
+        return { error: "Access revoked", status: 403 }
+      if (!this.apps.get(slug)?.approvedTools.includes(approvalKey(grant)))
+        return { error: "Tool approval revoked", status: 403 }
+      const value = await this.callSharedAppTool(
         tool.connectionId,
         tool.name,
         args as Record<string, unknown>
@@ -3264,20 +3379,37 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   /** Durable Object RPC from `env.BOT.tools()`: what server.js may call. */
-  async appToolList(slug: string) {
+  async appToolList(slug: string, caller: AppCaller) {
+    const current = await this.currentAppCaller(slug, caller)
+    if (!current?.server) throw new Error("Access revoked")
     const app = this.apps.get(slug)
     if (!app) return []
+    const catalog = await this.sharedAppCatalog()
+    if (!(await this.currentAppCaller(slug, current)))
+      throw new Error("Access revoked")
+    const visible = new Set(
+      catalog.tools.map((t) => appToolName(t.connectionId, t.name))
+    )
     const allowed = new Set(
       approvedGrants(app.tools, app.approvedTools).map((g) => g.name)
     )
-    return app.tools.map((g) => ({
-      name: g.name,
-      app: g.app,
-      tool: g.tool,
-      readOnly: g.readOnly,
-      ...(g.only ? { only: g.only } : {}),
-      allowed: allowed.has(g.name),
-    }))
+    return app.tools
+      .filter((g) => visible.has(g.name))
+      .map((g) => {
+        const available = current.mode === "view" ? readableGrant(g) : g
+        const exposed = available ?? g
+        return {
+          name: g.name,
+          app: g.app,
+          tool: g.tool,
+          readOnly: exposed.readOnly,
+          ...(exposed.only ? { only: exposed.only } : {}),
+          allowed:
+            allowed.has(g.name) &&
+            (this.state.rules.apps ?? DEFAULT_RULES.apps) !== "block" &&
+            available !== null,
+        }
+      })
   }
 
   /** Queue an edit someone made in an app; the bot hears about it in a batch. */
@@ -3326,9 +3458,277 @@ export class BotAgent extends Think<Env, BotState> {
     )
   }
 
-  /** Durable Object RPC from the Worker: the link behind an app URL. */
+  // ── Sharing ────────────────────────────────────────────────────────
+  private sharing(): BotSharing {
+    return (
+      this.ctx.storage.kv.get<BotSharing>("bot_sharing") ?? { ...PRIVATE_BOT }
+    )
+  }
+
+  @callable()
+  async getBotSharing(): Promise<BotSharing> {
+    return this.sharing()
+  }
+
+  /** Owner-only account selection, without replacing membership or isolation. */
+  @callable()
+  async setSharingConnection(input: unknown): Promise<BotSharing> {
+    const { connectionId, enabled } = z
+      .object({
+        connectionId: z.string().min(1).max(100),
+        enabled: z.boolean(),
+      })
+      .parse(input)
+    const previous = this.sharing()
+    const connectionIds = previous.connectionIds.filter(
+      (id) => id !== connectionId
+    )
+    if (enabled) connectionIds.push(connectionId)
+    const sharing = {
+      ...previous,
+      connectionIds: botSharingSchema.shape.connectionIds.parse(connectionIds),
+    }
+    this.ctx.storage.kv.put("bot_sharing", sharing)
+    return sharing
+  }
+
+  /** A separate member surface intentionally never opens the owner agent socket. */
+  async isSharedWith(email: string | null) {
+    return isBotMember(this.sharing(), email)
+  }
+  async sharingIsolated() {
+    return this.sharing().isolated
+  }
+
+  /** Hub teardown: remove discovery entries and close every app viewer. */
+  async releaseSharing() {
+    this.ctx.storage.kv.put("bot_sharing", {
+      ...this.sharing(),
+      emails: [],
+      workspace: false,
+    })
+    for (const app of this.apps.list())
+      await this.appLive(app.slug).disconnect()
+    await this.closeBrowser()
+    const directory = await getAgentByName(
+      this.env.UserHub as unknown as DurableObjectNamespace<UserHub>,
+      SHARING_DIRECTORY
+    )
+    await directory.indexSharedBot(this.userId, this.botId, [], false)
+  }
+
+  #sharingIsolation = new SharingIsolation({
+    ready: () =>
+      this.sharing().isolated &&
+      this.ctx.storage.kv.get<boolean>("sharing_browser_reset_complete") ===
+        true,
+    assertIdle: () => {
+      if (
+        this.state.status !== "idle" ||
+        this.#turnActive ||
+        this.hasPendingApproval() ||
+        this.sql<{
+          n: number
+        }>`SELECT COUNT(*) AS n FROM script_runs WHERE status != 'done'`[0]
+          ?.n ||
+        this.openDelegations().length
+      ) {
+        throw new Error(
+          "Wait until this bot and its scripts are idle before enabling sharing."
+        )
+      }
+    },
+    isolate: () => {
+      this.ctx.storage.kv.put("bot_sharing", {
+        ...this.sharing(),
+        isolated: true,
+      })
+      this.setState({ ...this.state, shared: true })
+    },
+    closeBrowser: () => this.closeBrowser(),
+    complete: () =>
+      this.ctx.storage.kv.put("sharing_browser_reset_complete", true),
+  })
+
+  private enableSharingIsolation() {
+    return this.#sharingIsolation.enable()
+  }
+
+  @callable()
+  async setBotSharing(input: unknown): Promise<BotSharing> {
+    if (
+      import.meta.env.DEV ||
+      !this.env.ACCESS_TEAM_DOMAIN?.trim() ||
+      !this.env.ACCESS_AUD?.trim()
+    )
+      throw new Error(
+        "Bot sharing requires Cloudflare Access sign-in; it is unavailable in demo mode."
+      )
+    const parsed = botSharingSchema.parse(input)
+    const previous = this.sharing()
+    const emails = [...new Set(parsed.emails)]
+    if (emails.length || parsed.workspace) await this.enableSharingIsolation()
+    const sharing: BotSharing = {
+      emails,
+      workspace: parsed.workspace,
+      connectionIds: parsed.connectionIds,
+      isolated: this.sharing().isolated,
+    }
+    this.ctx.storage.kv.put("bot_sharing", sharing)
+    // Live View URLs are short-lived capabilities. Close the session when a
+    // member loses access so an already-issued URL cannot keep controlling it.
+    if (
+      (previous.workspace && !sharing.workspace) ||
+      previous.emails.some((email) => !isBotMember(sharing, email))
+    )
+      await this.closeBrowser()
+    const directory = await getAgentByName(
+      this.env.UserHub as unknown as DurableObjectNamespace<UserHub>,
+      SHARING_DIRECTORY
+    )
+    await directory.indexSharedBot(
+      this.userId,
+      this.botId,
+      emails,
+      sharing.workspace
+    )
+    // Drop already-open member app sessions immediately when membership changes.
+    for (const app of this.apps.list()) {
+      for (const link of this.apps.links(app.slug)) {
+        if (
+          link.audience === "session" &&
+          link.viewerEmail &&
+          !isBotMember(sharing, link.viewerEmail)
+        ) {
+          this.apps.revokeLink(link.token)
+          await this.appLive(app.slug).disconnect(link.token)
+        }
+      }
+    }
+    return sharing
+  }
+
+  private async sharedAppCatalog(): Promise<AppCatalog> {
+    const sharing = this.sharing()
+    if (sharing.isolated && !sharing.connectionIds.length)
+      return { apps: [], tools: [] }
+    const catalog: AppCatalog = await (await this.hub()).appCatalog()
+    if (!sharing.isolated) return catalog
+    return {
+      apps: catalog.apps.filter((a) => sharing.connectionIds.includes(a.id)),
+      tools: catalog.tools.filter((t) =>
+        sharing.connectionIds.includes(t.connectionId)
+      ),
+    }
+  }
+
+  private async callSharedAppTool(
+    connectionId: string,
+    name: string,
+    args: Record<string, unknown>
+  ) {
+    const sharing = this.sharing()
+    if (sharing.isolated && !sharing.connectionIds.includes(connectionId))
+      throw new Error(
+        "The owner has not enabled this connection for this shared bot."
+      )
+    return (await this.hub()).callAppTool(connectionId, name, args)
+  }
+
+  async sharedSnapshot(email: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    const snapshot = await this.snapshot()
+    const apps = this.apps
+      .list()
+      .map((app) => ({ ...app, path: this.apps.ownerLink(app.slug).path }))
+    return {
+      ...snapshot,
+      apps,
+      memory: this.session.getContextBlock("memory")?.content ?? "",
+    }
+  }
+
+  /** Member RPC only. Never expose the owner's general agent WebSocket. */
+  async sharedWorkspace(email: string, input: unknown) {
+    return runSharedWorkspace(this, this.sharing(), email, input)
+  }
+
+  async sharedMessage(email: string, text: string, requestId: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    if (this.state.paused) throw new Error("The owner paused this bot")
+    const clean = z.string().trim().min(1).max(32_000).parse(text)
+    await this.submitAs(
+      { kind: "agent", name: `${email} (shared member)` },
+      `[Message from shared member ${email}. They may chat and use this bot, but cannot manage settings or approve sensitive actions.]\n${clean}`,
+      { key: `member:${email}:${z.string().uuid().parse(requestId)}` }
+    )
+  }
+
+  async sharedUpload(email: string, name: string, base64: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    return this.uploadFile(name, base64)
+  }
+
+  async sharedFiles(email: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    return this.listWorkspace()
+  }
+
+  async sharedFile(email: string, relative: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    if (
+      !relative ||
+      relative.startsWith("/") ||
+      relative.split(/[\\/]/).includes("..")
+    )
+      throw new Error("Not a workspace file")
+    const path = `/workspace/${relative}`
+    const stat = await this.workspace.fs.stat(path)
+    if (!stat.isFile || stat.size > MAX_UPLOAD_BYTES)
+      throw new Error("Only files up to 5 MB can be downloaded")
+    const bytes = new Uint8Array(
+      await new Response(await this.workspace.fs.readFile(path)).arrayBuffer()
+    )
+    let binary = ""
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+    return { base64: btoa(binary) }
+  }
+
+  async sharedChoice(email: string, toolCallId: string, option: string) {
+    if (!isBotMember(this.sharing(), email))
+      throw new Error("Access revoked or not shared with you")
+    await this.answerChoice(toolCallId, option)
+    const part = this.messages
+      .flatMap((m) => m.parts)
+      .find((p) => (p as { toolCallId?: string }).toolCallId === toolCallId)
+    const approvalId = part ? pendingApprovalId(part) : null
+    if (approvalId) await this.answerApproval(approvalId, true)
+  }
+
   async appLink(slug: string, token: string): Promise<AppLink | null> {
     return this.apps.findLink(slug, token)
+  }
+
+  /** Server-only RPC; never exposed as a browser callable. */
+  async authorizeAppLink(
+    slug: string,
+    token: string,
+    viewer: { id: string; email: string | null } | null
+  ): Promise<AppLink | null> {
+    return this.apps.authorize(slug, token, viewer, this.userId, this.sharing())
+  }
+
+  private async currentAppCaller(slug: string, caller: AppCaller) {
+    const grant = caller.token
+      ? await this.authorizeAppLink(slug, caller.token, null)
+      : null
+    return refreshAppCaller(caller, grant)
   }
 
   /** Durable Object RPC from the Worker: one request to an app. */
@@ -3338,12 +3738,13 @@ export class BotAgent extends Think<Env, BotState> {
     path: string,
     request: Request
   ): Promise<Response> {
-    const link = this.apps.findLink(slug, token)
+    const link = await this.authorizeAppLink(slug, token, null)
     const app = link ? this.apps.get(slug) : null
     if (!link || !app) return new Response("Not found", { status: 404 })
     const caller: AppCaller = {
       label: link.label,
       mode: link.mode,
+      canMessage: link.canMessage,
       token: link.token,
       ip: request.headers.get("CF-Connecting-IP") ?? "unknown",
       owner: link.owner,
@@ -3365,9 +3766,18 @@ export class BotAgent extends Think<Env, BotState> {
       // server.js sees paths relative to the app, e.g. "/api/todos".
       const url = new URL(request.url)
       url.pathname = `/${path}`
+      const headers = new Headers(request.headers)
+      for (const name of [
+        "cookie",
+        "authorization",
+        "cf-access-jwt-assertion",
+        "cf-access-client-id",
+        "cf-access-client-secret",
+      ])
+        headers.delete(name)
       try {
         return await this.appServer(slug, app.version, caller).fetch(
-          new Request(url, request)
+          new Request(new Request(url, request), { headers })
         )
       } catch (err) {
         console.error("App server failed", err)
@@ -3494,12 +3904,10 @@ export class BotAgent extends Think<Env, BotState> {
   ): Promise<{ value: unknown } | { error: string; status: number }> {
     const app = this.apps.get(slug)
     if (!app) return { error: "Not found", status: 404 }
-    // server.js is the app's backend: it gets the app's data in full.
-    const decision = authorize(
-      caller.server ? "edit" : caller.mode,
-      app.access,
-      op
-    )
+    const currentCaller = await this.currentAppCaller(slug, caller)
+    if (!currentCaller) return { error: "Access revoked", status: 403 }
+    caller = currentCaller
+    const decision = authorizeCaller(caller, app.access, op)
     if (!decision.ok) {
       return { error: decision.error, status: decision.status }
     }
@@ -3532,7 +3940,7 @@ export class BotAgent extends Think<Env, BotState> {
             value: {
               app: { name: app.name, description: app.description },
               collections: visibleCollections(
-                caller.server ? "edit" : caller.mode,
+                callerDataMode(caller),
                 app.access,
                 this.apps.collections(slug)
               ),
@@ -3574,7 +3982,7 @@ export class BotAgent extends Think<Env, BotState> {
           // A survey with 500 answers should not mean 500 bot turns.
           // From a public link, directly or through server.js.
           const fromPublic = caller.mode === "submit"
-          if (!fromPublic || app.access.wake) {
+          if (fromPublic ? app.access.wake : caller.canMessage) {
             const who = fromPublic
               ? `A stranger on the public link "${caller.label}"`
               : caller.label
@@ -3592,10 +4000,11 @@ export class BotAgent extends Think<Env, BotState> {
               type: "change",
               collection: op.collection,
             })
-            await this.queueAppEvent(
-              slug,
-              `${caller.label} removed ${op.collection}/${op.id}`
-            )
+            if (caller.mode === "submit" ? app.access.wake : caller.canMessage)
+              await this.queueAppEvent(
+                slug,
+                `${caller.label} removed ${op.collection}/${op.id}`
+              )
           }
           return { value: { removed } }
         }
@@ -3741,7 +4150,7 @@ export class BotAgent extends Think<Env, BotState> {
   private appsModule(): WorkspaceModuleFactory {
     const factory = () => ({
       list: async (): Promise<WorkspaceRuntimeValue> => {
-        const { tools }: AppCatalog = await (await this.hub()).appCatalog()
+        const { tools }: AppCatalog = await this.sharedAppCatalog()
         return tools.map((t) => ({
           name: appToolName(t.connectionId, t.name),
           app: t.connectionName,
@@ -3786,8 +4195,7 @@ export class BotAgent extends Think<Env, BotState> {
     if (input === null || typeof input !== "object" || Array.isArray(input)) {
       throw new Error("Arguments must be an object.")
     }
-    const hub = await this.hub()
-    const catalog: AppCatalog = await hub.appCatalog()
+    const catalog: AppCatalog = await this.sharedAppCatalog()
     const t = catalog.tools.find(
       (t) => appToolName(t.connectionId, t.name) === name
     )
@@ -3830,7 +4238,7 @@ export class BotAgent extends Think<Env, BotState> {
       }
     }
     const result = unwrapToolResult(
-      await hub.callAppTool(t.connectionId, t.name, input)
+      await this.callSharedAppTool(t.connectionId, t.name, input)
     )
     // Only plain JSON crosses back into the script.
     return JSON.parse(JSON.stringify(result ?? null)) as WorkspaceRuntimeValue
@@ -3852,6 +4260,13 @@ export class BotAgent extends Think<Env, BotState> {
   /** decide() for an app call from a script, which has no tool name of its own. */
   private scriptAppPolicy(readOnly: boolean, watch = false): RulePolicy {
     const policy = this.state.rules.apps
+    if (this.sharing().isolated && !readOnly)
+      return sharedConnectionRule(
+        policy,
+        true,
+        false,
+        watch || this.isBackgroundTurn()
+      )
     // A routine's watch runs with nobody there, like a background turn.
     if (policy === "block" || (!watch && !this.isBackgroundTurn()))
       return policy
@@ -4309,6 +4724,15 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   override beforeToolCall(ctx: ToolCallContext): ToolCallDecision | void {
+    if (
+      this.sharing().isolated &&
+      blockedForSharedBot(ctx.toolName, TOOL_CLASS[ctx.toolName])
+    )
+      return {
+        action: "block",
+        reason:
+          "Shared bots cannot access private account context, credentials, other bots, or change owner-managed settings.",
+      }
     this.#lastActivity = Date.now()
     // Waiting on a job repeats the same call by design.
     const looping =
@@ -4899,6 +5323,8 @@ export class BotAgent extends Think<Env, BotState> {
     text: string,
     delivery: { key?: string; hops?: number; files?: BotAttachment[] } = {}
   ): Promise<string[]> {
+    if (this.sharing().isolated)
+      throw new Error("Shared bots cannot receive private bot-to-bot messages")
     const saved = await this.saveAttachments(origin.name, delivery)
     const listed = saved.length
       ? `\n\nAttached files, copied into your workspace:\n${saved.map((p) => `- ${p}`).join("\n")}`
@@ -4927,6 +5353,11 @@ export class BotAgent extends Think<Env, BotState> {
       files?: BotAttachment[]
     }
   ): Promise<string[]> {
+    if (
+      this.sharing().isolated &&
+      (origin.kind === "bot" || origin.kind === "pipeline")
+    )
+      throw new Error("Shared bots cannot receive private bot or pipeline work")
     const saved = await this.saveAttachments(origin.name, delivery)
     const listed = saved.length
       ? `\n\nAttached files, copied into your workspace:\n${saved.map((p) => `- ${p}`).join("\n")}`
@@ -4946,6 +5377,8 @@ export class BotAgent extends Think<Env, BotState> {
     taskId: string,
     outcome: TaskOutcome
   ) {
+    if (this.sharing().isolated)
+      throw new Error("Shared bots cannot receive private bot task results")
     const row = this.sql<DelegationRow>`SELECT * FROM delegations
       WHERE id = ${taskId}`[0]
     // A re-delivered result changes nothing.
@@ -6156,16 +6589,35 @@ export class BotAgent extends Think<Env, BotState> {
   async createAppLink(
     slug: string,
     label: string,
-    mode: AppLink["mode"]
+    mode: AppLink["mode"] = "view",
+    options: {
+      audience?: "link" | "email"
+      email?: string
+      canMessage?: boolean
+    } = {}
   ): Promise<AppLink> {
     const app = this.apps.get(slug)
     if (!app) throw new Error(`No app "${slug}"`)
     const name = label.trim().slice(0, 40) || "Shared link"
-    const safe = mode === "view" || mode === "submit" ? mode : "edit"
+    const parsed = appSharingSchema.parse(options)
+    if (
+      parsed.audience === "email" &&
+      (import.meta.env.DEV ||
+        !this.env.ACCESS_TEAM_DOMAIN?.trim() ||
+        !this.env.ACCESS_AUD?.trim())
+    )
+      throw new Error(
+        "Email-restricted links require Cloudflare Access sign-in."
+      )
+    const safe = mode === "edit" || mode === "submit" ? mode : "view"
     if (safe === "submit" && app.access.submit.length === 0) {
       throw new Error("This app has no public form")
     }
-    return this.apps.createLink(slug, name, safe)
+    // A form can wake this bot now or after a republish. Isolate its context
+    // before accepting any public submissions, like other external messages.
+    if (parsed.canMessage || safe === "submit")
+      await this.enableSharingIsolation()
+    return this.apps.createLink(slug, name, safe, false, parsed)
   }
 
   /** The user allows every tool the app asks for, as they are now. */
@@ -6184,10 +6636,16 @@ export class BotAgent extends Think<Env, BotState> {
 
   @callable()
   async revokeAppLink(token: string) {
+    const sessions = this.apps
+      .list()
+      .flatMap((app) => this.apps.links(app.slug))
+      .filter((l) => l.parentToken === token)
     const revoked = this.apps.revokeLink(token)
     if (revoked) {
       try {
         await this.appLive(revoked.slug).disconnect(token)
+        for (const session of sessions)
+          await this.appLive(revoked.slug).disconnect(session.token)
       } catch (err) {
         console.error("Closing app viewers failed", err)
       }

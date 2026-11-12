@@ -1,10 +1,12 @@
-import { createContext, useContext, useEffect, useMemo } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import { useAgent } from "agents/react"
 import { syncBotSummaries } from "@/lib/bot-cache"
+import { listSharedBots } from "@/lib/sharing-fns"
 import type { ReactNode } from "react"
 import type { UIMessage } from "ai"
 import type {
   BotSummary,
+  SharedBotSummary,
   Connection,
   ConnectionTool,
   HubState,
@@ -36,6 +38,8 @@ export interface NewConnection {
 interface HubContextValue {
   viewer: Viewer
   state: HubState
+  sharedBots: SharedBotSummary[]
+  sharedBotsError: string | null
   /** False during SSR and until the WebSocket has delivered state. */
   live: boolean
   createBot: () => Promise<BotSummary>
@@ -162,6 +166,7 @@ export function useOptionalHub() {
 interface ProviderProps {
   viewer: Viewer
   initial: HubState
+  initialShared?: SharedBotSummary[]
   children: ReactNode
 }
 
@@ -173,12 +178,15 @@ function notConnected(): never {
 export function StaticHubProvider({
   viewer,
   initial,
+  initialShared = [],
   children,
 }: ProviderProps) {
   const value = useMemo<HubContextValue>(
     () => ({
       viewer,
       state: initial,
+      sharedBots: initialShared,
+      sharedBotsError: null,
       live: false,
       createBot: notConnected,
       deleteBot: notConnected,
@@ -206,18 +214,64 @@ export function StaticHubProvider({
       desk: null,
       shop: null,
     }),
-    [viewer, initial]
+    [viewer, initial, initialShared]
   )
   return <HubContext.Provider value={value}>{children}</HubContext.Provider>
 }
 
 /** Browser only: a WebSocket to the user's UserHub keeps the sidebar live. */
-export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
+export function LiveHubProvider({
+  viewer,
+  initial,
+  initialShared = [],
+  children,
+}: ProviderProps) {
   const agent = useAgent<UserHub, HubState>({
     agent: "user-hub",
     name: viewer.id,
   })
   const state = agent.state ?? initial
+  const [sharedBots, setSharedBots] = useState(initialShared)
+  const [sharedBotsError, setSharedBotsError] = useState<string | null>(null)
+
+  // Incoming shares belong to other hubs. Refresh their authorized summaries,
+  // without joining another owner's socket or polluting our personal bot state.
+  useEffect(() => {
+    if (!viewer.email) return
+    let cancelled = false
+    let running = false
+    async function refresh() {
+      if (running || document.visibilityState === "hidden") return
+      running = true
+      try {
+        const bots = await listSharedBots()
+        if (!cancelled) {
+          setSharedBots(bots)
+          setSharedBotsError(null)
+        }
+      } catch {
+        if (!cancelled) {
+          setSharedBots([])
+          setSharedBotsError(
+            "Shared bots are temporarily unavailable. Retrying…"
+          )
+        }
+      } finally {
+        running = false
+      }
+    }
+    void refresh()
+    const timer = setInterval(() => void refresh(), 5000)
+    const onFocus = () => void refresh()
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onFocus)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onFocus)
+    }
+  }, [viewer.id, viewer.email])
 
   useEffect(() => {
     syncBotSummaries(state.bots)
@@ -242,6 +296,8 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
     () => ({
       viewer,
       state,
+      sharedBots,
+      sharedBotsError,
       live: agent.state !== undefined,
       createBot: () => agent.stub.createBot(),
       deleteBot: (botId) => agent.stub.deleteBot(botId),
@@ -321,7 +377,7 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
           : null,
       shop,
     }),
-    [viewer, state, agent, shop]
+    [viewer, state, agent, shop, sharedBots, sharedBotsError]
   )
   return <HubContext.Provider value={value}>{children}</HubContext.Provider>
 }
