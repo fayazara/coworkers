@@ -381,9 +381,22 @@ function LiveBot({
   )
   useEffect(() => {
     if (holding || heldAnswers.current.size === 0) return
+    // Skip any answered elsewhere (the Desk) while they were held.
+    const waiting = new Set(
+      chat.messages.flatMap((m) =>
+        m.parts.flatMap((p) => {
+          const part = p as { state?: string; approval?: { id?: string } }
+          return part.state === "approval-requested" && part.approval?.id
+            ? [part.approval.id]
+            : []
+        })
+      )
+    )
     const answers = [...heldAnswers.current.values()]
     heldAnswers.current.clear()
-    for (const answer of answers) void chat.addToolApprovalResponse(answer)
+    for (const answer of answers) {
+      if (waiting.has(answer.id)) void chat.addToolApprovalResponse(answer)
+    }
   }, [holding, chat])
 
   const onProvideSecret = useCallback(

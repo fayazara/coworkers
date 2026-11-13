@@ -721,6 +721,12 @@ export class BotAgent extends Think<Env, BotState> {
   /** In memory only: a restart ends any turn, and onStart resets status. */
   #turnActive = false
   #lastActivity = 0
+  /**
+   * Desk answers that came in while a turn was still streaming, by approval
+   * id. Applied when the turn ends: answering mid-step makes the server go on
+   * while the chat is still reading the step, and it loses the tool's result.
+   */
+  #heldApprovals = new Map<string, boolean>()
 
   /** Apps this bot built, their links and their data. */
   private get apps(): AppStore {
@@ -834,6 +840,25 @@ export class BotAgent extends Think<Env, BotState> {
     return cards
   }
 
+  /**
+   * Approvals answered in the chat go through Think's own socket handler,
+   * which nothing here hears about. Wrap it so the Desk closes those cards
+   * too, instead of waiting for the continuation to finish.
+   */
+  private watchChatApprovals() {
+    const think = this as unknown as {
+      _applyToolApproval(toolCallId: string, approved: boolean): Promise<void>
+      __deskWatched?: true
+    }
+    if (think.__deskWatched) return
+    think.__deskWatched = true
+    const apply = think._applyToolApproval.bind(this)
+    think._applyToolApproval = async (toolCallId, approved) => {
+      await apply(toolCallId, approved)
+      this.syncDesk()
+    }
+  }
+
   /** Someone has this bot's chat open right now. */
   private watched() {
     for (const _ of this.getConnections()) return true
@@ -854,6 +879,7 @@ export class BotAgent extends Think<Env, BotState> {
   // ── Lifecycle ───────────────────────────────────────────────────────
 
   async onStart() {
+    this.watchChatApprovals()
     this.sql`CREATE TABLE IF NOT EXISTS activity (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at INTEGER NOT NULL,
@@ -3749,6 +3775,29 @@ export class BotAgent extends Think<Env, BotState> {
           readOnly: t.readOnly,
         }))
       },
+      // One tool's argument schema. Not in list(): the sandbox caps a host
+      // call's result at 4096 values, which a few dozen schemas pass.
+      describe: async (
+        args: readonly WorkspaceRuntimeValue[]
+      ): Promise<WorkspaceRuntimeValue> => {
+        const [name] = args
+        const { tools }: AppCatalog = await (await this.hub()).appCatalog()
+        const t = tools.find(
+          (t) => appToolName(t.connectionId, t.name) === name
+        )
+        if (!t) {
+          throw new Error(
+            `No connected app has a tool named ${String(name)}. Call list() to see them.`
+          )
+        }
+        return {
+          name: appToolName(t.connectionId, t.name),
+          app: t.connectionName,
+          description: t.description,
+          readOnly: t.readOnly,
+          inputSchema: t.inputSchema as WorkspaceRuntimeValue,
+        }
+      },
       // Reads are safe to repeat after an interruption; anything else is
       // not, so a restart while it is in flight fails the run instead of
       // possibly sending it twice.
@@ -3765,7 +3814,7 @@ export class BotAgent extends Think<Env, BotState> {
     })
     return Object.assign(factory, {
       description: [
-        "- `ws:apps`: the user's connected apps (the same tools you have as tool_c… tools). `list()` returns `[{ name, app, description, readOnly }]`.",
+        "- `ws:apps`: the user's connected apps (the same tools you have as tool_c… tools). `list()` returns `[{ name, app, description, readOnly }]`. `describe(name)` returns one tool's `{ name, app, description, readOnly, inputSchema }`, where inputSchema is the JSON Schema for its arguments: check it before building arguments, inside the script.",
         "  `read(name, args)` calls a readOnly tool; `call(name, args)` calls any tool. Both return the tool's result and throw if it fails, if the user's rules block it, or if the user rejects it.",
         "  A call the user's rules ask about pauses the script until they answer, so batch the work into one script rather than one per item.",
       ].join("\n"),
@@ -4387,6 +4436,7 @@ export class BotAgent extends Think<Env, BotState> {
 
   override async onChatResponse(result: ChatResponseResult) {
     this.#turnActive = false
+    void this.applyHeldApprovals()
     const trigger = this.triggerOf(result.message)
     const background = metaOf(trigger).background === true
     const waiting = result.message.parts.some(
@@ -4529,6 +4579,7 @@ export class BotAgent extends Think<Env, BotState> {
 
   override onChatError(error: unknown) {
     this.#turnActive = false
+    void this.applyHeldApprovals()
     this.detachScripts()
     void this.setStatus("idle")
     return error
@@ -4824,8 +4875,13 @@ export class BotAgent extends Think<Env, BotState> {
       .find((p) => pendingApprovalId(p) === approvalId) as
       { toolCallId?: string } | undefined
     if (!part?.toolCallId) throw new Error("That was already answered.")
+    if (this.#turnActive) {
+      this.#heldApprovals.set(approvalId, approved)
+      return
+    }
     const { toolCallId } = part
-    // Think keeps these private; they are its RPC approval path.
+    // Think keeps these private; they are its RPC approval path. The wrap
+    // in watchChatApprovals syncs the Desk.
     const think = this as unknown as {
       _enqueueInteractionApply(apply: () => Promise<void>): Promise<unknown>
       _applyToolApproval(toolCallId: string, approved: boolean): Promise<void>
@@ -4834,9 +4890,22 @@ export class BotAgent extends Think<Env, BotState> {
     await think._enqueueInteractionApply(() =>
       think._applyToolApproval(toolCallId, approved)
     )
-    this.syncDesk()
     if (!this.hasPendingApproval()) {
       await think._queueConnectionlessContinuation()
+    }
+  }
+
+  /** Desk answers held while a turn streamed, now that it has ended. */
+  private async applyHeldApprovals() {
+    const held = [...this.#heldApprovals]
+    this.#heldApprovals.clear()
+    for (const [approvalId, approved] of held) {
+      try {
+        await this.answerApproval(approvalId, approved)
+      } catch (err) {
+        // Answered in the chat meanwhile, or the turn moved past it.
+        console.error("Applying a held approval failed", err)
+      }
     }
   }
 
