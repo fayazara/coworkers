@@ -53,6 +53,10 @@ import {
   WebhookIcon as Webhook,
   WorkflowIcon as Workflow,
   PlayIcon as Play,
+  SunMoonIcon as Appearance,
+  MonitorIcon as Monitor,
+  Moon02Icon as Moon,
+  Sun01Icon as Sun,
   ArrowLeft01Icon as ChevronLeft,
   CheckmarkCircle02Icon as CheckCircle,
   MinusSignIcon as Minus,
@@ -90,6 +94,10 @@ function icon(svg: IconSvgElement, name: string) {
 }
 
 export const AppWindowIcon = icon(AppWindow, "AppWindowIcon")
+export const AppearanceIcon = icon(Appearance, "AppearanceIcon")
+export const MonitorIcon = icon(Monitor, "MonitorIcon")
+export const MoonIcon = icon(Moon, "MoonIcon")
+export const SunIcon = icon(Sun, "SunIcon")
 export const ArrowClockwiseIcon = icon(Refresh, "ArrowClockwiseIcon")
 export const ArrowLeftIcon = icon(ArrowLeft, "ArrowLeftIcon")
 export const ArrowRightIcon = icon(ArrowRight, "ArrowRightIcon")

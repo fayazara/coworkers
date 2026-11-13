@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router"
 import {
   AiChipIcon,
+  AppearanceIcon,
   ArrowLeftIcon,
   BookOpenTextIcon,
   CoinsIcon,
@@ -9,6 +10,12 @@ import {
 } from "@/components/icons"
 
 export const SETTINGS_SECTIONS = [
+  {
+    value: "appearance",
+    label: "Appearance",
+    detail: "System, light or dark for this browser",
+    icon: AppearanceIcon,
+  },
   {
     value: "models",
     label: "Models",

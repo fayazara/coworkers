@@ -1,5 +1,6 @@
 import { useHydrated } from "@tanstack/react-router"
 import { MultiFileDiff, PatchDiff } from "@pierre/diffs/react"
+import { useTheme } from "@/lib/theme-context"
 
 /**
  * File changes as a real diff (@pierre/diffs): line numbers, word-level
@@ -9,12 +10,16 @@ import { MultiFileDiff, PatchDiff } from "@pierre/diffs/react"
 const OPTIONS = {
   diffStyle: "unified",
   theme: { light: "pierre-light", dark: "pierre-dark" },
-  themeType: "system",
   disableFileHeader: true,
   overflow: "wrap",
   lineDiffType: "word-alt",
   diffIndicators: "bars",
   hunkSeparators: "simple",
+} as const
+
+const THEMED_OPTIONS = {
+  light: { ...OPTIONS, themeType: "light" },
+  dark: { ...OPTIONS, themeType: "dark" },
 } as const
 
 /**
@@ -45,9 +50,10 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 /** A unified patch, as the edit tool returns it. */
 export function PatchView({ patch }: { patch: string }) {
+  const { mode } = useTheme()
   return (
     <Frame>
-      <PatchDiff patch={plainPatch(patch)} options={OPTIONS} />
+      <PatchDiff patch={plainPatch(patch)} options={THEMED_OPTIONS[mode]} />
     </Frame>
   )
 }
@@ -62,12 +68,13 @@ export function EditView({
   oldText: string
   newText: string
 }) {
+  const { mode } = useTheme()
   return (
     <Frame>
       <MultiFileDiff
         oldFile={{ name: plainName(path), contents: oldText }}
         newFile={{ name: plainName(path), contents: newText }}
-        options={OPTIONS}
+        options={THEMED_OPTIONS[mode]}
       />
     </Frame>
   )

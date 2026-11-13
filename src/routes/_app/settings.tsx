@@ -9,6 +9,7 @@ import { SETTINGS_SECTIONS, isSettingsSection } from "@/components/settings-nav"
 import type { SettingsSection } from "@/components/settings-nav"
 import { SkillsSettings } from "@/components/skills-settings"
 import { SpendSettings } from "@/components/spend-settings"
+import { ThemeSettings } from "@/components/theme-settings"
 
 export const Route = createFileRoute("/_app/settings")({
   validateSearch: (
@@ -100,7 +101,9 @@ function Settings() {
           )}
 
           <div className={picked ? undefined : "max-md:hidden"}>
-            {current.value === "models" ? (
+            {current.value === "appearance" ? (
+              <ThemeSettings />
+            ) : current.value === "models" ? (
               <ModelsSettings />
             ) : current.value === "integrations" ? (
               <IntegrationsSettings app={app} error={error} />
