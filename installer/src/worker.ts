@@ -132,6 +132,9 @@ export default {
     }
 
     if (url.pathname === "/api/auth/logout") {
+      // Clearing the cookie alone would leave the OAuth tokens stored.
+      const id = await sessionId(request, env)
+      if (id) await (await installer(env, id)).signOut()
       return redirect("/", [cookie(SESSION, "", { maxAge: 0 })])
     }
 
