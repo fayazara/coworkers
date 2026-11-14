@@ -130,9 +130,12 @@ import {
   checkInPrompt,
   crawlPrompt,
   emailPrompt,
+  routineInstructionsOf,
   routinePrompt,
   scriptPrompt,
   turnContext,
+  watchChangeNote,
+  watchChangeNoteOf,
   webhookPrompt,
   withSentTimes,
 } from "./prompt"
@@ -382,6 +385,8 @@ interface RoutinePayload {
   kind: Routine["kind"]
   onlyNew?: boolean
   watch?: RoutineWatch
+  /** On a retry: the watch change that started the first attempt. */
+  changeNote?: string
 }
 
 /** A task this bot handed to another bot (`delegate_task`). */
@@ -2434,11 +2439,17 @@ export class BotAgent extends Think<Env, BotState> {
           checkAfter: z.string().optional(),
         }),
         execute: async ({ id, note, sourceUrl, checkAfter }) => {
-          const after = checkAfter ? Date.parse(checkAfter) : NaN
+          // Left out, the date stays as it was.
+          const after = checkAfter ? Date.parse(checkAfter) : null
+          if (Number.isNaN(after)) {
+            return {
+              error: `checkAfter must be an ISO 8601 date-time, got "${checkAfter}"`,
+            }
+          }
           const rows = this.sql<{ id: string }>`UPDATE open_items
             SET note = ${note},
                 source_url = COALESCE(${sourceUrl ?? null}, source_url),
-                check_after = ${Number.isNaN(after) ? null : after},
+                check_after = COALESCE(${after}, check_after),
                 updated_at = ${Date.now()}
             WHERE id = ${id} RETURNING id`
           return rows.length ? { updated: id } : { error: `No open item ${id}` }
@@ -5226,8 +5237,10 @@ export class BotAgent extends Think<Env, BotState> {
       this.trimRoutineRuns()
       return
     }
-    let changeNote = ""
-    if (payload.watch) {
+    let changeNote = payload.changeNote ?? ""
+    // A retry runs on the change the first attempt saw. That change is
+    // already saved as the baseline, so checking again would skip the run.
+    if (payload.watch && attempt === 1) {
       const check = await this.checkWatch(payload.id, payload.watch)
       if (check.status !== "changed") {
         // No model call: record why, and stop here.
@@ -5315,7 +5328,11 @@ export class BotAgent extends Think<Env, BotState> {
           : `\`${watch.command}\``
     return {
       status: "changed",
-      note: `\n\nThis run was started because ${what} changed since the last check.\nBefore:\n${previous.sample}\n\nNow:\n${clip(output, WATCH_SAMPLE_CHARS)}`,
+      note: watchChangeNote(
+        what,
+        previous.sample,
+        clip(output, WATCH_SAMPLE_CHARS)
+      ),
     }
   }
 
@@ -5450,7 +5467,14 @@ export class BotAgent extends Think<Env, BotState> {
             prompt: routine.prompt,
             kind: routine.kind,
             ...(routine.onlyNew ? { onlyNew: true } : {}),
-            ...(routine.watch ? { watch: routine.watch } : {}),
+            ...(routine.watch
+              ? {
+                  watch: routine.watch,
+                  changeNote: watchChangeNoteOf(
+                    this.routineTriggerText(run.runId)
+                  ),
+                }
+              : {}),
           }
         : // A one-off routine is already gone from state; rebuild it from
           // the run so the retry still has its instructions.
@@ -5508,20 +5532,21 @@ export class BotAgent extends Think<Env, BotState> {
     await this.notify(`${row.name} failed: ${error}`)
   }
 
-  /** The instructions a routine run was started with, from its trigger message. */
-  private routinePromptOf(runId: string): string {
+  /**
+   * The message that started a routine run, as it was sent. Not textOf(),
+   * which flattens it into a one-line preview.
+   */
+  private routineTriggerText(runId: string): string {
     const trigger = this.messages.find(
       (m) => m.role === "user" && metaOf(m).routine?.runId === runId
     )
     if (!trigger) return ""
-    const text = textOf(trigger)
-    // routinePrompt() puts the routine's own prompt after its header line.
-    return text
-      .split("\n")
-      .slice(1)
-      .join("\n")
-      .split("\n\nRoutine id:")[0]
-      .trim()
+    return trigger.parts.map((p) => (p.type === "text" ? p.text : "")).join("")
+  }
+
+  /** The instructions a routine run was started with, from its trigger message. */
+  private routinePromptOf(runId: string): string {
+    return routineInstructionsOf(this.routineTriggerText(runId))
   }
 
   /** Recent runs, newest first, for the routine's history. */
