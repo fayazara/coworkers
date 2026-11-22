@@ -63,7 +63,7 @@ import {
 } from "./skill-fetch"
 import { resourceKind } from "./skill-sources"
 import { SkillStore } from "./skill-store"
-import { visibleCards } from "./desk"
+import { pipelineApprovalCard, visibleCards } from "./desk"
 import {
   SHOP_PAGE_SIZE,
   searchArgs,
@@ -206,11 +206,26 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       name TEXT NOT NULL,
       bytes BLOB NOT NULL
     )`
+    // Pipeline runs, whole. State only carries each pipeline's latest run
+    // and any still going, without outputs, so it stays small.
+    this.sql`CREATE TABLE IF NOT EXISTS pipeline_runs (
+      id TEXT PRIMARY KEY,
+      pipeline_id TEXT NOT NULL,
+      started_at INTEGER NOT NULL,
+      data TEXT NOT NULL
+    )`
+    // Hubs from before kept every run in state; move them over once.
+    if (
+      this.state.pipelineRuns?.length &&
+      !this.sql`SELECT 1 FROM pipeline_runs LIMIT 1`.length
+    ) {
+      for (const run of this.state.pipelineRuns) this.saveRun(run)
+    }
     // The deployment's MODEL or gateway may have changed since last start.
     this.setState({
       ...this.state,
       pipelines: this.state.pipelines ?? [],
-      pipelineRuns: this.state.pipelineRuns ?? [],
+      pipelineRuns: this.liveRuns(),
       models: { ...DEFAULT_MODEL_SETTINGS, ...this.state.models },
       deployment: deploymentModels(this.env),
     })
@@ -499,6 +514,16 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
         await this.failStep(run.id, index, "Its bot was deleted.")
       }
     }
+    // Outside agents waiting on it get an answer instead of waiting forever.
+    this.sql`UPDATE client_tasks SET status = 'failed',
+      error = 'That bot was deleted.', finished_at = ${Date.now()}
+      WHERE bot_id = ${botId} AND status = 'open'`
+    // Bots that handed it work hear it failed.
+    await Promise.allSettled(
+      this.state.bots.map(async (b) =>
+        (await this.bot(b.id)).delegateGone(botId)
+      )
+    )
     this.sql`DELETE FROM desk_cards WHERE bot_id = ${botId}`
     this.refreshDesk()
     for (const skill of this.skills.list()) {
@@ -512,6 +537,10 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     }
     try {
       const bot = await this.bot(botId)
+      // What it handed out stops with it.
+      await bot.cancelDelegations().catch((err) => {
+        console.warn(`removeBot ${botId}: its tasks were not stopped`, err)
+      })
       await bot.releaseEmail().catch((err) => {
         console.warn(`removeBot ${botId}: routing rule not removed`, err)
       })
@@ -1198,6 +1227,10 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     if (action.kind === "open_chat") return
     const approved = action.kind !== "reject"
     try {
+      if (card.refs.pipeline) {
+        await this.answerPipelineStep(card.refs.pipeline.runId, approved)
+        return
+      }
       const bot = await this.bot(card.botId)
       if (card.refs.approvalId) {
         await bot.answerApproval(card.refs.approvalId, approved)
@@ -1912,6 +1945,17 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     return { delivered: true, to: target.name, botId: target.id }
   }
 
+  /** Durable Object RPC: stop a task a bot or a pipeline handed out. */
+  async cancelTask(botId: string, taskId: string) {
+    if (!this.state.bots.some((b) => b.id === botId)) return
+    try {
+      const bot = await this.bot(botId)
+      await bot.cancelTask(taskId)
+    } catch (err) {
+      console.error(`Stopping task ${taskId} on ${botId} failed`, err)
+    }
+  }
+
   /** A bot finished a task: send the result to whoever handed it out. */
   async completeTask(botId: string, task: BotTask, outcome: TaskOutcome) {
     const { replyTo } = task
@@ -1947,8 +1991,50 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     return this.state.pipelines ?? []
   }
 
-  private get runs() {
-    return this.state.pipelineRuns ?? []
+  /** Recent runs of every pipeline, newest first, outputs clipped. */
+  private get runs(): PipelineRun[] {
+    return this.sql<{ data: string }>`SELECT data FROM pipeline_runs
+      ORDER BY started_at DESC`.map((r) => JSON.parse(r.data) as PipelineRun)
+  }
+
+  private saveRun(run: PipelineRun) {
+    this.sql`INSERT INTO pipeline_runs (id, pipeline_id, started_at, data)
+      VALUES (${run.id}, ${run.pipelineId}, ${run.startedAt},
+              ${JSON.stringify(run)})
+      ON CONFLICT (id) DO UPDATE SET data = excluded.data`
+  }
+
+  /** What state carries: each pipeline's latest run and any still going. */
+  private liveRuns(): PipelineRun[] {
+    const seen = new Set<string>()
+    const live: PipelineRun[] = []
+    for (const run of this.runs) {
+      const going = run.status === "running" || run.status === "waiting"
+      if (!going && seen.has(run.pipelineId)) continue
+      seen.add(run.pipelineId)
+      live.push({
+        ...run,
+        steps: run.steps.map(({ output: _output, ...step }) => step),
+      })
+    }
+    return live
+  }
+
+  /** Mirror the runs into state, only when what the browser sees changed. */
+  private publishRuns() {
+    const pipelineRuns = this.liveRuns()
+    if (
+      JSON.stringify(pipelineRuns) !==
+      JSON.stringify(this.state.pipelineRuns ?? [])
+    ) {
+      this.setState({ ...this.state, pipelineRuns })
+    }
+  }
+
+  /** Every recent run of one pipeline, newest first, for its run history. */
+  @callable()
+  pipelineRunHistory(pipelineId: string): PipelineRun[] {
+    return this.runs.filter((r) => r.pipelineId === pipelineId)
   }
 
   @callable()
@@ -1993,11 +2079,15 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   async deletePipeline(pipelineId: string) {
     await this.cancelPipelineSchedule(pipelineId)
     const gone = this.runs.filter((r) => r.pipelineId === pipelineId)
-    for (const run of gone) this.dropRunData(run.id)
+    for (const run of gone) {
+      this.dropRunData(run.id)
+      this.closePipelineCards(run.id)
+    }
+    this.sql`DELETE FROM pipeline_runs WHERE pipeline_id = ${pipelineId}`
     this.setState({
       ...this.state,
       pipelines: this.pipelines.filter((p) => p.id !== pipelineId),
-      pipelineRuns: this.runs.filter((r) => r.pipelineId !== pipelineId),
+      pipelineRuns: this.liveRuns(),
     })
   }
 
@@ -2016,6 +2106,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     if (!run || run.status !== "waiting" || index === -1) {
       throw new Error("That step was already answered.")
     }
+    this.closePipelineCards(runId)
     if (!approved) {
       this.patchStep(runId, index, {
         status: "failed",
@@ -2030,10 +2121,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     await this.advanceRun(runId)
   }
 
-  /**
-   * Stop a run. A bot already working on a step finishes its turn, but its
-   * result goes nowhere.
-   */
+  /** Stop a run, and the bot working on its current step. */
   @callable()
   async stopPipelineRun(runId: string) {
     const run = this.runs.find((r) => r.id === runId)
@@ -2049,6 +2137,10 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       })
     }
     await this.finishRun(runId, "stopped")
+    const step = index === -1 ? undefined : run.plan[index]
+    if (step?.kind === "bot" && run.steps[index].status === "running") {
+      await this.cancelTask(step.botId, `${runId}:${index}`)
+    }
   }
 
   /** A step's full result; state only carries the start of it. */
@@ -2099,12 +2191,12 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       startedAt: Date.now(),
       finishedAt: null,
     }
-    const runs = [run, ...this.runs]
-    for (const old of runs.slice(MAX_PIPELINE_RUNS)) this.dropRunData(old.id)
-    this.setState({
-      ...this.state,
-      pipelineRuns: runs.slice(0, MAX_PIPELINE_RUNS),
-    })
+    this.saveRun(run)
+    for (const old of this.runs.slice(MAX_PIPELINE_RUNS)) {
+      this.dropRunData(old.id)
+      this.sql`DELETE FROM pipeline_runs WHERE id = ${old.id}`
+    }
+    this.publishRuns()
     await this.advanceRun(run.id)
     return this.runs.find((r) => r.id === run.id) ?? run
   }
@@ -2122,6 +2214,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     if (step.kind === "approval") {
       this.patchStep(runId, index, { status: "waiting", startedAt: Date.now() })
       this.patchRun(runId, { status: "waiting" })
+      this.postPipelineCard(run, index)
       await this.push({
         title: `Pipeline · ${run.name}`,
         body: step.note
@@ -2264,6 +2357,7 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     })
     // Outputs stay for the run history; files were only for the next step.
     this.sql`DELETE FROM pipeline_files WHERE run_id = ${runId}`
+    this.closePipelineCards(runId)
     if (status === "stopped") return
     const failed = run.steps.findIndex((s) => s.status === "failed")
     const last = run.steps.findLast((s) => s.output)
@@ -2276,6 +2370,48 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       tag: `pipeline-${run.pipelineId}`,
       url: `/pipelines/${run.pipelineId}`,
     })
+  }
+
+  /**
+   * Put an approval step on the Desk, under the bot whose work it checks
+   * (the one before it, else the run's first bot).
+   */
+  private postPipelineCard(run: PipelineRun, index: number) {
+    const step = run.plan[index]
+    if (step.kind !== "approval") return
+    const exists = (id: string) => this.state.bots.some((b) => b.id === id)
+    const before = run.plan
+      .slice(0, index)
+      .findLast((s) => s.kind === "bot" && exists(s.botId))
+    const any = run.plan.find((s) => s.kind === "bot" && exists(s.botId))
+    const owner = before ?? any
+    if (owner?.kind !== "bot") return
+    const previous = this.previousResult(run, index)
+    this.insertCard(
+      owner.botId,
+      pipelineApprovalCard({
+        pipelineId: run.pipelineId,
+        runId: run.id,
+        step: index,
+        steps: run.plan.length,
+        name: run.name,
+        ...(step.note ? { note: step.note } : {}),
+        ...(previous.from !== "the user" ? { previous: previous.text } : {}),
+        at: Date.now(),
+      })
+    )
+    this.refreshDesk()
+  }
+
+  /** The run's approval cards are answered, wherever that happened. */
+  private closePipelineCards(runId: string) {
+    const ids = this.sql<{ id: string }>`SELECT id FROM desk_cards
+      WHERE status = 'open' AND id LIKE ${`%:pipeline:${runId}:%`}`.map(
+      (r) => r.id
+    )
+    if (!ids.length) return
+    this.setCardStatus(ids, "acted")
+    this.refreshDesk()
   }
 
   /** What a step starts from: the latest finished bot step, or the user's input. */
@@ -2310,12 +2446,10 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   }
 
   private patchRun(runId: string, patch: Partial<PipelineRun>) {
-    this.setState({
-      ...this.state,
-      pipelineRuns: this.runs.map((r) =>
-        r.id === runId ? { ...r, ...patch } : r
-      ),
-    })
+    const run = this.runs.find((r) => r.id === runId)
+    if (!run) return
+    this.saveRun({ ...run, ...patch })
+    this.publishRuns()
   }
 
   private patchStep(

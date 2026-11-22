@@ -346,7 +346,11 @@ describe("delegate_task", () => {
       hops: 1,
       background: false,
     })
-    expect(self.confirmDelegation).toHaveBeenCalledWith("tcallabc123", "Ada")
+    expect(self.confirmDelegation).toHaveBeenCalledWith(
+      "tcallabc123",
+      "Ada",
+      "b9"
+    )
   })
 
   it("forgets the task when the hub refuses it", async () => {

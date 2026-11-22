@@ -326,6 +326,47 @@ export function waitingCard(call: WaitingCall): DeskCardInput {
   }
 }
 
+/** The Needs-you card for a pipeline run stopped at an approval step. */
+export function pipelineApprovalCard(input: {
+  pipelineId: string
+  runId: string
+  step: number
+  steps: number
+  name: string
+  note?: string
+  /** What the step before produced, for context. */
+  previous?: string
+  at: number
+}): DeskCardInput {
+  const previous = input.previous?.trim() ?? ""
+  return {
+    key: `pipeline:${input.runId}:${input.step}`,
+    lane: "needs_you",
+    origin: "pipeline",
+    title: clip(
+      input.note ? plain(input.note) : `${input.name} needs your OK`,
+      MAX_TITLE_CHARS
+    ),
+    why: `${whyOf("pipeline", input.name)} · step ${input.step + 1} of ${input.steps}`,
+    found: previous
+      ? clip(withoutTrailingLinks(previous), MAX_FOUND_CHARS)
+      : "",
+    sources: previous ? linksIn(previous) : [],
+    actions: [
+      { id: "approve", label: "Continue", kind: "approve" },
+      { id: "reject", label: "Stop the run", kind: "reject" },
+    ],
+    refs: {
+      pipeline: {
+        pipelineId: input.pipelineId,
+        runId: input.runId,
+        step: input.step,
+      },
+    },
+    createdAt: input.at,
+  }
+}
+
 /** The Needs-you card for a script's paused app call. */
 export function scriptCard(approval: ScriptApproval): DeskCardInput {
   return {

@@ -118,6 +118,8 @@ export interface PipelinesApi {
   stop: (runId: string) => Promise<void>
   /** A step's full result; state only carries the start of it. */
   output: (runId: string, step: number) => Promise<string | null>
+  /** Every recent run of one pipeline; state only carries the latest. */
+  history: (pipelineId: string) => Promise<PipelineRun[]>
 }
 
 export interface ModelsApi {
@@ -306,6 +308,8 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
                 agent.stub.answerPipelineStep(runId, approved),
               stop: (runId) => agent.stub.stopPipelineRun(runId),
               output: (runId, step) => agent.stub.pipelineOutput(runId, step),
+              history: (pipelineId) =>
+                agent.stub.pipelineRunHistory(pipelineId),
             }
           : null,
       refreshSpend:

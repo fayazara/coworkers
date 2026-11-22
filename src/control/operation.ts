@@ -167,7 +167,7 @@ export interface BotPort {
     hops: number
     background: boolean
   }): void
-  confirmDelegation(taskId: string, to: string): void
+  confirmDelegation(taskId: string, to: string, botId: string): void
   dropDelegation(taskId: string): void
 }
 

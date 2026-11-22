@@ -322,7 +322,16 @@ export function DeskCardView({
                 Got it
               </Button>
             ) : null}
-            {waiting && !hasChatButton ? (
+            {waiting && !hasChatButton && card.refs.pipeline ? (
+              <Link
+                to="/pipelines/$pipelineId"
+                params={{ pipelineId: card.refs.pipeline.pipelineId }}
+                className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[13px] font-medium text-kumo-subtle outline-none hover:text-kumo-default focus-visible:ring-2 focus-visible:ring-kumo-focus"
+              >
+                Open pipeline
+                <ArrowRightIcon size={14} />
+              </Link>
+            ) : waiting && !hasChatButton ? (
               <Link
                 to="/bots/$botId"
                 params={{ botId: card.botId }}

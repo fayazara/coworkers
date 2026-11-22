@@ -5,6 +5,7 @@ import {
   askTitle,
   laneFor,
   linksIn,
+  pipelineApprovalCard,
   replyCard,
   scriptCard,
   titleOf,
@@ -193,6 +194,41 @@ describe("waitingCard", () => {
     expect(card.actions).toEqual([
       { id: "open", label: "Answer", kind: "open_chat" },
     ])
+  })
+})
+
+describe("pipelineApprovalCard", () => {
+  const base = {
+    pipelineId: "p1",
+    runId: "r1",
+    step: 1,
+    steps: 3,
+    name: "Weekly report",
+    at: 1,
+  }
+
+  it("asks to continue or stop, and points back at the run", () => {
+    const card = pipelineApprovalCard({
+      ...base,
+      note: "Check the **draft** first",
+      previous: "Drafted it. See [the doc](https://a.com/doc).",
+    })
+    expect(card).toMatchObject({
+      key: "pipeline:r1:1",
+      lane: "needs_you",
+      origin: "pipeline",
+      title: "Check the draft first",
+      why: "Pipeline · Weekly report · step 2 of 3",
+      sources: [{ label: "the doc", url: "https://a.com/doc" }],
+      refs: { pipeline: { pipelineId: "p1", runId: "r1", step: 1 } },
+    })
+    expect(card.actions.map((a) => a.kind)).toEqual(["approve", "reject"])
+  })
+
+  it("names the pipeline when the step has no note", () => {
+    const card = pipelineApprovalCard(base)
+    expect(card.title).toBe("Weekly report needs your OK")
+    expect(card.found).toBe("")
   })
 })
 

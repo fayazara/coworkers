@@ -332,6 +332,16 @@ const DAY_MS = 86_400_000
 const DELEGATION_STALE_MS = 3 * DAY_MS
 /** How much of a task's instructions a result message repeats back. */
 const TASK_ECHO_CHARS = 300
+/**
+ * A result waits this long before it wakes the bot, so others that land
+ * meanwhile come in the same message instead of one turn each.
+ */
+const RESULT_BATCH_S = 5
+/**
+ * A task or routine turn that ended without reporting, and is older than
+ * this, is settled by the sweep so whoever is waiting hears back.
+ */
+const STRANDED_MS = 30 * 60_000
 const MAX_FILE_PREVIEW_BYTES = 200_000
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const WORKSPACE_ROOT = "/workspace"
@@ -394,6 +404,23 @@ interface DelegationRow {
   status: "open" | TaskOutcome["status"]
   hops: number
   background: number
+  /** The bot doing it, so a stop can reach it. Null on rows from before. */
+  to_bot_id: string | null
+  /** The user message of the turn that handed it out. */
+  trigger_id: string | null
+  /** The result, as JSON, from when it came back until it is delivered. */
+  result: string | null
+  /** When the result went to the model, in a (possibly shared) message. */
+  delivered_at: number | null
+}
+
+/** A task's result, waiting in `delegations.result` to be delivered. */
+interface HeldResult {
+  from: MessageOrigin
+  status: TaskOutcome["status"]
+  error?: string
+  text: string
+  files: string[]
 }
 
 interface RoutineRunRow {
@@ -433,7 +460,8 @@ function pendingApprovalId(part: UIMessage["parts"][number]): string | null {
 
 /** Close an approval nobody answered, so the card stops asking. */
 function expireApproval(
-  part: UIMessage["parts"][number]
+  part: UIMessage["parts"][number],
+  reason = "Nobody answered within 24 hours, so this was not done."
 ): UIMessage["parts"][number] {
   const p = part as { approval?: Record<string, unknown> }
   return {
@@ -442,7 +470,7 @@ function expireApproval(
     approval: {
       ...p.approval,
       approved: false,
-      reason: "Nobody answered within 24 hours, so this was not done.",
+      reason,
     },
   } as UIMessage["parts"][number]
 }
@@ -952,6 +980,22 @@ export class BotAgent extends Think<Env, BotState> {
       hops INTEGER NOT NULL,
       background INTEGER NOT NULL
     )`
+    // Added later, each on its own: older bots have the table without them.
+    const delegationColumns = this.ctx.storage.sql
+      .exec<{ name: string }>(`PRAGMA table_info(delegations)`)
+      .toArray()
+    for (const column of [
+      "to_bot_id TEXT",
+      "trigger_id TEXT",
+      "result TEXT",
+      "delivered_at INTEGER",
+    ]) {
+      if (!delegationColumns.some((c) => c.name === column.split(" ")[0])) {
+        this.ctx.storage.sql.exec(
+          `ALTER TABLE delegations ADD COLUMN ${column}`
+        )
+      }
+    }
     // One row per unprompted message, for the daily cap.
     this.sql`CREATE TABLE IF NOT EXISTS proactive_log (
       at INTEGER NOT NULL
@@ -1846,13 +1890,17 @@ export class BotAgent extends Think<Env, BotState> {
     return {
       readAttachments: (paths) => this.readAttachments(paths),
       openDelegation: ({ taskId, to, task, hops, background }) => {
+        // The turn handing it out, so stopping that turn stops this too.
+        const trigger =
+          this.messages.findLast((m) => m.role === "user")?.id ?? null
         this.sql`INSERT OR IGNORE INTO delegations
-          (id, to_name, task, created_at, status, hops, background)
+          (id, to_name, task, created_at, status, hops, background, trigger_id)
           VALUES (${taskId}, ${to}, ${task}, ${Date.now()}, 'open', ${hops},
-                  ${background ? 1 : 0})`
+                  ${background ? 1 : 0}, ${trigger})`
       },
-      confirmDelegation: (taskId, to) => {
-        this.sql`UPDATE delegations SET to_name = ${to} WHERE id = ${taskId}`
+      confirmDelegation: (taskId, to, botId) => {
+        this.sql`UPDATE delegations SET to_name = ${to}, to_bot_id = ${botId}
+          WHERE id = ${taskId}`
       },
       dropDelegation: (taskId) => {
         this.sql`DELETE FROM delegations WHERE id = ${taskId}`
@@ -4451,6 +4499,12 @@ export class BotAgent extends Think<Env, BotState> {
     // An approval card keeps the turn open; the result goes back once the
     // continuation finishes.
     if (task && !waiting) await this.finishTask(task, result)
+    // Stopped: the work this turn handed to other bots stops with it.
+    if (result.status === "aborted" && trigger) {
+      await this.cancelDelegations({ triggerId: trigger.id })
+    }
+    // Results that came back while this turn ran wake the bot now.
+    await this.queueResultDelivery()
     const routineRun = metaOf(trigger).routine
     if (routineRun) {
       await this.finishRoutineRun(routineRun, result, {
@@ -4582,6 +4636,7 @@ export class BotAgent extends Think<Env, BotState> {
     void this.applyHeldApprovals()
     this.detachScripts()
     void this.setStatus("idle")
+    void this.queueResultDelivery()
     return error
   }
 
@@ -4660,6 +4715,11 @@ export class BotAgent extends Think<Env, BotState> {
       } catch (err) {
         console.error("Expiring an approval failed", err)
       }
+    }
+    try {
+      await this.settleStranded(now)
+    } catch (err) {
+      console.error("Settling stranded work failed", err)
     }
     try {
       await this.sweepScripts(now)
@@ -5017,31 +5077,72 @@ export class BotAgent extends Think<Env, BotState> {
   ) {
     const row = this.sql<DelegationRow>`SELECT * FROM delegations
       WHERE id = ${taskId}`[0]
-    // A re-delivered result changes nothing.
-    if (row && row.status !== "open") return
-    this.sql`UPDATE delegations SET status = ${outcome.status},
-      finished_at = ${Date.now()} WHERE id = ${taskId}`
+    // A re-delivered result, or one for a task this bot stopped, changes
+    // nothing.
+    if (!row || row.status !== "open") return
     const saved = await this.saveAttachments(origin.name, {
       key: `result:${taskId}`,
       files: outcome.files,
     })
-    const lines = [`[Result from the ${origin.name} bot]`]
-    if (row) lines.push(`Your task: ${clip(row.task, TASK_ECHO_CHARS)}`)
-    if (outcome.status !== "done") {
-      lines.push(
-        `It did not finish (${outcome.status}${outcome.error ? `: ${outcome.error}` : ""}).`
-      )
+    const held: HeldResult = {
+      from: origin,
+      status: outcome.status,
+      ...(outcome.error ? { error: outcome.error } : {}),
+      text: outcome.result,
+      files: saved,
     }
-    lines.push(
-      "",
-      outcome.result.trim() || "(It ended without a written reply.)"
-    )
-    if (saved.length) {
-      lines.push(
-        "",
-        "Files it sent back, copied into your workspace:",
-        ...saved.map((p) => `- ${p}`)
-      )
+    this.sql`UPDATE delegations SET status = ${outcome.status},
+      finished_at = ${Date.now()}, result = ${JSON.stringify(held)}
+      WHERE id = ${taskId} AND status = 'open'`
+    await this.queueResultDelivery()
+  }
+
+  /**
+   * Wake the bot with the results that came back, after a short pause so
+   * results landing together share one message. While a turn runs they
+   * wait for it to end (`onChatResponse` calls this again).
+   */
+  private async queueResultDelivery() {
+    const waiting = this.sql<{ n: number }>`SELECT COUNT(*) AS n
+      FROM delegations WHERE result IS NOT NULL AND delivered_at IS NULL`[0]
+    if (!waiting?.n) return
+    if (this.getSchedules().some((s) => s.callback === "deliverTaskResults")) {
+      return
+    }
+    await this.schedule(RESULT_BATCH_S, "deliverTaskResults")
+  }
+
+  /** Schedule callback: hand every result that came back to the model at once. */
+  async deliverTaskResults() {
+    // The turn's end delivers them, together with anything else by then.
+    if (this.#turnActive) return
+    const rows = this.sql<DelegationRow>`SELECT * FROM delegations
+      WHERE result IS NOT NULL AND delivered_at IS NULL
+      ORDER BY finished_at ASC`
+    if (!rows.length) return
+    const results = rows.map((row) => ({
+      row,
+      held: JSON.parse(row.result ?? "{}") as HeldResult,
+    }))
+    const names = [...new Set(results.map((r) => r.held.from.name))]
+    const lines: string[] = []
+    for (const { row, held } of results) {
+      if (lines.length) lines.push("", "---", "")
+      lines.push(`[Result from the ${held.from.name} bot]`)
+      lines.push(`Your task: ${clip(row.task, TASK_ECHO_CHARS)}`)
+      if (held.status !== "done") {
+        lines.push(
+          `It did not finish (${held.status}${held.error ? `: ${held.error}` : ""}).`
+        )
+      }
+      lines.push("", held.text.trim() || "(It ended without a written reply.)")
+      if (held.files.length) {
+        lines.push(
+          "",
+          "Files it sent back, copied into your workspace:",
+          ...held.files.map((p) => `- ${p}`)
+        )
+      }
     }
     const open = this.openDelegations()
     lines.push(
@@ -5050,12 +5151,203 @@ export class BotAgent extends Think<Env, BotState> {
         ? `Still waiting on: ${open.map((d) => d.to_name).join(", ")}. Their results arrive as new messages; do not wait for them in this turn.`
         : "Every task you handed out is back."
     )
+    const ids = results.map((r) => r.row.id)
+    const first = results[0].held.from
+    const origin: MessageOrigin =
+      names.length === 1 ? first : { ...first, name: names.join(", ") }
     await this.submitAs(origin, lines.join("\n"), {
-      key: `task-result:${taskId}`,
-      hops: row?.hops,
-      background: row?.background === 1,
-      taskResult: { taskId },
+      key: `task-results:${ids.join(",")}`,
+      hops: Math.max(...results.map((r) => r.row.hops)),
+      // Background only when every task was: one the user started keeps
+      // its approvals.
+      background: results.every((r) => r.row.background === 1),
+      taskResult: { taskId: ids[0], taskIds: ids },
     })
+    const now = Date.now()
+    for (const id of ids) {
+      this.sql`UPDATE delegations SET delivered_at = ${now}, result = NULL
+        WHERE id = ${id}`
+    }
+  }
+
+  /**
+   * Stop tasks this bot handed out: those one turn started, those sent to
+   * one bot, or all of them. Their results, if any still come, are dropped.
+   */
+  async cancelDelegations(
+    which: { triggerId?: string; toBotId?: string } = {}
+  ) {
+    const rows = this.sql<DelegationRow>`SELECT * FROM delegations
+      WHERE status = 'open'`.filter(
+      (r) =>
+        (which.triggerId === undefined || r.trigger_id === which.triggerId) &&
+        (which.toBotId === undefined || r.to_bot_id === which.toBotId)
+    )
+    if (!rows.length) return
+    const now = Date.now()
+    for (const row of rows) {
+      this.sql`UPDATE delegations SET status = 'stopped', finished_at = ${now},
+        delivered_at = ${now} WHERE id = ${row.id}`
+    }
+    const hub = await this.hub()
+    await Promise.allSettled(
+      rows.flatMap((row) =>
+        row.to_bot_id ? [hub.cancelTask(row.to_bot_id, row.id)] : []
+      )
+    )
+  }
+
+  /**
+   * Durable Object RPC from the UserHub: a bot this one handed work to was
+   * deleted. Its open tasks come back as failed, so the bot is not left
+   * waiting on them.
+   */
+  async delegateGone(botId: string) {
+    const rows = this.sql<DelegationRow>`SELECT * FROM delegations
+      WHERE status = 'open' AND to_bot_id = ${botId}`
+    if (!rows.length) return
+    const now = Date.now()
+    for (const row of rows) {
+      const held: HeldResult = {
+        from: { kind: "bot", name: row.to_name },
+        status: "failed",
+        error: "that bot was deleted",
+        text: "",
+        files: [],
+      }
+      this.sql`UPDATE delegations SET status = 'failed', finished_at = ${now},
+        result = ${JSON.stringify(held)} WHERE id = ${row.id}`
+    }
+    await this.queueResultDelivery()
+  }
+
+  /**
+   * Durable Object RPC from the UserHub: whoever handed out this task no
+   * longer wants it. A queued turn is dropped, a running one is stopped
+   * (which stops what it handed out in turn), and one waiting on the user
+   * has its cards closed.
+   */
+  async cancelTask(taskId: string) {
+    const doneKey = `task_done:${taskId}`
+    const pending = await this.listSubmissions({
+      status: ["pending", "running"],
+    })
+    let stopped = false
+    for (const submission of pending) {
+      const key = submission.idempotencyKey ?? ""
+      if (!/^(task|pipeline|client-task):/.test(key)) continue
+      if (!key.endsWith(`:${taskId}`)) continue
+      const done = await this.cancelSubmission(
+        submission.submissionId,
+        "Stopped by whoever handed it out."
+      )
+      if (done.outcome === "cancelled") stopped = true
+    }
+    // A running turn reports "stopped" from onChatResponse, which the
+    // sender ignores. Anything else must not report later.
+    if (stopped) return
+    if (this.ctx.storage.kv.get(doneKey) !== undefined) return
+    this.ctx.storage.kv.put(doneKey, Date.now())
+    const messages = this.messages
+    const index = messages.findIndex(
+      (m) => m.role === "user" && metaOf(m).task?.id === taskId
+    )
+    if (index === -1) return
+    await this.closeApprovalsAfter(
+      index,
+      "Stopped before anyone answered, so this was not done."
+    )
+    await this.cancelDelegations({ triggerId: messages[index].id })
+    if (this.state.status === "action_needed" && !this.needsUser()) {
+      await this.setStatus("idle")
+    }
+  }
+
+  /** Deny every card still waiting in the reply to the user message at `index`. */
+  private async closeApprovalsAfter(index: number, reason: string) {
+    const messages = this.messages
+    for (let i = index + 1; i < messages.length; i++) {
+      const message = messages[i]
+      if (message.role === "user") break
+      if (!message.parts.some((p) => pendingApprovalId(p))) continue
+      const updated: UIMessage = {
+        ...message,
+        parts: message.parts.map((part) =>
+          pendingApprovalId(part) ? expireApproval(part, reason) : part
+        ),
+      }
+      await this.updateMessageInHistory(updated)
+      this.broadcast(
+        JSON.stringify({
+          type: CHAT_MESSAGE_TYPES.MESSAGE_UPDATED,
+          message: updated,
+        })
+      )
+    }
+    this.syncDesk()
+  }
+
+  /**
+   * Task and routine turns that ended without reporting: the user moved
+   * past an approval card, nobody answered it in time, or the turn was cut
+   * off. Settle them, so whoever handed out the work hears back and the
+   * routine's history shows how it ended.
+   */
+  private async settleStranded(now: number) {
+    const messages = this.messages
+    const busy =
+      this.#turnActive ||
+      this.state.status === "thinking" ||
+      this.state.status === "working"
+    for (let i = 0; i < messages.length; i++) {
+      const trigger = messages[i]
+      if (trigger.role !== "user") continue
+      const meta = metaOf(trigger)
+      if (!meta.task && !meta.routine) continue
+      const reply: UIMessage[] = []
+      let j = i + 1
+      while (j < messages.length && messages[j].role !== "user") {
+        reply.push(messages[j++])
+      }
+      if (reply.some((m) => m.parts.some((p) => pendingApprovalId(p)))) {
+        continue
+      }
+      // Moved past: a later message started, so this turn is over for
+      // good. Otherwise only once it has clearly stopped.
+      const movedPast = j < messages.length
+      const age = now - (meta.at ?? now)
+      // Older work was settled by whoever handed it out long ago, or gave up.
+      if (age > 7 * DAY_MS) continue
+      const old = age > STRANDED_MS
+      if (!movedPast && (busy || !old || !reply.length)) continue
+      const expired = reply.some((m) =>
+        m.parts.some((p) =>
+          /Nobody answered/.test(
+            String((p as { approval?: { reason?: string } }).approval?.reason)
+          )
+        )
+      )
+      const error = expired
+        ? "Nobody approved what it needed within 24 hours."
+        : "It stopped before finishing."
+      if (
+        meta.task &&
+        this.ctx.storage.kv.get(`task_done:${meta.task.id}`) === undefined
+      ) {
+        const last = reply.at(-1)
+        await this.reportTask(meta.task, {
+          status: "stopped",
+          text: last ? finalText(last) || textOf(last) : "",
+          error,
+        })
+      }
+      if (meta.routine) {
+        this.sql`UPDATE routine_runs SET status = 'stopped',
+          finished_at = ${now}, note = ${error}
+          WHERE id = ${meta.routine.runId}
+            AND status IN ('running', 'waiting')`
+      }
+    }
   }
 
   /** Tasks this bot handed out that have not come back yet. */
@@ -5072,6 +5364,25 @@ export class BotAgent extends Think<Env, BotState> {
 
   /** Send a finished task's final reply back to whoever handed it out. */
   private async finishTask(task: BotTask, result: ChatResponseResult) {
+    await this.reportTask(task, {
+      status:
+        result.status === "completed"
+          ? "done"
+          : result.status === "aborted"
+            ? "stopped"
+            : "failed",
+      text: finalText(result.message) || textOf(result.message),
+      ...(result.status === "error"
+        ? { error: clip(result.error?.trim() || "The model call failed.", 300) }
+        : {}),
+    })
+  }
+
+  /** Report a task's outcome to whoever handed it out, once. */
+  private async reportTask(
+    task: BotTask,
+    ended: { status: TaskOutcome["status"]; text: string; error?: string }
+  ) {
     const doneKey = `task_done:${task.id}`
     // Recovery can deliver the hook twice; only the first one reports.
     if (this.ctx.storage.kv.get(doneKey) !== undefined) return
@@ -5083,17 +5394,10 @@ export class BotAgent extends Think<Env, BotState> {
       ? await this.readAttachments(paths)
       : { files: [] }
     const outcome: TaskOutcome = {
-      status:
-        result.status === "completed"
-          ? "done"
-          : result.status === "aborted"
-            ? "stopped"
-            : "failed",
-      result: isNoUpdate(finalText(result.message))
-        ? ""
-        : finalText(result.message) || textOf(result.message),
-      ...(result.status === "error"
-        ? { error: clip(result.error?.trim() || "The model call failed.", 300) }
+      status: ended.status,
+      result: isNoUpdate(ended.text) ? "" : ended.text,
+      ...(ended.error
+        ? { error: ended.error }
         : "error" in attachments
           ? { error: `Files were not sent: ${attachments.error}` }
           : {}),
@@ -5417,8 +5721,9 @@ export class BotAgent extends Think<Env, BotState> {
   ) {
     const row = this.sql<{ name: string; status: string }>`SELECT name, status
       FROM routine_runs WHERE id = ${run.runId}`[0]
-    // Recovery can deliver the hook twice; only the first one counts.
-    if (!row || row.status !== "running") return
+    // Recovery can deliver the hook twice; only the first one counts. A run
+    // that waited on an approval ends when its continuation does.
+    if (!row || (row.status !== "running" && row.status !== "waiting")) return
     const now = Date.now()
     if (result.status !== "error") {
       const status = outcome.waiting

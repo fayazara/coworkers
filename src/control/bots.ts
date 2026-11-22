@@ -74,7 +74,7 @@ export const messageBot = defineOperation({
 export const delegateTask = defineOperation({
   name: "delegate_task",
   description:
-    "Hand a piece of work to another of the user's bots and get its result back. Returns at once: the result arrives later as a new message, when that bot finishes. To split a job, delegate the parts to several bots in one step, then end your turn and combine the results as they come in.",
+    "Hand a piece of work to another of the user's bots and get its result back. Returns at once: the result arrives later as a new message, when that bot finishes. Results that finish close together arrive in one message. To split a job, delegate the parts to several bots in one step, then end your turn and combine the results as they come in.",
   input: z.object({
     to: z.string().describe(TO_DESCRIPTION),
     task: z
@@ -124,7 +124,7 @@ export const delegateTask = defineOperation({
       self.dropDelegation(taskId)
       return fail(sent.code, sent.error)
     }
-    self.confirmDelegation(taskId, sent.to)
+    self.confirmDelegation(taskId, sent.to, sent.botId)
     return {
       delegated: true,
       to: sent.to,

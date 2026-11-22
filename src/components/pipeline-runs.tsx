@@ -868,13 +868,60 @@ export function RunButton({
 }
 
 /**
+ * The history, with the live runs from state laid over it: they are newer,
+ * but carry no outputs, so a step keeps the output the history has.
+ */
+function mergeRuns(history: PipelineRun[], live: PipelineRun[]) {
+  const liveById = new Map(live.map((r) => [r.id, r]))
+  const merged = history.map((run) => {
+    const now = liveById.get(run.id)
+    if (!now) return run
+    liveById.delete(run.id)
+    return {
+      ...run,
+      ...now,
+      steps: now.steps.map((step, i) => ({ ...run.steps[i], ...step })),
+    }
+  })
+  return [...liveById.values(), ...merged].sort(
+    (a, b) => b.startedAt - a.startedAt
+  )
+}
+
+/**
  * The runs side of a pipeline: answer what is waiting, then every run,
  * newest first and open, older ones folded. Live from the hub.
  */
 export function PipelineRuns({ pipeline }: { pipeline: Pipeline }) {
-  const { state } = useHub()
-  const runs = (state.pipelineRuns ?? []).filter(
+  const hub = useHub()
+  const live = (hub.state.pipelineRuns ?? []).filter(
     (r) => r.pipelineId === pipeline.id
+  )
+  // State only carries the latest run, without outputs. The history comes
+  // from the hub, read again whenever a live run moves.
+  const [history, setHistory] = useState<PipelineRun[] | null>(null)
+  const api = useRef(hub.pipelines)
+  api.current = hub.pipelines
+  const ready = hub.pipelines !== null
+  const moved = JSON.stringify(
+    live.map((r) => [r.id, r.status, r.steps.map((s) => s.status)])
+  )
+  useEffect(() => {
+    if (!ready) return
+    let current = true
+    api.current
+      ?.history(pipeline.id)
+      .then((runs) => {
+        if (current) setHistory(runs)
+      })
+      .catch((err) => console.error("Loading pipeline runs failed", err))
+    return () => {
+      current = false
+    }
+  }, [pipeline.id, ready, moved])
+  const runs = mergeRuns(
+    history?.filter((r) => r.pipelineId === pipeline.id) ?? [],
+    live
   )
   const waiting = runs.filter((r) => r.status === "waiting")
 
