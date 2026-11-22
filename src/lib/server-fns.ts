@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server"
 import { getAgentByName } from "agents"
 import { env } from "cloudflare:workers"
 import { DEMO_PROFILES, DEMO_USER_ID, identify } from "@/lib/auth"
+import { locationHintFor } from "@/lib/location-hint"
 import { SIDEBAR_COOKIE, parseWidths } from "@/lib/layout-context"
 import type { PanelWidths } from "@/lib/layout-context"
 import type { BotState, HubState } from "@/lib/types"
@@ -45,9 +46,11 @@ export const getHubSnapshot = createServerFn().handler(
     const viewer = await viewerFromRequest(request)
     const cookie = request.headers.get("Cookie") ?? ""
     const sidebarOpen = !cookie.includes(`${SIDEBAR_COOKIE}=closed`)
+    // The first page load is what usually creates the hub: put it near.
     const hub = await getAgentByName(
       env.UserHub as unknown as DurableObjectNamespace<UserHub>,
-      viewer.id
+      viewer.id,
+      { locationHint: locationHintFor(request) }
     )
     return {
       viewer,

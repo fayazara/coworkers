@@ -13,6 +13,7 @@ import {
   createFileRoute,
   redirect,
   useMatchRoute,
+  useLocation,
   useNavigate,
   useSearch,
 } from "@tanstack/react-router"
@@ -36,6 +37,11 @@ import { cachedBot, fetchBot, rememberBot } from "@/lib/bot-cache"
 import { useHub } from "@/lib/hub-context"
 import { useLayout } from "@/lib/layout-context"
 import { getBotSnapshot } from "@/lib/server-fns"
+import {
+  CLIENT_MESSAGES,
+  droppedFromFront,
+  withEarlier,
+} from "@/lib/transcript-window"
 import { botInstanceName } from "@/lib/types"
 import type { UIMessage } from "ai"
 import type { BotAgent } from "@/agents/bot-agent"
@@ -326,6 +332,49 @@ function LiveBot({
   )
   const busy = chat.status === "submitted" || chat.status === "streaming"
 
+  // The server sends only the newest messages (CLIENT_MESSAGES). Older ones
+  // are kept here: loaded with "Show earlier", or pushed out of the window
+  // by new messages while the thread is open.
+  const [earlier, setEarlier] = useState<UIMessage[]>([])
+  const [moreEarlier, setMoreEarlier] = useState(
+    initialMessages.length >= CLIENT_MESSAGES
+  )
+  const lastWindow = useRef(chat.messages)
+  useEffect(() => {
+    const dropped = droppedFromFront(lastWindow.current, chat.messages)
+    lastWindow.current = chat.messages
+    if (dropped.length) setEarlier((e) => [...e, ...dropped])
+  }, [chat.messages])
+  const shown = useMemo(
+    () => withEarlier(earlier, chat.messages),
+    [earlier, chat.messages]
+  )
+  const oldestId = shown[0]?.id
+  const loadEarlier = useCallback(async () => {
+    if (!oldestId) return 0
+    const older = await agent.stub.olderMessages(oldestId)
+    if (older.length < CLIENT_MESSAGES) setMoreEarlier(false)
+    if (older.length) setEarlier((e) => [...older, ...e])
+    return older.length
+  }, [agent, oldestId])
+
+  // A link to an older task's message (from a pipeline run) loads back
+  // until that message is shown.
+  const hash = useLocation({ select: (l) => l.hash })
+  const anchorTask = hash.startsWith("task-") ? hash.slice(5) : undefined
+  const anchorShown = anchorTask
+    ? shown.some(
+        (m) =>
+          m.role === "user" &&
+          (m.metadata as MessageMeta | undefined)?.task?.id === anchorTask
+      )
+    : true
+  const connectedForEarlier = agent.state !== undefined
+  useEffect(() => {
+    if (anchorShown || !moreEarlier || !connectedForEarlier) return
+    void loadEarlier()
+  }, [anchorShown, moreEarlier, connectedForEarlier, loadEarlier])
+
   // Opening a thread clears its unread dot, including for replies that land
   // while it is open.
   const unread = hub.state.bots.find((b) => b.id === botId)?.unread
@@ -452,7 +501,8 @@ function LiveBot({
     >
       <Thread
         bot={state}
-        messages={chat.messages}
+        messages={shown}
+        onLoadEarlier={moreEarlier ? loadEarlier : undefined}
         busy={busy}
         botId={botId}
         getLiveView={getLiveView}

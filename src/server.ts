@@ -1,5 +1,6 @@
 import handler from "@tanstack/react-start/server-entry"
 import { getAgentByName, routeAgentEmail, routeAgentRequest } from "agents"
+import { locationHintFor } from "@/lib/location-hint"
 import { Unauthorized, identify } from "@/lib/auth"
 import { botInstanceName } from "@/lib/types"
 import { handleAppRequest } from "./agents/apps-runtime"
@@ -60,7 +61,9 @@ export default {
         return new Response("Forbidden", { status: 403 })
       }
       // Agent WebSockets and agent HTTP (MCP OAuth callbacks).
-      const response = await routeAgentRequest(request, env)
+      const response = await routeAgentRequest(request, env, {
+        locationHint: locationHintFor(request),
+      })
       if (response) return response
     }
     return handler.fetch(request)

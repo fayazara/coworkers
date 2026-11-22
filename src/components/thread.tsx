@@ -106,6 +106,11 @@ interface ThreadProps {
   onScriptApproval?: OnScriptApproval
   /** Id of the first message that was unread when the thread opened. */
   unreadFrom?: string
+  /**
+   * Loads the messages before the oldest one shown, resolving to how many
+   * came back. Absent when there are none.
+   */
+  onLoadEarlier?: () => Promise<number>
 }
 
 export type OnScriptApproval = (
@@ -1066,6 +1071,7 @@ export function Thread({
   scriptApprovals,
   onScriptApproval,
   unreadFrom,
+  onLoadEarlier,
 }: ThreadProps) {
   // A link to one task's message (from a pipeline run) opens the thread there.
   const hash = useLocation({ select: (l) => l.hash })
@@ -1076,6 +1082,11 @@ export function Thread({
   // that arrive afterwards get the entrance animation.
   const history = useRef<Set<string> | null>(null)
   history.current ??= new Set(messages.map((m) => m.id))
+  // Older messages loaded above the first one are history too.
+  const firstKnown = messages.findIndex((m) => history.current?.has(m.id))
+  for (const m of messages.slice(0, Math.max(firstKnown, 0))) {
+    history.current.add(m.id)
+  }
   const isNew = (id: string) => !history.current?.has(id)
 
   const hydrated = useHydrated()
@@ -1164,6 +1175,34 @@ export function Thread({
       lastBlocks.at(-1)?.kind === "show")
   const waitingOnUser = bot.status === "action_needed"
 
+  // "Show earlier" adds messages above: keep what was on screen in place.
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  const fromBottom = useRef<number | null>(null)
+  const firstId = messages[0]?.id
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (el && fromBottom.current !== null) {
+      el.scrollTop = el.scrollHeight - fromBottom.current
+      fromBottom.current = null
+    }
+  }, [firstId, scroller])
+  const showEarlier = async () => {
+    const el = scroller.current
+    if (!onLoadEarlier || loadingEarlier) return
+    release()
+    setLoadingEarlier(true)
+    try {
+      if (el) fromBottom.current = el.scrollHeight - el.scrollTop
+      // Nothing came back: do not carry the position over to a later change.
+      if ((await onLoadEarlier()) === 0) fromBottom.current = null
+    } catch (err) {
+      fromBottom.current = null
+      throw err
+    } finally {
+      setLoadingEarlier(false)
+    }
+  }
+
   return (
     <div
       ref={scroller}
@@ -1174,6 +1213,19 @@ export function Thread({
         ref={content}
         className="mx-auto flex max-w-[820px] flex-col gap-5 px-4 pt-2 pb-8 md:px-6"
       >
+        {onLoadEarlier ? (
+          <div className="flex justify-center pt-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full text-kumo-subtle"
+              loading={loadingEarlier}
+              onClick={() => void showEarlier()}
+            >
+              Show earlier
+            </Button>
+          </div>
+        ) : null}
         {rendered.map(({ message, blocks, at, durationMs }, index) => (
           <Fragment key={message.id}>
             {message.id === unreadFrom ? (

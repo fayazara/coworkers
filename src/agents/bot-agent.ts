@@ -35,6 +35,11 @@ import type { BrowserRuntime } from "@cloudflare/think/tools/browser"
 import { exports } from "cloudflare:workers"
 import { callable, getAgentByName } from "agents"
 import { CHAT_MESSAGE_TYPES } from "agents/chat"
+import {
+  CLIENT_MESSAGES,
+  olderThan,
+  windowFrame,
+} from "@/lib/transcript-window"
 import type { ContextConfig } from "agents/context"
 import { isAutoReplyEmail } from "agents/email"
 import { emailDirectory } from "./email-directory"
@@ -907,6 +912,7 @@ export class BotAgent extends Think<Env, BotState> {
   // ── Lifecycle ───────────────────────────────────────────────────────
 
   async onStart() {
+    this.windowClientTranscript()
     this.watchChatApprovals()
     this.sql`CREATE TABLE IF NOT EXISTS activity (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6203,8 +6209,61 @@ export class BotAgent extends Think<Env, BotState> {
   }
 
   /** Durable Object RPC: state and history for the first server render. */
+  /** For opening the bot: its state and newest messages. */
   async snapshot(): Promise<{ state: BotState; messages: UIMessage[] }> {
-    return { state: this.state, messages: this.messages }
+    return {
+      state: this.state,
+      messages: this.messages.slice(-CLIENT_MESSAGES),
+    }
+  }
+
+  /** "Show earlier": the messages just before the oldest one shown. */
+  @callable()
+  olderMessages(beforeId: string): UIMessage[] {
+    return olderThan(this.messages, beforeId)
+  }
+
+  /**
+   * Think sends the browser the whole transcript: on connect, after every
+   * change, and when it rolls back a dropped send. For a long chat that is
+   * megabytes each time, read and drawn in full. Send the newest
+   * CLIENT_MESSAGES instead; older ones load on request (olderMessages).
+   *
+   * Safe because Think only upserts what a browser posts back: it never
+   * deletes a message the browser left out. These are Think internals
+   * (0.21); if they move, the bot warns and sends everything, as before.
+   */
+  private windowClientTranscript() {
+    const think = this as unknown as {
+      _broadcast?: (message: unknown, exclude?: string[]) => void
+      _buildIdleConnectMessages?: () => Promise<unknown[]>
+      _rollbackDroppedSubmit?: (connection: {
+        send(data: string): void
+      }) => void
+    }
+    const broadcast = think._broadcast
+    const idle = think._buildIdleConnectMessages
+    if (
+      typeof broadcast !== "function" ||
+      typeof idle !== "function" ||
+      typeof think._rollbackDroppedSubmit !== "function"
+    ) {
+      console.warn("Think internals moved: sending the whole transcript")
+      return
+    }
+    think._broadcast = (message, exclude) =>
+      broadcast.call(this, windowFrame(message), exclude)
+    think._buildIdleConnectMessages = async () =>
+      (await idle.call(this)).map(windowFrame)
+    think._rollbackDroppedSubmit = (connection) =>
+      connection.send(
+        JSON.stringify(
+          windowFrame({
+            type: CHAT_MESSAGE_TYPES.CHAT_MESSAGES,
+            messages: this.messages,
+          })
+        )
+      )
   }
 
   // ── Browser-facing (settings and the Computer panel) ────────────────
