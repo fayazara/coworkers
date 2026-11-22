@@ -5,9 +5,7 @@ import { env } from "cloudflare:workers"
 import { DEMO_PROFILES, DEMO_USER_ID, identify } from "@/lib/auth"
 import { SIDEBAR_COOKIE, parseWidths } from "@/lib/layout-context"
 import type { PanelWidths } from "@/lib/layout-context"
-import { botInstanceName } from "@/lib/types"
 import type { BotState, HubState } from "@/lib/types"
-import type { BotAgent } from "@/agents/bot-agent"
 import type { UserHub } from "@/agents/user-hub"
 
 export interface Viewer {
@@ -75,13 +73,10 @@ export const getBotSnapshot = createServerFn()
       env.UserHub as unknown as DurableObjectNamespace<UserHub>,
       viewer.id
     )
-    const { bots } = await hub.snapshot()
-    // Looking up an unknown name would create an empty Durable Object.
-    if (!bots.some((b) => b.id === botId)) return null
-    const bot = await getAgentByName(
-      env.BotAgent as unknown as DurableObjectNamespace<BotAgent>,
-      botInstanceName(viewer.id, botId)
-    )
-    const { state, messages } = await bot.snapshot()
-    return { state, messagesJson: JSON.stringify(messages) }
+    // The hub checks the bot is the viewer's (looking up an unknown name
+    // would create an empty Durable Object) and fetches it next door: one
+    // trip from the Worker instead of one per object.
+    const snapshot = await hub.botSnapshot(botId)
+    if (!snapshot) return null
+    return snapshot
   })

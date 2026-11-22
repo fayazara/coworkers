@@ -32,7 +32,7 @@ import { useLatchedWhileClosing } from "@/components/slide-shell"
 import { SplitView } from "@/components/split-view"
 import { Thread } from "@/components/thread"
 import { BotContext } from "@/lib/bot-context"
-import { cachedBot, rememberBot } from "@/lib/bot-cache"
+import { cachedBot, fetchBot, rememberBot } from "@/lib/bot-cache"
 import { useHub } from "@/lib/hub-context"
 import { useLayout } from "@/lib/layout-context"
 import { getBotSnapshot } from "@/lib/server-fns"
@@ -62,6 +62,9 @@ export const Route = createFileRoute("/_app/bots/$botId")({
   loader: async ({ params }) => {
     const cached = cachedBot(params.botId)
     if (cached) return cached
+    const live = await fetchBot(params.botId)
+    if (live === null) throw redirect({ to: "/" })
+    if (live) return live
     const snapshot = await getBotSnapshot({ data: params.botId })
     if (!snapshot) throw redirect({ to: "/" })
     return {

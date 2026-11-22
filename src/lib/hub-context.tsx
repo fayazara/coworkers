@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo } from "react"
 import { useAgent } from "agents/react"
-import { syncBotSummaries } from "@/lib/bot-cache"
+import { setBotFetcher, syncBotSummaries } from "@/lib/bot-cache"
 import type { ReactNode } from "react"
 import type { UIMessage } from "ai"
 import type {
@@ -226,6 +226,18 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
   }, [state.bots])
 
   const live = agent.state !== undefined
+  useEffect(() => {
+    if (!live) return
+    setBotFetcher(async (botId) => {
+      const snapshot = await agent.stub.botSnapshot(botId)
+      if (!snapshot) return null
+      return {
+        state: snapshot.state,
+        messages: JSON.parse(snapshot.messagesJson) as UIMessage[],
+      }
+    })
+    return () => setBotFetcher(null)
+  }, [live, agent])
   const shop = useMemo<ShopApi | null>(
     () =>
       live

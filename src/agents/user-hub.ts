@@ -20,6 +20,7 @@ import type {
   ShopSearchResult,
 } from "@/lib/shop"
 import type {
+  BotState,
   AppCatalog,
   AppTool,
   BotAttachment,
@@ -160,6 +161,11 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   }
 
   #skills?: SkillStore
+  /**
+   * Bots still being set up. A new bot opens before its setup is done, so
+   * anything that calls one waits for it first.
+   */
+  #setups = new Map<string, Promise<void>>()
   /** Shop's MCP client, connected on first use. */
   #shop?: Promise<McpClient>
 
@@ -455,7 +461,12 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     return this.ctx.storage.kv.get<string>("origin")
   }
 
-  private bot(botId: string) {
+  private async bot(botId: string) {
+    await this.#setups.get(botId)
+    return this.botStub(botId)
+  }
+
+  private botStub(botId: string) {
     // The binding is declared by Worker name in cloudflare.config.ts, so its
     // generated type does not carry the class.
     return getAgentByName(
@@ -492,8 +503,14 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
     }
     this.setState({ ...this.state, bots: [summary, ...this.state.bots] })
 
-    const bot = await this.bot(summary.id)
-    await bot.setup(summary.avatar)
+    // Setting up takes a few round trips. The browser opens the bot right
+    // away instead of waiting on them; its socket catches the greeting.
+    const setup = this.botStub(summary.id)
+      .then((bot) => bot.setup(summary.avatar))
+      .catch((err) => console.error(`Setting up bot ${summary.id}`, err))
+      .finally(() => this.#setups.delete(summary.id))
+    this.#setups.set(summary.id, setup)
+    this.ctx.waitUntil(setup)
     return summary
   }
 
@@ -1114,6 +1131,21 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
   /** State for the first server render, before the WebSocket connects. */
   async snapshot(): Promise<HubState> {
     return this.state
+  }
+
+  /**
+   * A bot's state and history, for opening it in the browser. One trip to
+   * the hub, which is next to its bots, instead of several from the Worker.
+   */
+  @callable()
+  async botSnapshot(
+    botId: string
+  ): Promise<{ state: BotState; messagesJson: string } | null> {
+    if (!this.state.bots.some((b) => b.id === botId)) return null
+    const { state, messages } = await (await this.bot(botId)).snapshot()
+    // As JSON: message parts hold `unknown` tool payloads, which RPC types
+    // cannot carry.
+    return { state, messagesJson: JSON.stringify(messages) }
   }
 
   // ── Bot-facing (Durable Object RPC) ─────────────────────────────────
