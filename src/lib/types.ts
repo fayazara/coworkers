@@ -6,6 +6,7 @@
 import type { RobotHeadShape } from "robot-heads"
 import type { DeploymentModels, ModelSettings } from "./models"
 import type { ShopPick } from "./shop"
+import type { SurfaceActionMeta } from "./surface/types"
 
 export type BotStatus = "idle" | "thinking" | "working" | "action_needed"
 
@@ -170,6 +171,8 @@ export interface DeskCardInput {
     messageId?: string
     approvalId?: string
     script?: { runId: string; callId: string }
+    /** A surface the bot pinned: drawn inside the card, live. */
+    surface?: { id: string; version: number }
     /** A pipeline's approval step; the card answers it. */
     pipeline?: { pipelineId: string; runId: string; step: number }
   }
@@ -610,6 +613,8 @@ export interface MessageMeta {
   taskResult?: { taskId: string; taskIds?: string[] }
   /** On a "Buy" message from the product panel: exactly what was picked. */
   pick?: ShopPick
+  /** On a message a surface's button sent: which button, on what. */
+  surfaceAction?: SurfaceActionMeta
 }
 
 /** Where a task's result goes when the bot working on it finishes. */

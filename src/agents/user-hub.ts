@@ -29,6 +29,7 @@ import type {
   Connection,
   DeskCard,
   DeskCardInput,
+  DeskOrigin,
   HubState,
   BotSkillCatalog,
   InstalledSkill,
@@ -65,6 +66,7 @@ import {
 import { resourceKind } from "./skill-sources"
 import { SkillStore } from "./skill-store"
 import { pipelineApprovalCard, visibleCards } from "./desk"
+import type { Surface } from "@/lib/surface/types"
 import {
   SHOP_PAGE_SIZE,
   searchArgs,
@@ -235,6 +237,12 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       models: { ...DEFAULT_MODEL_SETTINGS, ...this.state.models },
       deployment: deploymentModels(this.env),
     })
+    // Copies of the surfaces bots pinned to the Desk: the Desk page talks
+    // to the hub, not to every bot. Keyed by card id.
+    this.sql`CREATE TABLE IF NOT EXISTS desk_surfaces (
+      card_id TEXT PRIMARY KEY,
+      body TEXT NOT NULL
+    )`
     // Memory every bot of this user reads, with its edit history.
     this.sql`CREATE TABLE IF NOT EXISTS shared_memory (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1246,6 +1254,73 @@ export class UserHub extends Agent<Env, HubState> implements HubPort {
       .filter((id) => !live.has(id))
     this.setCardStatus(stale, "acted")
     this.refreshDesk()
+  }
+
+  /**
+   * Durable Object RPC: a bot pinned a surface to the Desk, or changed one
+   * it pinned. The card says who and why; the surface is the content. A
+   * card the user dismissed stays dismissed (insertCard only updates open
+   * ones), and every change brings an open one back to the top.
+   */
+  async pinSurface(botId: string, surface: Surface, origin: DeskOrigin) {
+    if (!this.state.bots.some((b) => b.id === botId) || !surface.desk) return
+    const input: DeskCardInput = {
+      key: `surface:${surface.id}`,
+      lane: surface.desk.lane,
+      origin,
+      title: surface.title ?? "Update",
+      why: surface.desk.why,
+      found: "",
+      sources: [],
+      actions: [{ id: "open", label: "Open chat", kind: "open_chat" }],
+      refs: { surface: { id: surface.id, version: surface.version } },
+      createdAt: surface.updatedAt,
+    }
+    const cardId = `${botId}:${input.key}`
+    this.sql`INSERT INTO desk_surfaces (card_id, body)
+      VALUES (${cardId}, ${JSON.stringify(surface)})
+      ON CONFLICT (card_id) DO UPDATE SET body = excluded.body`
+    this.insertCard(botId, input)
+    this.refreshDesk()
+  }
+
+  /** Durable Object RPC: a bot unpinned or finished a pinned surface. */
+  async unpinSurface(botId: string, surfaceId: string) {
+    const cardId = `${botId}:surface:${surfaceId}`
+    this.sql`DELETE FROM desk_surfaces WHERE card_id = ${cardId}`
+    this.setCardStatus([cardId], "acted")
+    this.refreshDesk()
+  }
+
+  /** The surfaces on these Desk cards, by card id. */
+  @callable()
+  getDeskSurfaces(cardIds: string[]): Record<string, Surface> {
+    const out: Record<string, Surface> = {}
+    for (const id of cardIds.slice(0, 100)) {
+      const row = this.sql<{ body: string }>`
+        SELECT body FROM desk_surfaces WHERE card_id = ${id}`[0]
+      if (row) out[id] = JSON.parse(row.body) as Surface
+    }
+    return out
+  }
+
+  /** A button on a pinned surface: the bot that owns it handles it. */
+  @callable()
+  async deskSurfaceAction(
+    cardId: string,
+    version: number,
+    target: string,
+    values: unknown,
+    say?: boolean
+  ) {
+    const card = this.cardRows({ id: cardId })[0]
+    const ref = card?.refs.surface
+    if (!card || card.status !== "open" || !ref) {
+      throw new Error("That card is gone.")
+    }
+    const bot = await this.bot(card.botId)
+    if (say) await bot.surfaceSay(ref.id, target)
+    else await bot.surfaceAction(ref.id, version, target, values)
   }
 
   /** Press a card's button: approve or reject what it is waiting on. */

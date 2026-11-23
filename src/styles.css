@@ -1475,3 +1475,54 @@
     animation: none;
   }
 }
+
+/*
+ * Surfaces (src/components/surface). Things a bot adds fade and rise in;
+ * a value that changes pops; a bar with no value sweeps.
+ */
+.sf-enter {
+  transition:
+    opacity var(--duration-fast) var(--ease-smooth-out),
+    transform var(--duration-fast) var(--ease-smooth-out),
+    filter var(--duration-fast) var(--ease-smooth-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(var(--blur-small));
+  }
+}
+
+.sf-pop {
+  animation: sf-pop var(--duration-medium) var(--ease-bounce);
+}
+
+@keyframes sf-pop {
+  from {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.sf-indeterminate {
+  animation: sf-sweep 1.4s var(--ease-smooth-out) infinite;
+}
+
+@keyframes sf-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-enter {
+    transition: none !important;
+  }
+  .sf-pop,
+  .sf-indeterminate {
+    animation: none !important;
+  }
+}

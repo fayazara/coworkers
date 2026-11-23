@@ -50,7 +50,7 @@ import {
 } from "./email-routing"
 import type { AgentEmail } from "agents/email"
 import { jsonSchema, tool } from "ai"
-import type { JSONSchema7, ToolSet, UIMessage } from "ai"
+import type { JSONSchema7, StepResult, ToolSet, UIMessage } from "ai"
 import PostalMime from "postal-mime"
 import type { ModelSettings } from "@/lib/models"
 import { z } from "zod"
@@ -189,12 +189,22 @@ import {
 } from "./shop"
 import { toMinorUnits } from "@/lib/shop"
 import { choiceOptions } from "@/lib/choices"
+import { SurfaceStore } from "./surface-store"
+import { describeCatalog } from "@/lib/surface/describe"
 import {
-  MAX_SHOW_BLOCKS,
-  MAX_SHOW_ITEMS,
-  SHOW_BLOCK_TYPES,
-  SHOW_TONES,
-} from "@/lib/show"
+  actionAt,
+  checkActionValues,
+  showSurface,
+  surfaceEndsStep,
+  surfaceForModel,
+  surfaceLine,
+  updateSurface,
+} from "@/lib/surface/surface"
+import type {
+  Surface,
+  SurfaceActionMeta,
+  SurfaceToolOutput,
+} from "@/lib/surface/types"
 import type { ShopCheckout, ShopProduct, ShopSearchResult } from "@/lib/shop"
 import type { CrawlInput, QuickEngine } from "./web-tools"
 
@@ -324,7 +334,9 @@ const READ_ONLY_TOOLS = new Set([
   "activate_skill",
   "read_skill_resource",
   ...SHOP_READS,
-  "show",
+  "show_surface",
+  "update_surface",
+  "list_surfaces",
 ])
 /** A foreground turn longer than this gets a push when it finishes. */
 const LONG_TURN_MS = 90_000
@@ -546,6 +558,18 @@ function isNoUpdate(text: string) {
   return t.startsWith(NO_UPDATE) || t.endsWith(NO_UPDATE)
 }
 
+/** The turn showed or changed a surface. */
+function wroteSurface(message: UIMessage) {
+  return message.parts.some((part) => {
+    const p = part as { type: string; state?: string; output?: unknown }
+    return (
+      (p.type === "tool-show_surface" || p.type === "tool-update_surface") &&
+      p.state === "output-available" &&
+      (p.output as { ok?: unknown } | undefined)?.ok === true
+    )
+  })
+}
+
 function minutesOf(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number)
   return (h || 0) * 60 + (m || 0)
@@ -760,6 +784,14 @@ export class BotAgent extends Think<Env, BotState> {
    * while the chat is still reading the step, and it loses the tool's result.
    */
   #heldApprovals = new Map<string, boolean>()
+
+  #surfaceStore?: SurfaceStore
+
+  /** Surfaces this bot showed, the newest copy of each. */
+  private get surfaces(): SurfaceStore {
+    this.#surfaceStore ??= new SurfaceStore(this.ctx.storage.sql)
+    return this.#surfaceStore
+  }
 
   /** Apps this bot built, their links and their data. */
   private get apps(): AppStore {
@@ -1027,6 +1059,7 @@ export class BotAgent extends Think<Env, BotState> {
       background INTEGER NOT NULL
     )`
     this.apps.init()
+    this.surfaces.init()
     // Bots created before proactive work, skills or apps existed.
     if (!this.state.proactive || !this.state.skills || !this.state.apps) {
       this.setState({
@@ -1361,6 +1394,7 @@ export class BotAgent extends Think<Env, BotState> {
         path: `${this.#origin}${this.apps.ownerLink(app.slug).path}`,
         collections: this.apps.collections(app.slug),
       })),
+      surfaces: this.surfaces.open().slice(0, 15).map(surfaceLine),
     })
     return {
       model: this.turnModel(),
@@ -1377,6 +1411,15 @@ export class BotAgent extends Think<Env, BotState> {
           })
       ),
       tools: this.#appTools,
+      // With the user here, a finished surface is the reply: end the turn
+      // there rather than let the model talk on under it. Background turns
+      // still need their closing NO_UPDATE or note.
+      ...(this.isBackgroundTurn()
+        ? {}
+        : {
+            stopWhen: ({ steps }: { steps: StepResult<ToolSet>[] }) =>
+              surfaceEndsStep(steps.at(-1)),
+          }),
     }
   }
 
@@ -2220,56 +2263,138 @@ export class BotAgent extends Think<Env, BotState> {
         },
       }),
 
-      show: tool({
+      show_surface: tool({
         description: [
-          "Show part of your reply as blocks the user can scan and tap, instead of prose or a Markdown table. Blocks appear in the chat in the order given.",
-          "- stats: 2-4 headline numbers. items: label, value, optional detail.",
-          "- list: things you found. Optional title; items: label (the name), value (price, count, date), detail (the one fact that matters), url (opens it), tag (a 1-2 word verdict) with tone.",
-          "- callout: one caveat or piece of news the user must not miss. text, optional title, tone.",
-          "- actions: 1-3 next steps to tap. items: label only, written as the user would say it ('Watch OLX daily under ₹42,000'); tapping sends it to you as their message.",
-          "Every value is plain text: no Markdown inside blocks.",
+          "Show results, a form or a live status as a surface: UI built from the components below, drawn in the app's own design. Use it instead of prose or a Markdown table when the user will scan, compare, fill in or act on something.",
+          "layout is a list of components (nested through children). Props are plain text, never Markdown. Any prop marked ~ can be { \"$bind\": \"/pointer\" } to read it from data, and a list prop can be bound whole to an array in data, so updating data later changes what is shown.",
+          'Buttons take one action: { "say": "text" } sends that text as the user\'s message, { "event": "name" } sends you the form\'s field values (or { "event": "name", "fields": ["/a"] } outside a form), { "link": "https://..." } opens a page. An event arrives as the user\'s next message.',
+          "Showing again with an id that exists replaces that surface. Pick a short readable id, like 'macbook-watch', so you can update it later.",
+          "",
+          "Components (* required, ~ bindable):",
+          describeCatalog(),
         ].join("\n"),
         inputSchema: z.object({
-          blocks: z
+          id: z
+            .string()
+            .max(48)
+            .optional()
+            .describe(
+              "Lowercase letters, digits and -, e.g. 'macbook-watch'. Reuse it to replace the surface."
+            ),
+          title: z
+            .string()
+            .max(80)
+            .optional()
+            .describe("What it is, in a few words. Required with desk."),
+          layout: z
+            .array(z.record(z.string(), z.unknown()))
+            .describe(
+              'Components top to bottom, e.g. [{ "type": "Stats", "items": [...] }, { "type": "List", "items": { "$bind": "/listings" } }]'
+            ),
+          data: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe("Values the layout binds to."),
+          desk: z
+            .object({
+              lane: z.enum(["fyi", "done"]).optional(),
+              why: z
+                .string()
+                .max(140)
+                .describe("One line: why it is on the Desk now."),
+            })
+            .optional()
+            .describe(
+              "Also pin it to the user's Desk. Only for something they will come back to: a watch, a running task, a decision waiting on them."
+            ),
+        }),
+        execute: async (input): Promise<SurfaceToolOutput> => {
+          const id = typeof input.id === "string" ? input.id : undefined
+          const output = showSurface(
+            input,
+            id ? this.surfaces.get(id) : undefined,
+            this.surfaces.ids()
+          )
+          if (output.ok) await this.storeSurface(output.surface)
+          return output
+        },
+        toModelOutput: ({ output }) => ({
+          type: "text",
+          value: surfaceForModel(output),
+        }),
+      }),
+
+      update_surface: tool({
+        description:
+          "Change a surface you showed before, in this turn or an earlier one, instead of showing a new one. Usually you change data: each change sets the value at a JSON Pointer (null deletes; /list/- appends). Replace layout only when what is shown changes shape (a form becomes a confirmation). close: true freezes it read-only once it is finished.",
+        inputSchema: z.object({
+          id: z.string().max(48).describe("The surface's id."),
+          data: z
             .array(
               z.object({
-                type: z.enum(SHOW_BLOCK_TYPES),
-                title: z.string().max(80).optional(),
-                text: z
-                  .string()
-                  .max(300)
-                  .optional()
-                  .describe("callout only: its body"),
-                tone: z
-                  .enum(SHOW_TONES)
-                  .optional()
-                  .describe("callout only: warn for a caveat, good for news"),
-                items: z
-                  .array(
-                    z.object({
-                      label: z.string().max(120),
-                      value: z.string().max(40).optional(),
-                      detail: z.string().max(160).optional(),
-                      url: z.string().max(600).optional(),
-                      tag: z.string().max(24).optional(),
-                      tone: z
-                        .enum(SHOW_TONES)
-                        .optional()
-                        .describe("Colours the tag, or a stat's value"),
-                    })
-                  )
-                  .max(MAX_SHOW_ITEMS)
-                  .optional()
-                  .describe("stats, list and actions"),
+                path: z.string().describe("JSON Pointer, e.g. '/price'"),
+                value: z.unknown().describe("The new value; null deletes."),
               })
             )
-            .min(1)
-            .max(MAX_SHOW_BLOCKS),
+            .optional(),
+          layout: z
+            .array(z.record(z.string(), z.unknown()))
+            .optional()
+            .describe("A whole new layout, same components as show_surface."),
+          title: z.string().max(80).optional(),
+          close: z.boolean().optional(),
+          desk: z
+            .object({
+              lane: z.enum(["fyi", "done"]).optional(),
+              why: z.string().max(140),
+            })
+            .optional()
+            .describe("Pin it to the Desk, or change why it is there."),
+          unpin: z
+            .boolean()
+            .optional()
+            .describe("Take it off the Desk. It stays in the chat."),
         }),
-        execute: async ({ blocks }) => ({
-          shown: blocks.length,
-          next: "The user can see these now. Do not repeat them in text. End your turn, or add at most one short line the blocks did not cover.",
+        execute: async (input): Promise<SurfaceToolOutput> => {
+          const prev = this.surfaces.get(input.id)
+          if (!prev) {
+            const ids = [...this.surfaces.ids()].slice(0, 20)
+            return {
+              ok: false,
+              error: `There is no surface "${input.id}".`,
+              problems: [
+                {
+                  path: "/id",
+                  message: ids.length
+                    ? `Your surfaces: ${ids.join(", ")}. Or show a new one with show_surface.`
+                    : "Show one with show_surface first.",
+                },
+              ],
+            }
+          }
+          const output = updateSurface(
+            { ...input, desk: input.unpin ? false : input.desk },
+            prev
+          )
+          if (output.ok) await this.storeSurface(output.surface, prev)
+          return output
+        },
+        toModelOutput: ({ output }) => ({
+          type: "text",
+          value: surfaceForModel(output),
         }),
+      }),
+
+      list_surfaces: tool({
+        description:
+          "Your open surfaces: id, title, components, fields and data keys. Use it to find the id to update.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const open = this.surfaces.open()
+          return open.length
+            ? open.map(surfaceLine).join("\n")
+            : "You have no open surfaces."
+        },
       }),
 
       connect_app: tool({
@@ -4527,11 +4652,14 @@ export class BotAgent extends Think<Env, BotState> {
 
     // Nothing worth saying: drop the turn so it neither shows up nor
     // fills the context. Deleting re-parents anything that came after.
+    // A turn that changed a surface keeps its messages: the thread draws
+    // surfaces from the tool results in them.
     if (
       background &&
       !waiting &&
       result.status === "completed" &&
-      (!text || isNoUpdate(finalText(result.message)))
+      (!text || isNoUpdate(finalText(result.message))) &&
+      !wroteSurface(result.message)
     ) {
       await this.report({ status })
       if (trigger) {
@@ -4898,6 +5026,97 @@ export class BotAgent extends Think<Env, BotState> {
   @callable()
   async deleteSecret(name: string) {
     this.sql`DELETE FROM bot_secrets WHERE name = ${name}`
+  }
+
+  /**
+   * A button on one of this bot's surfaces was pressed. The user is acting,
+   * so this is a turn with them present, like a message they typed. A retry
+   * or a double tap names the same version and button, so it starts one turn.
+   */
+  @callable()
+  async surfaceAction(
+    surfaceId: string,
+    version: number,
+    target: string,
+    values: unknown
+  ) {
+    const surface = this.surfaces.get(surfaceId)
+    if (!surface) throw new Error("That is no longer here.")
+    if (surface.status === "closed") {
+      throw new Error("This is finished, so its buttons no longer work.")
+    }
+    if (surface.version !== version) {
+      throw new Error("This changed while you were looking. Check it again.")
+    }
+    const found = actionAt(surface, target)
+    if (!found || !("event" in found.action)) {
+      throw new Error("That button does nothing here.")
+    }
+    const checked = checkActionValues(surface, found.action, values)
+    if ("error" in checked) throw new Error(checked.error)
+    const surfaceAction: SurfaceActionMeta = {
+      surfaceId,
+      ...(surface.title ? { title: surface.title } : {}),
+      label: found.label,
+      event: found.action.event,
+    }
+    const sent = { ...checked.values, ...found.values }
+    const filled = Object.keys(sent).length > 0
+    const text = [
+      `[Pressed "${found.label}" on your surface "${surfaceId}"${surface.title ? ` (${surface.title})` : ""}. Event: ${found.action.event}]`,
+      ...(filled ? [JSON.stringify(sent)] : []),
+    ].join("\n")
+    await this.runTurn({
+      mode: "submit",
+      idempotencyKey: `surface:${surfaceId}:${version}:${target}`,
+      input: {
+        id: crypto.randomUUID(),
+        role: "user",
+        parts: [{ type: "text", text }],
+        metadata: { at: Date.now(), surfaceAction } satisfies MessageMeta,
+      },
+    })
+  }
+
+  /**
+   * Durable Object RPC from the hub: a say button on a pinned surface. Sent
+   * as the user's own message, like the same button in the chat.
+   */
+  async surfaceSay(surfaceId: string, target: string) {
+    const surface = this.surfaces.get(surfaceId)
+    const found = surface ? actionAt(surface, target) : null
+    if (!found || !("say" in found.action)) {
+      throw new Error("That button does nothing here.")
+    }
+    await this.runTurn({
+      mode: "submit",
+      input: {
+        id: crypto.randomUUID(),
+        role: "user",
+        parts: [{ type: "text", text: found.action.say }],
+        metadata: { at: Date.now() } satisfies MessageMeta,
+      },
+    })
+  }
+
+  /** Keep the newest copy of a surface, and the Desk in step with it. */
+  private async storeSurface(surface: Surface, prev?: Surface) {
+    this.surfaces.save(surface)
+    const pinned = surface.desk && surface.status === "open"
+    if (!pinned && !prev?.desk) return
+    try {
+      const hub = await this.hub()
+      if (pinned) {
+        const origin =
+          metaOf(this.messages.findLast((m) => m.role === "user")).origin
+            ?.kind ?? "chat"
+        await hub.pinSurface(this.botId, surface, origin)
+      } else {
+        await hub.unpinSurface(this.botId, surface.id)
+      }
+    } catch (err) {
+      console.error("Syncing a surface to the Desk failed", err)
+    }
   }
 
   /** Called by the ask_user card, just before it approves the call. */

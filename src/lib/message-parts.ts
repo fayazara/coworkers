@@ -25,7 +25,8 @@ export type Block =
   | { kind: "choice"; key: string; call: ToolCall }
   | { kind: "secret"; key: string; call: ToolCall }
   | { kind: "connect"; key: string; call: ToolCall }
-  | { kind: "show"; key: string; call: ToolCall }
+  | { kind: "surface"; key: string; call: ToolCall }
+  | { kind: "surface-update"; key: string; call: ToolCall }
   | { kind: "skill"; key: string; call: ToolCall }
   | { kind: "capture"; key: string; call: ToolCall; capture: Capture }
   | { kind: "routine"; key: string; routine: Routine; updated: boolean }
@@ -39,7 +40,7 @@ export interface TurnView {
   /** Updates, cards, events and the reply, in order. */
   shown: Block[]
   /**
-   * Key of the block the reply starts at: the first text or `show` block
+   * Key of the block the reply starts at: the first text or surface block
    * with no tool call after it. Text before it is an update the bot wrote
    * along the way.
    */
@@ -52,7 +53,7 @@ export interface TurnView {
  */
 export function toTurn(blocks: Block[]): TurnView {
   // Blocks the bot shows are part of what it says, like its text.
-  const says = (b: Block) => b.kind === "text" || b.kind === "show"
+  const says = (b: Block) => b.kind === "text" || b.kind === "surface"
   const lastTool = blocks.findLastIndex((b) => !says(b) && b.kind !== "event")
   const reply = blocks.findIndex((b, i) => i > lastTool && says(b))
   const work: ToolCall[] = []
@@ -261,10 +262,20 @@ export function toBlocks(message: UIMessage): Block[] {
       return
     }
     // What the bot shows instead of prose. It draws while it streams in; a
-    // call that failed falls through to the steps.
-    if (call.name === "show") {
-      if (call.state === "running" || call.state === "done") {
-        blocks.push({ kind: "show", key, call })
+    // call the server turned down falls through to the steps, where the
+    // problems it sent back show.
+    if (call.name === "show_surface" || call.name === "update_surface") {
+      const ok = (call.output as { ok?: unknown } | null)?.ok === true
+      if (call.name === "show_surface" && call.state === "running") {
+        blocks.push({ kind: "surface", key, call })
+        return
+      }
+      if (call.state === "done" && ok) {
+        blocks.push({
+          kind: call.name === "show_surface" ? "surface" : "surface-update",
+          key,
+          call,
+        })
         return
       }
     }

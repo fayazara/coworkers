@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { Button } from "@cloudflare/kumo/components/button"
 import {
@@ -22,6 +22,8 @@ import type { IconProps } from "@/components/icons"
 import { BotAvatar } from "@/components/bot-avatar"
 import { ArgsView } from "@/components/call-preview"
 import { Prose } from "@/components/thread"
+import { SurfaceView } from "@/components/surface/surface"
+import type { Surface } from "@/lib/surface/types"
 import { useHub } from "@/lib/hub-context"
 import type { BotSummary, DeskAction, DeskCard, DeskOrigin } from "@/lib/types"
 
@@ -155,6 +157,57 @@ function Found({ text }: { text: string }) {
   )
 }
 
+/**
+ * A surface the bot pinned, drawn inside its card and fetched again
+ * whenever the bot changes it (the card's ref carries the version).
+ */
+function DeskSurface({ card, busy }: { card: DeskCard; busy: boolean }) {
+  const { desk } = useHub()
+  const version = card.refs.surface?.version
+  const [surface, setSurface] = useState<Surface | null>(null)
+  useEffect(() => {
+    if (!desk || version === undefined) return
+    let live = true
+    desk
+      .surfaces([card.id])
+      .then((found) => {
+        if (live && found[card.id]) setSurface(found[card.id])
+      })
+      .catch((err: unknown) => console.error("Loading a surface failed", err))
+    return () => {
+      live = false
+    }
+  }, [desk, card.id, version])
+  if (!surface) {
+    return <div className="mt-3 h-20 animate-pulse rounded-2xl bg-(--fill-hover)" />
+  }
+  return (
+    <div className="mt-3">
+      <SurfaceView
+        surface={surface}
+        placement="desk"
+        busy={busy}
+        onEvent={
+          desk
+            ? (_id, v, target, values) =>
+                desk.surfaceAction(card.id, v, target, values)
+            : undefined
+        }
+        onSay={
+          desk
+            ? (_text, target) =>
+                void desk
+                  .surfaceAction(card.id, surface.version, target, {}, true)
+                  .catch((err: unknown) =>
+                    console.error("Sending that failed", err)
+                  )
+            : undefined
+        }
+      />
+    </div>
+  )
+}
+
 /** A finding that only repeats the title is not shown twice. */
 function worthShowing(card: DeskCard) {
   const found = card.found.replace(/[`*_#>[\]()]/g, "").trim()
@@ -259,6 +312,12 @@ export function DeskCardView({
         <span className="truncate">{card.why}</span>
       </p>
 
+      {card.refs.surface ? (
+        <DeskSurface
+          card={card}
+          busy={bot?.status === "thinking" || bot?.status === "working"}
+        />
+      ) : null}
       {card.found && worthShowing(card) ? <Found text={card.found} /> : null}
       {card.detail ? (
         <div className="mt-3">

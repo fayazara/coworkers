@@ -160,17 +160,14 @@ describe("toBlocks for connect_app", () => {
   })
 })
 
-describe("show blocks", () => {
-  const show = (state: string, blocks: unknown) => ({
-    type: "tool-show",
+describe("surfaces", () => {
+  const show = (state: string, output?: unknown) => ({
+    type: "tool-show_surface",
     toolCallId: "s",
     state,
-    input: { blocks },
+    input: { layout: [{ type: "Stats", items: [{ label: "Median" }] }] },
+    ...(output ? { output } : {}),
   })
-  const stats = {
-    type: "stats",
-    items: [{ label: "Median", value: "₹49,560" }],
-  }
 
   it("draws while it streams, and is where the reply starts", () => {
     const blocks = toBlocks(
@@ -182,16 +179,41 @@ describe("show blocks", () => {
           input: { url: "https://olx.in" },
         },
         { type: "text", text: "Half of these are dealers." },
-        show("input-streaming", [stats]),
+        show("input-streaming"),
         { type: "text", text: "Prices are asking prices." }
       )
     )
-    expect(blocks.map((b) => b.kind)).toEqual(["steps", "text", "show", "text"])
+    expect(blocks.map((b) => b.kind)).toEqual([
+      "steps",
+      "text",
+      "surface",
+      "text",
+    ])
     expect(toTurn(blocks).replyKey).toBe("m:1")
   })
 
-  it("starts the reply at the blocks when no text leads into them", () => {
-    const blocks = toBlocks(reply(show("output-available", [stats])))
+  it("starts the reply at the surface when no text leads into it", () => {
+    const blocks = toBlocks(reply(show("output-available", { ok: true })))
     expect(toTurn(blocks).replyKey).toBe("m:0")
+  })
+
+  it("folds a rejected surface into the steps", () => {
+    const blocks = toBlocks(
+      reply(show("output-available", { ok: false, problems: [] }))
+    )
+    expect(blocks.map((b) => b.kind)).toEqual(["steps"])
+  })
+
+  it("marks an update as its own block", () => {
+    const blocks = toBlocks(
+      reply({
+        type: "tool-update_surface",
+        toolCallId: "u",
+        state: "output-available",
+        input: { id: "w" },
+        output: { ok: true },
+      })
+    )
+    expect(blocks.map((b) => b.kind)).toEqual(["surface-update"])
   })
 })

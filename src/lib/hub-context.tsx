@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo } from "react"
+import type { Surface } from "@/lib/surface/types"
 import { useAgent } from "agents/react"
 import { setBotFetcher, syncBotSummaries } from "@/lib/bot-cache"
 import type { ReactNode } from "react"
@@ -108,6 +109,16 @@ export interface DeskApi {
   dismiss: (cardIds: string[]) => Promise<void>
   restore: (cardIds: string[]) => Promise<void>
   markSeen: () => void
+  /** The surfaces bots pinned to these cards, by card id. */
+  surfaces: (cardIds: string[]) => Promise<Record<string, Surface>>
+  /** A button on a pinned surface; `say` buttons send their text. */
+  surfaceAction: (
+    cardId: string,
+    version: number,
+    target: string,
+    values: Record<string, unknown>,
+    say?: boolean
+  ) => Promise<void>
 }
 
 export interface PipelinesApi {
@@ -333,6 +344,15 @@ export function LiveHubProvider({ viewer, initial, children }: ProviderProps) {
               dismiss: (ids) => agent.stub.dismissCards(ids),
               restore: (ids) => agent.stub.restoreCards(ids),
               markSeen: () => void agent.stub.markDeskSeen(),
+              surfaces: (ids) => agent.stub.getDeskSurfaces(ids),
+              surfaceAction: (cardId, version, target, values, say) =>
+                agent.stub.deskSurfaceAction(
+                  cardId,
+                  version,
+                  target,
+                  values,
+                  say
+                ),
             }
           : null,
       shop,
