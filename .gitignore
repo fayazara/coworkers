@@ -28,3 +28,6 @@ bdots.deploy.json
 # Cloudflare dashboard agents demo (faux data, local only)
 src/demo/
 src/routes/demo.tsx
+
+# Product video (Remotion project, local only)
+video/
