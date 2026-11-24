@@ -22,6 +22,11 @@ export function deploymentModels(env: ModelEnv): DeploymentModels {
   }
 }
 
+/** Stable replica key for one bot across chat and background turns. */
+export function sessionAffinityForBot(userId: string, botId: string) {
+  return `coworkers:${userId}:${botId}`
+}
+
 /**
  * Which model a turn runs on. A bot's own model wins for chat; background
  * turns use the account's background model, then the deployment's, then
@@ -53,6 +58,7 @@ export function languageModel(
   options: {
     settings?: ModelSettings
     metadata?: Record<string, string>
+    sessionAffinity?: string
   } = {}
 ) {
   const ai = createAI({ binding: env.AI, gateway: gatewayId(env) })
@@ -68,5 +74,8 @@ export function languageModel(
   return ai(modelId as CloudflareLanguageModelId, {
     ...(fallback ? { fallback } : {}),
     ...(options.metadata ? { metadata: options.metadata } : {}),
+    ...(options.sessionAffinity
+      ? { sessionAffinity: options.sessionAffinity }
+      : {}),
   })
 }

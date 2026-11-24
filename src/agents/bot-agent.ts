@@ -163,7 +163,7 @@ import { LoopGuard, TurnBudget, shapeToolResults } from "./guards"
 import { failureCard, replyCard, scriptCard, waitingCard } from "./desk"
 import type { DemoBotSeed } from "./demo-seed"
 import { MAX_MEMORY_CHARS, appendFact } from "./memory"
-import { languageModel, pickModel } from "./models"
+import { languageModel, pickModel, sessionAffinityForBot } from "./models"
 import {
   MAX_SECRET_RESPONSE_CHARS,
   SECRET_REQUEST_TIMEOUT_MS,
@@ -1287,6 +1287,9 @@ export class BotAgent extends Think<Env, BotState> {
         botId: this.botId,
         turn: background ? "background" : "chat",
       },
+      // Keep this bot on one Workers AI replica so its stable prompt prefix
+      // remains in the prefix cache across turns.
+      sessionAffinity: sessionAffinityForBot(this.userId, this.botId),
     })
   }
 
