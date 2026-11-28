@@ -1,4 +1,5 @@
 import { createAI } from "agents/models/ai-sdk"
+import { wrapLanguageModel } from "ai"
 import type { CloudflareLanguageModelId } from "agents/models/ai-sdk"
 import { DEFAULT_MODEL_SETTINGS, providerOf } from "@/lib/models"
 import type { DeploymentModels, ModelSettings } from "@/lib/models"
@@ -65,8 +66,42 @@ export function languageModel(
     safety !== modelId
       ? [safety as CloudflareLanguageModelId]
       : undefined
-  return ai(modelId as CloudflareLanguageModelId, {
+  const model = ai(modelId as CloudflareLanguageModelId, {
     ...(fallback ? { fallback } : {}),
     ...(options.metadata ? { metadata: options.metadata } : {}),
   })
+  return wrapLanguageModel({
+    model,
+    middleware: {
+      specificationVersion: "v3",
+      transformParams: async ({ params }) => ({
+        ...params,
+        prompt: userFirst(params.prompt),
+      }),
+    },
+  })
+}
+
+/** The user turn put in front of a history that opens with the bot. */
+export const OPENING_USER_TURN = "(Chat opened.)"
+
+/**
+ * A prompt whose first non-system message is the user's. Every bot opens
+ * with its own greeting, and Anthropic's API requires the first turn to be
+ * the user's: AI Gateway's conversion of a chat-completions body into
+ * Anthropic's format answers `Format conversion failed: No compatible input
+ * messages found` (code 7003) when the history starts with an assistant
+ * message, so a bot on an Anthropic model could never answer its first
+ * chat. A short user turn in front of the greeting keeps the greeting in
+ * context and satisfies the provider; a history that already opens with
+ * the user is returned as is.
+ */
+export function userFirst<M extends { role: string }>(prompt: M[]): M[] {
+  const first = prompt.findIndex((m) => m.role !== "system")
+  if (first === -1 || prompt[first].role !== "assistant") return prompt
+  const opening = {
+    role: "user",
+    content: [{ type: "text", text: OPENING_USER_TURN }],
+  } as unknown as M
+  return [...prompt.slice(0, first), opening, ...prompt.slice(first)]
 }
