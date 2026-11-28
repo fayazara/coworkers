@@ -51,6 +51,13 @@ export interface BotSummary {
   access?: AccessLevel
 }
 
+/** A bot owned by somebody else; never add these to the personal hub's bots. */
+export interface SharedBotSummary {
+  ownerId: string
+  botId: string
+  summary: BotSummary
+}
+
 /**
  * What a caller may do through the shared operations (`src/control/`):
  * read, act (message, delegate, answer), or manage bots and settings.
@@ -413,7 +420,7 @@ export interface BotAppSummary {
   updatedAt: number
 }
 
-/** A link that opens an app. The token in the URL is the only credential. */
+/** Owner/email links require login; explicit share links are capabilities. */
 export interface AppLink {
   token: string
   /** Who it is for, e.g. "Sarah". The owner's own link is "You". */
@@ -424,6 +431,12 @@ export interface AppLink {
    */
   mode: "edit" | "view" | "submit"
   owner: boolean
+  audience?: "owner" | "link" | "email" | "bot" | "session"
+  email?: string
+  canMessage?: boolean
+  expiresAt?: number
+  parentToken?: string
+  viewerEmail?: string
   createdAt: number
   /** Path on this host, ending in "/". */
   path: string
@@ -541,6 +554,8 @@ export interface BotState {
   access?: AccessLevel
   /** Routines, check-ins, email, webhooks and bot messages are skipped. */
   paused?: boolean
+  /** Shared history is isolated from the owner's other bots and private context. */
+  shared?: boolean
 }
 
 /**
