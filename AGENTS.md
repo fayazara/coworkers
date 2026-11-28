@@ -42,6 +42,13 @@ Things that will bite you:
 - **A new Durable Object class needs a `CLASS_HISTORY` entry** in
   `installer/src/deploy/upload.ts`. Installer updates only create the
   classes listed there after the Worker's migration tag.
+- **Each bot has a Linux container (`linux` exec backend).** `container/Dockerfile`
+  with computerd, whose tag must match `@cloudflare/computer`. `cf dev` and
+  `cf deploy` need Docker. The backend only exists when `ctx.container` is
+  set, so installer deploys (no image push yet) keep the Worker shell only.
+  `patches/cf@*.patch` works around cf rejecting a container on a Durable
+  Object whose binding names its own Worker (`script_name`); drop it once cf
+  fixes that.
 - **Never add the `experimental` compatibility flag.** `@cloudflare/computer`'s
   README asks for it, but Cloudflare rejects any deploy that sets it
   (error 10021), so nobody could deploy Coworkers.

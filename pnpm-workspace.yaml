@@ -8,3 +8,6 @@ onlyBuiltDependencies:
   - sharp
   - unrs-resolver
   - workerd
+
+patchedDependencies:
+  cf@1.0.0-beta.6: patches/cf@1.0.0-beta.6.patch

@@ -54,7 +54,7 @@ flowchart LR
 | Feature        | How it works                                                                 |
 | -------------- | ---------------------------------------------------------------------------- |
 | Chat           | Streaming, resumable turns. Names itself from your first task                |
-| Computer       | Files in `/workspace`, a shell (`curl`, `jq`) and JavaScript scripts in Dynamic Workers. No container. Scripts survive deploys and can pause for your OK before touching your apps |
+| Computer       | Files in `/workspace`, a shell (`curl`, `jq`) and JavaScript scripts in Dynamic Workers, plus a Linux container (node, npm, python) that starts on demand. Scripts survive deploys and can pause for your OK before touching your apps |
 | Read the web   | Quick reads (markdown, extract, links, screenshot, PDF, crawl). Kitesurf first, Chromium fallback |
 | Drive a browser| A real Chromium session you can watch live                                  |
 | Take over      | Bot hands you its browser to sign in. You click **I'm done**, it continues   |

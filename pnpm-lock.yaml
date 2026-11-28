@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  cf@1.0.0-beta.6:
+    hash: 38617c82afd043d773fec0603f30a3c08049151170c61667cff0c3983f2a7eb9
+    path: patches/cf@1.0.0-beta.6.patch
+
 importers:
 
   .:
@@ -155,7 +160,7 @@ importers:
         version: 6.1.1(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.11)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       cf:
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(@types/node@26.6.3)
+        version: 1.0.0-beta.6(patch_hash=38617c82afd043d773fec0603f30a3c08049151170c61667cff0c3983f2a7eb9)(@types/node@26.6.3)
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
@@ -237,7 +242,7 @@ importers:
         version: 6.1.1(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.11)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       cf:
         specifier: 1.0.0-beta.6
-        version: 1.0.0-beta.6(@types/node@26.6.3)
+        version: 1.0.0-beta.6(patch_hash=38617c82afd043d773fec0603f30a3c08049151170c61667cff0c3983f2a7eb9)(@types/node@26.6.3)
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -8128,7 +8133,7 @@ snapshots:
 
   ccount@2.0.1: {}
 
-  cf@1.0.0-beta.6(@types/node@26.6.3):
+  cf@1.0.0-beta.6(patch_hash=38617c82afd043d773fec0603f30a3c08049151170c61667cff0c3983f2a7eb9)(@types/node@26.6.3):
     dependencies:
       '@cloudflare/build-output-utils': 0.8.2
       '@cloudflare/codemods': 0.2.1

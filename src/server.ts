@@ -11,6 +11,8 @@ import type { UserHub } from "./agents/user-hub"
 
 // Durable Objects and the classes their runtimes load by name.
 export { BotAgent, WorkspaceServiceProxy } from "./agents/bot-agent"
+// The Linux container reaches its bot through this loopback entrypoint.
+export { WorkspaceProxy } from "@cloudflare/computer"
 export { UserHub } from "./agents/user-hub"
 // Apps bots build: live fan-out, and `env.BOT` inside an app's server.js.
 export { AppBinding, AppLive } from "./agents/apps-runtime"

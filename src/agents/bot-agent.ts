@@ -12,11 +12,16 @@ import type {
   WorkspaceRuntimeValue,
   WorkspaceStub,
 } from "@cloudflare/computer"
+import {
+  ContainerBackend,
+  WorkspaceContainerAPI,
+} from "@cloudflare/computer/backends/container"
 import { WorkerJavaScriptBackend } from "@cloudflare/computer/backends/worker-javascript"
 import { WorkerShellBackend } from "@cloudflare/computer/backends/worker-shell"
 import curl from "@cloudflare/computer/shell/curl"
 import jq from "@cloudflare/computer/shell/jq"
 import { createAITools } from "@cloudflare/computer/tools/ai-sdk"
+import { ExecQueues, execLane } from "./exec-queue"
 import { Think } from "@cloudflare/think"
 import type {
   ChatResponseResult,
@@ -294,6 +299,9 @@ const STALE_STATUS_MS = 10 * 60_000
 const APPROVAL_REMIND_MS = 4 * 3_600_000
 /** …and is closed as unanswered after this long. */
 const APPROVAL_EXPIRE_MS = 24 * 3_600_000
+/** The Linux container stops after this long with no command running. */
+const LINUX_IDLE_MS = 10 * 60_000
+
 /** exec returns a job id when a command takes longer than this. */
 const EXEC_WAIT_MS = 60_000
 /** How long a script may run, not counting time paused for approval. */
@@ -731,8 +739,29 @@ export class BotAgent extends Think<Env, BotState> {
   })
 
   /**
-   * The bot's computer: a durable filesystem in this Durable Object's SQLite
-   * plus a shell and a JavaScript runtime in Dynamic Workers (no container).
+   * The `linux` exec backend: a Cloudflare Container running computerd,
+   * started on the first command that asks for it. computerd mounts
+   * /workspace over FUSE and syncs it with this Durable Object's SQLite.
+   * Undefined when the deployment has no container attached (the
+   * installer does not push images yet), so bots keep the Worker shell.
+   */
+  #linux = this.ctx.container
+    ? new ContainerBackend({
+        id: "linux",
+        container: () => ({
+          getWorkspaceContainer: () => new WorkspaceContainerAPI(this.ctx),
+        }),
+        workspace: { binding: "BotAgent", id: this.ctx.id.toString() },
+        egress: { mode: "direct" },
+        name: "linux",
+        instance: "standard-1",
+      })
+    : undefined
+
+  /**
+   * The bot's computer: a durable filesystem in this Durable Object's SQLite,
+   * a shell and a JavaScript runtime in Dynamic Workers, and a Linux
+   * container for real binaries when the deployment has one.
    */
   override workspace = new Workspace({
     storage: this.ctx.storage as unknown as DurableObjectStorageLike,
@@ -748,6 +777,7 @@ export class BotAgent extends Think<Env, BotState> {
         egress: { mode: "direct" },
       }),
       this.#js,
+      ...(this.#linux ? [this.#linux] : []),
     ],
   })
 
@@ -761,8 +791,8 @@ export class BotAgent extends Think<Env, BotState> {
   #reports: Promise<void> = Promise.resolve()
   /** Desk updates, in order, like reports. */
   #desk: Promise<void> = Promise.resolve()
-  /** Shell commands share one backend, so they run one at a time. */
-  #shell: Promise<unknown> = Promise.resolve()
+  /** Shell commands run one at a time per backend (shell, linux). */
+  #exec = new ExecQueues()
   #loopGuard = new LoopGuard()
   /** Paces a turn the user is watching: updates, wrap-up, hard stop. */
   #budget = new TurnBudget()
@@ -799,6 +829,18 @@ export class BotAgent extends Think<Env, BotState> {
       appPath(this.userId, this.botId, slug, token)
     )
     return this.#appStore
+  }
+
+  /**
+   * computerd dials back to this object (through WorkspaceProxy) on /api to
+   * open its sync session. The backend checks the bearer secret it handed
+   * the container at launch, so nothing else gets through.
+   */
+  override async fetch(request: Request): Promise<Response> {
+    if (this.#linux && new URL(request.url).pathname === "/api") {
+      return this.#linux.handleFetch(request)
+    }
+    return super.fetch(request)
   }
 
   /** The Dynamic Worker shell reaches the workspace through this method. */
@@ -1632,8 +1674,14 @@ export class BotAgent extends Think<Env, BotState> {
         exec: {
           shell: {
             description:
-              "just-bash in a Dynamic Worker. Starts instantly and has internet access. Has cat, ls, grep, sed, awk, jq, sort, head, tail, find, curl and git. Use curl for public APIs and plain HTTP. Cannot run npm, node, python or other binaries.",
+              "just-bash in a Dynamic Worker. Starts instantly and has internet access. Has cat, ls, grep, sed, awk, jq, sort, head, tail, find, curl and git. Use curl for public APIs and plain HTTP. Cannot run npm, node, python or other binaries. Try this first.",
           },
+          ...(this.#linux && {
+            linux: {
+              description:
+                "Debian Linux with node 22, npm, npx, python3, pip, git, curl and jq. Use it only when shell cannot do the job: installing packages, running node or python, builds and tests. The first command takes up to a minute while it boots; it stays up for 10 minutes after the last one. Same /workspace files as shell.",
+            },
+          }),
         },
       }),
       ...this.scriptTools(),
@@ -1657,9 +1705,21 @@ export class BotAgent extends Think<Env, BotState> {
       tools.exec = {
         ...exec,
         execute: async (input, options) => {
-          const result = this.#shell.then(() => run(input, options))
-          this.#shell = result.catch(() => undefined)
           const command = String((input as { command?: unknown }).command ?? "")
+          const lane = execLane(input)
+          const result = this.#exec.run(lane, async () => {
+            try {
+              return await run(input, options)
+            } finally {
+              // Measured from the last command; without it the container
+              // runs until the bot's Durable Object goes idle.
+              if (lane === "linux") {
+                await this.ctx.container
+                  ?.setInactivityTimeout(LINUX_IDLE_MS)
+                  .catch(() => undefined)
+              }
+            }
+          })
           return this.waitOrPark(command, result)
         },
       }
@@ -2277,7 +2337,7 @@ export class BotAgent extends Think<Env, BotState> {
       show_surface: tool({
         description: [
           "Show results, a form or a live status as a surface: UI built from the components below, drawn in the app's own design. Use it instead of prose or a Markdown table when the user will scan, compare, fill in or act on something.",
-          "layout is a list of components (nested through children). Props are plain text, never Markdown. Any prop marked ~ can be { \"$bind\": \"/pointer\" } to read it from data, and a list prop can be bound whole to an array in data, so updating data later changes what is shown.",
+          'layout is a list of components (nested through children). Props are plain text, never Markdown. Any prop marked ~ can be { "$bind": "/pointer" } to read it from data, and a list prop can be bound whole to an array in data, so updating data later changes what is shown.',
           'Buttons take one action: { "say": "text" } sends that text as the user\'s message, { "event": "name" } sends you the form\'s field values (or { "event": "name", "fields": ["/a"] } outside a form), { "link": "https://..." } opens a page. An event arrives as the user\'s next message.',
           "Showing again with an id that exists replaces that surface. Pick a short readable id, like 'macbook-watch', so you can update it later.",
           "",
@@ -5879,8 +5939,9 @@ export class BotAgent extends Think<Env, BotState> {
         : text
     }
     if ("script" in watch) return this.runWatchScript(watch.script)
-    const run = this.#shell.then(async () => {
+    return this.#exec.run("shell", async () => {
       const handle = await this.workspace.runtime.exec(watch.command, {
+        backend: "shell",
         encoding: "utf8",
         cwd: "/workspace",
       })
@@ -5893,8 +5954,6 @@ export class BotAgent extends Think<Env, BotState> {
         handle[Symbol.dispose]()
       }
     })
-    this.#shell = run.catch(() => undefined)
-    return run
   }
 
   /**

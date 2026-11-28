@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs"
-import { bindings, defineConfig, exports } from "cf/config"
+import { bindings, defineConfig, defineContainer, exports } from "cf/config"
 
 // bdots.deploy.json: deployments set up before the rename to Coworkers.
 const DEPLOY_FILE = ["coworkers.deploy.json", "bdots.deploy.json"].find((f) =>
@@ -28,6 +28,18 @@ const deploy: Partial<{
 const WORKER_NAME = deploy.name ?? "coworkers"
 
 /**
+ * Each bot's Linux computer (the `linux` exec backend): a container its
+ * BotAgent starts on first use and that stops after a while idle. The
+ * Durable Object picks the image and size itself (see bot-agent.ts).
+ * `cf dev` and `cf deploy` build the image, so both need Docker running.
+ */
+const computer = defineContainer({
+  name: `${WORKER_NAME}-computer`,
+  schedulingPolicy: "durable-object",
+  images: { linux: { dockerfile: "./container/Dockerfile" } },
+})
+
+/**
  * Cloudflare project config, read by the `cf` CLI and the Cloudflare Vite
  * plugin. This replaces wrangler.jsonc.
  *
@@ -35,6 +47,7 @@ const WORKER_NAME = deploy.name ?? "coworkers"
  * (`/agents/*`), and the Durable Objects behind them. See `src/server.ts`.
  */
 export default defineConfig({
+  containers: [computer],
   worker: {
     name: WORKER_NAME,
     compatibilityDate: "2026-09-01",
@@ -59,7 +72,12 @@ export default defineConfig({
       // One per user: bot directory, connections, cross-bot routing.
       UserHub: exports.durableObject({ storage: "sqlite" }),
       // One per bot: chat, memory, routines, computer, browser.
-      BotAgent: exports.durableObject({ storage: "sqlite" }),
+      // The container is optional at runtime: without it (installer
+      // deploys) bots keep the Dynamic Worker shell only.
+      BotAgent: exports.durableObject({
+        storage: "sqlite",
+        container: computer,
+      }),
       // One per app a bot built: live updates to everyone who has it open.
       AppLive: exports.durableObject({ storage: "sqlite" }),
       // One for the deployment: the OAuth server's clients, grants and
