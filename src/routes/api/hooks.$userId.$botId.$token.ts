@@ -3,6 +3,7 @@ import { getAgentByName } from "agents"
 import { env } from "cloudflare:workers"
 import { botInstanceName } from "@/lib/types"
 import type { BotAgent } from "@/agents/bot-agent"
+import { webhookDeliveryId } from "@/agents/inbound"
 import type { UserHub } from "@/agents/user-hub"
 
 const MAX_BODY_BYTES = 256 * 1024
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/api/hooks/$userId/$botId/$token")({
           source: source.slice(0, 60),
           contentType: request.headers.get("Content-Type") ?? "",
           body,
+          deliveryId: webhookDeliveryId(request.headers),
         })
         if (!accepted) {
           return Response.json({ error: "Not found" }, { status: 404 })
