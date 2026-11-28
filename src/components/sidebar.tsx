@@ -25,6 +25,7 @@ import { BotAvatar } from "@/components/bot-avatar"
 import { SettingsSidebar, rememberAppPath } from "@/components/settings-nav"
 import { EmptyState } from "@/components/empty-state"
 import { ShimmerText } from "@/components/shimmer-text"
+import { ThemeMenu } from "@/components/theme-settings"
 import { plainMentions } from "@/lib/bot-links"
 import { useHub } from "@/lib/hub-context"
 import { usePushNotifications } from "@/lib/push"
@@ -641,7 +642,7 @@ export function Sidebar({ home = false }: { home?: boolean }) {
               alt=""
               width={28}
               height={28}
-              className="size-7 rounded-full bg-kumo-fill object-cover outline outline-1 -outline-offset-1 outline-black/10"
+              className="size-7 rounded-full bg-kumo-fill object-cover outline outline-1 -outline-offset-1 outline-(--preview-outline)"
             />
           ) : (
             <span className="flex size-7 items-center justify-center rounded-full bg-kumo-fill text-[11px] font-medium text-kumo-subtle">
@@ -653,6 +654,7 @@ export function Sidebar({ home = false }: { home?: boolean }) {
           {hub.viewer.label}
         </span>
         <div className="flex items-center gap-1">
+          <ThemeMenu />
           <NotificationsButton />
           {/* Toggles the sidebar; the icon shows where it goes next. */}
           {inSettings ? null : (
