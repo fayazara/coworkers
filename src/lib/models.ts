@@ -14,7 +14,12 @@
  */
 
 export type ProviderId =
-  "workers-ai" | "anthropic" | "openai" | "google" | "xai"
+  | "workers-ai"
+  | "anthropic"
+  | "openai"
+  | "google"
+  | "xai"
+  | "command-code"
 
 export interface ModelProvider {
   id: ProviderId
@@ -64,6 +69,11 @@ export const PROVIDERS: ModelProvider[] = [
     id: "xai",
     name: "xAI",
     billing: "Unified Billing credits or an xAI key on the gateway.",
+  },
+  {
+    id: "command-code",
+    name: "Command Code",
+    billing: "Uses the Command Code key through an AI Gateway dynamic route.",
   },
 ]
 
@@ -222,11 +232,21 @@ export const MODELS: ModelInfo[] = [
     blurb: "Coding and agents",
     context: 500_000,
   },
+  // Command Code custom provider
+  {
+    id: "dynamic/command-code",
+    provider: "command-code",
+    name: "DeepSeek V4.1 Flash",
+    blurb: "Fast and cheap through your Command Code plan",
+    context: 1_000_000,
+    price: [0.15, 0.6],
+  },
 ]
 
 /** Which provider a model id belongs to; null for one this app does not know. */
 export function providerOf(modelId: string): ProviderId | null {
   if (modelId.startsWith("@cf/")) return "workers-ai"
+  if (modelId === "dynamic/command-code") return "command-code"
   const prefix = modelId.split("/")[0]
   return PROVIDERS.some((p) => p.id === prefix) ? (prefix as ProviderId) : null
 }
@@ -263,7 +283,7 @@ export interface ModelSettings {
 export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
   chat: null,
   background: null,
-  fallback: true,
+  fallback: false,
 }
 
 /** What the deployment itself is configured with, for labels and fallback. */
