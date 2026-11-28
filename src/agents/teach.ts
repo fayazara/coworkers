@@ -14,11 +14,27 @@
 
 const LOG_KEY = "__coworkers_teach__"
 
-const RECORDER = `(() => {
+/** Exported for tests, which run it against stand-in page objects. */
+export const RECORDER = `(() => {
   if (window.__coworkersTeach) return;
   window.__coworkersTeach = true;
   const KEY = ${JSON.stringify(LOG_KEY)};
-  const SECRET = /pass|otp|one-time|code|cvv|cvc|card|ssn|pin|secret|token/i;
+  // Matched against the words of a field's type, name, id, autocomplete
+  // and labels. Short words only count whole, so "Shipping options" and
+  // "postal-code" are kept, while "cardnumber", "cc-exp", "api_key" and
+  // "Security code" are hidden.
+  const SECRET = /pass|pwd|secret|token|apikey|cvv|cvc|card|ssn|iban|routing|account|otp|one time|\\b(pin|cc|csc|key|api|auth|2fa|mfa)\\b|\\b(security|verification|access|sms) code\\b/;
+  function isSecret(el) {
+    if (el.type === "password") return true;
+    const label = el.labels && el.labels[0] ? el.labels[0].innerText : "";
+    const hint = [el.type, el.name, el.id, el.autocomplete, el.getAttribute && el.getAttribute("aria-label"), label].join(" ");
+    const words = hint.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/[^a-z0-9]+/g, " ");
+    return SECRET.test(words);
+  }
+  // What a user typed is only ever recorded as an input event's value.
+  function isField(el) {
+    return /^(input|textarea|select)$/i.test(el.tagName) && !/^(button|submit|reset)$/i.test(el.type || "");
+  }
   function read() {
     try {
       if (window.name.startsWith(KEY)) return JSON.parse(window.name.slice(KEY.length));
@@ -41,7 +57,7 @@ const RECORDER = `(() => {
     const label = el.labels && el.labels[0] ? el.labels[0].innerText : "";
     return {
       tag: el.tagName.toLowerCase(),
-      text: text(el.innerText || el.value, 80),
+      text: isField(el) ? "" : text(el.innerText || el.value, 80),
       label: text(el.getAttribute("aria-label") || label || el.getAttribute("title"), 80),
       name: el.getAttribute("name") || undefined,
       id: el.id || undefined,
@@ -59,8 +75,7 @@ const RECORDER = `(() => {
   addEventListener("change", (e) => {
     const el = e.target;
     if (!el || !el.tagName) return;
-    const hint = [el.type, el.name, el.id, el.autocomplete, el.getAttribute && el.getAttribute("aria-label")].join(" ");
-    const hidden = el.type === "password" || SECRET.test(hint);
+    const hidden = isSecret(el);
     const value = el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value;
     write({ t: "input", url: location.href, el: describe(el), value: hidden ? "[hidden]" : text(value, 120), at: Date.now() });
   }, true);
